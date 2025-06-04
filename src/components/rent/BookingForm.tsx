@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isPast, getDay } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { createClient } from '@supabase/supabase-js';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isPast, getDay } from 'date-fns';
+import { ru } from 'date-fns/locale';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -29,6 +29,11 @@ interface TimeSlot {
   };
   created_at: string;
   updated_at: string;
+}
+
+interface DateAvailability {
+  date: string;
+  status: 'free' | 'partial' | 'busy';
 }
 
 interface BookingData {
@@ -86,7 +91,6 @@ const BookingForm = () => {
   useEffect(() => {
     fetchTimeSlots();
     
-    // Прокрутка к текущему дню после загрузки данных
     const timer = setTimeout(() => {
       if (calendarRef.current) {
         const todayElement = calendarRef.current.querySelector('[data-today="true"]');
@@ -533,9 +537,9 @@ const BookingForm = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 bg-gray-50 text-gray-900 dark:bg-gray-800 dark:text-gray-100">
+    <div className="max-w-6xl mx-auto p-4 sm:p-6 bg-gray-50 text-gray-900 dark:bg-gray-800 dark:text-gray-100">
       <ToastContainer />
-      <h1 className="text-3xl font-bold mb-8 text-center">Бронирование пространства</h1>
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6 sm:mb-8 text-center">Бронирование пространства</h1>
       
       {error && (
         <div className="bg-red-100 dark:bg-red-900/30 border-2 border-red-500 dark:border-red-700 text-red-800 dark:text-red-200 px-4 py-3 rounded mb-4">
@@ -544,36 +548,36 @@ const BookingForm = () => {
       )}
       
       {/* Calendar Section */}
-      <div className="bg-white dark:bg-gray-700 p-6 mb-8 rounded-lg shadow" ref={calendarRef}>
+      <div className="bg-white dark:bg-gray-700 p-4 sm:p-6 mb-8 rounded-lg shadow" ref={calendarRef}>
         <div className="flex justify-between items-center mb-6">
           <button 
             onClick={prevMonth}
-            className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
+            className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 text-sm sm:text-base"
           >
             &lt; Назад
           </button>
-          <h2 className="text-xl font-semibold">
+          <h2 className="text-lg sm:text-xl font-semibold">
             {format(currentMonth, 'MMMM yyyy', { locale: ru })}
           </h2>
           <button 
             onClick={nextMonth}
-            className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
+            className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 text-sm sm:text-base"
           >
             Вперед &gt;
           </button>
         </div>
         
-        <div className="grid grid-cols-7 gap-2 mb-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
           {['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'].map(day => (
-            <div key={day} className="text-center font-medium text-gray-500 dark:text-gray-400">
+            <div key={day} className="text-center font-medium text-gray-500 dark:text-gray-400 text-xs sm:text-sm">
               {day}
             </div>
           ))}
         </div>
         
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {Array.from({ length: getDayOfWeekOffset() }).map((_, index) => (
-            <div key={`empty-${index}`} className="h-10"></div>
+            <div key={`empty-${index}`} className="h-8 sm:h-10"></div>
           ))}
           
           {monthDays.map(day => {
@@ -591,7 +595,7 @@ const BookingForm = () => {
                 data-today={isToday}
                 onClick={() => handleDateSelect(day)}
                 disabled={isDisabled || status === 'busy'}
-                className={`h-16 flex flex-col items-center justify-center rounded-md transition-colors
+                className={`h-12 sm:h-16 flex flex-col items-center justify-center rounded-md transition-colors text-sm sm:text-base
                   ${!isCurrentMonth ? 'text-gray-300 dark:text-gray-500' : ''}
                   ${isDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:opacity-80'}
                   ${isSelected ? 'bg-blue-500 text-white hover:bg-blue-600 dark:hover:bg-blue-600' : `${bg} ${border} ${text}`}
@@ -602,7 +606,7 @@ const BookingForm = () => {
                   {format(day, 'd')}
                 </div>
                 {isCurrentMonth && !isDisabled && status !== 'unknown' && (
-                  <div className="text-xs mt-1">
+                  <div className="text-xs mt-1 hidden sm:block">
                     {statusLabel}
                   </div>
                 )}
@@ -614,7 +618,7 @@ const BookingForm = () => {
       
       {/* Time Slots for Selected Date */}
       {selectedDate && (
-        <div className="bg-white dark:bg-gray-700 p-6 mb-8 rounded-lg shadow animate-fade-in">
+        <div className="bg-white dark:bg-gray-700 p-4 sm:p-6 mb-8 rounded-lg shadow animate-fade-in">
           <h2 className="text-xl font-semibold mb-4">
             {format(selectedDate, 'dd MMMM yyyy', { locale: ru })}
           </h2>
@@ -622,7 +626,7 @@ const BookingForm = () => {
           <div className="mb-4">
             <h3 className="font-medium text-gray-600 dark:text-gray-300 mb-2">Занятые слоты:</h3>
             {getBookedSlotsForDate(selectedDate).length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                 {getBookedSlotsForDate(selectedDate).map((slot, index) => (
                   <div 
                     key={index}
@@ -655,7 +659,7 @@ const BookingForm = () => {
               <div className="text-center py-8">Загрузка...</div>
             ) : (
               <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-4 mb-6">
                   {generateAvailableSlots(selectedDate).map((slot, index) => {
                     const isSelected = bookingData.selectedSlots.some(
                       s => s.start_time === slot.start_time && s.end_time === slot.end_time
@@ -665,13 +669,13 @@ const BookingForm = () => {
                       <div 
                         key={index}
                         onClick={() => handleSlotClick(slot)}
-                        className={`p-4 border-2 rounded-md cursor-pointer transition-colors ${
+                        className={`p-3 sm:p-4 border-2 rounded-md cursor-pointer transition-colors text-center ${
                           isSelected 
                             ? 'bg-blue-100 dark:bg-blue-900 border-blue-500 dark:border-blue-700' 
                             : 'border-gray-300 dark:border-gray-600 bg-gray-100 dark:bg-gray-600 hover:bg-gray-200 dark:hover:bg-gray-500'
                         }`}
                       >
-                        <div className="font-medium">
+                        <div className="font-medium text-sm sm:text-base">
                           {slot.start_time}-{slot.end_time}
                         </div>
                       </div>
@@ -687,13 +691,13 @@ const BookingForm = () => {
                 
                 {bookingData.selectedSlots.length > 0 && (
                   <div className="mt-4 p-4 bg-gray-100 dark:bg-gray-600 rounded-md border-2 border-gray-300 dark:border-gray-500">
-                    <div className="flex justify-between items-center">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                       <div>
                         <span className="font-medium">Выбрано:</span> {getSelectedTimeRange()}
                       </div>
                       <button
                         onClick={openBookingModal}
-                        className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-800"
+                        className="w-full sm:w-auto px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-800"
                       >
                         Выбрать
                       </button>
@@ -708,83 +712,85 @@ const BookingForm = () => {
 
       {/* Booking Modal */}
       {showBookingModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-700 rounded-lg shadow-xl max-w-md w-full p-6 border-2 border-gray-300 dark:border-gray-600">
-            <h2 className="text-xl font-bold mb-4">Подтверждение бронирования</h2>
-            
-            <div className="mb-6">
-              <h3 className="font-medium mb-2">Выбранное время:</h3>
-              <div className="bg-gray-100 dark:bg-gray-600 p-3 rounded-md border-2 border-gray-300 dark:border-gray-500">
-                {getSelectedTimeRange()}
-              </div>
-            </div>
-
-            <form onSubmit={handleSubmitBooking}>
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Имя *</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={bookingData.name}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
-                  required
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Email *</label>
-                <input
-                  type="email"
-                  name="email"
-                  value={bookingData.email}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
-                  required
-                />
-              </div>
-              
-              <div className="mb-4">
-                <label className="block text-sm font-medium mb-1">Телефон</label>
-                <input
-                  type="tel"
-                  name="phone"
-                  value={bookingData.phone}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
-                  placeholder="Необязательно"
-                />
-              </div>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-700 rounded-lg w-full max-w-md">
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-4">Подтверждение бронирования</h2>
               
               <div className="mb-6">
-                <label className="block text-sm font-medium mb-1">Ссылка на соцсети</label>
-                <input
-                  type="text"
-                  name="social_contact"
-                  value={bookingData.social_contact}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
-                  placeholder="Необязательно"
-                />
+                <h3 className="font-medium mb-2">Выбранное время:</h3>
+                <div className="bg-gray-100 dark:bg-gray-600 p-3 rounded-md border-2 border-gray-300 dark:border-gray-500">
+                  {getSelectedTimeRange()}
+                </div>
               </div>
-              
-              <div className="flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowBookingModal(false)}
-                  className="px-4 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-800"
-                  disabled={loading}
-                >
-                  {loading ? 'Отправка...' : 'Подтвердить'}
-                </button>
-              </div>
-            </form>
+
+              <form onSubmit={handleSubmitBooking} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Имя *</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={bookingData.name}
+                    onChange={handleInputChange}
+                    className="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">Email *</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={bookingData.email}
+                    onChange={handleInputChange}
+                    className="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">Телефон</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    value={bookingData.phone}
+                    onChange={handleInputChange}
+                    className="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+                    placeholder="Необязательно"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">Ссылка на соцсети</label>
+                  <input
+                    type="text"
+                    name="social_contact"
+                    value={bookingData.social_contact}
+                    onChange={handleInputChange}
+                    className="w-full p-3 border-2 border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800"
+                    placeholder="Необязательно"
+                  />
+                </div>
+                
+                <div className="flex flex-col sm:flex-row justify-end gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setShowBookingModal(false)}
+                    className="w-full sm:w-auto px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    type="submit"
+                    className="w-full sm:w-auto px-4 py-3 bg-blue-600 dark:bg-blue-700 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-800"
+                    disabled={loading}
+                  >
+                    {loading ? 'Отправка...' : 'Подтвердить'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}
