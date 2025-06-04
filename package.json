@@ -28,6 +28,7 @@
     "react-hot-toast": "^2.4.1",
     "react-i18next": "^15.5.2",
     "react-image-crop": "^11.0.10",
+    "react-qr-code": "^2.0.12",
     "react-router-dom": "^6.22.0",
     "react-select": "^5.10.1",
     "react-slick": "^0.30.3",

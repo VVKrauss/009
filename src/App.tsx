@@ -21,7 +21,7 @@ import AdminNavigation from './pages/admin/AdminNavigation';
 import AdminExport from './pages/admin/AdminExport';
 import ProtectedRoute from './components/admin/ProtectedRoute';
 import AdminCalendarPage from './pages/admin/AdminCalendarPage';
-
+import PostersPage from './components/posters/PostersPage';
 
 function App() {
   return (
@@ -35,6 +35,7 @@ function App() {
         <Route path="/rent" element={<RentPage />} />
         <Route path="/coworking" element={<CoworkingPage />} />
         <Route path="/about" element={<AboutPage />} />
+        <Route path="/posters" element={<PostersPage />} />
         
         {/* Protected Admin routes */}
         <Route path="/admin" element={
