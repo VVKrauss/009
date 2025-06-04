@@ -135,10 +135,13 @@ const EventDetailsPage = () => {
   };
 
   const handlePaymentOptionSelect = (option: 'online' | 'venue') => {
+    setShowPaymentOptions(false);
+    
     if (option === 'online' && event?.payment_link) {
       window.open(event.payment_link, '_blank');
+    } else if (option === 'venue') {
+      setShowRegistrationModal(true);
     }
-    setShowPaymentOptions(false);
   };
 
   const handleRegisterClick = () => {
@@ -271,6 +274,7 @@ const EventDetailsPage = () => {
                           console.error('Error sorting program items:', e);
                           return 0;
                         }
+                
                       })
                       .map((item, index) => {
                         const speaker = item.lecturer_id 
