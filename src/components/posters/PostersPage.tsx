@@ -114,7 +114,7 @@ const PostersPage = () => {
                   style={{ 
                    backgroundImage: `url(${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${mainSpeaker.photos?.[0]?.url || ''})`,
 
-                    transform: 'rotate(90deg)'
+                  
                   }}
                 />
               </div>
