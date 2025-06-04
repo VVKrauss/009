@@ -35,12 +35,13 @@ const AdminCalendarPage = () => {
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(true);
   const [newSlotModal, setNewSlotModal] = useState(false);
+  const [editingSlot, setEditingSlot] = useState<TimeSlot | null>(null);
   const [newSlotData, setNewSlotData] = useState<Partial<TimeSlot>>({
     date: format(new Date(), 'yyyy-MM-dd'),
     start_time: '10:00',
     end_time: '11:00',
     slot_details: {
-      type: 'event',
+      type: 'rent',
       title: '',
       booked: false
     }
@@ -99,31 +100,88 @@ const AdminCalendarPage = () => {
     setCurrentDate(navigators[viewMode](currentDate, direction === 'prev' ? -1 : 1));
   };
 
-  const createTimeSlot = async () => {
+  const handleTimeSlotClick = (date: Date, hour: number) => {
+    const formattedDate = format(date, 'yyyy-MM-dd');
+    const startTime = `${hour.toString().padStart(2, '0')}:00`;
+    const endTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
+    
+    setNewSlotData({
+      date: formattedDate,
+      start_time: startTime,
+      end_time: endTime,
+      slot_details: {
+        type: 'rent',
+        title: '',
+        booked: false
+      }
+    });
+    
+    setEditingSlot(null);
+    setNewSlotModal(true);
+  };
+
+  const handleEditSlot = (slot: TimeSlot) => {
+    setEditingSlot(slot);
+    setNewSlotData({
+      id: slot.id,
+      date: slot.date,
+      start_time: slot.start_time,
+      end_time: slot.end_time,
+      slot_details: {
+        type: slot.slot_details.type,
+        title: slot.slot_details.title,
+        description: slot.slot_details.description,
+        booked: slot.slot_details.booked
+      }
+    });
+    setNewSlotModal(true);
+  };
+
+  const createOrUpdateTimeSlot = async () => {
     try {
       if (!newSlotData.date || !newSlotData.start_time || !newSlotData.end_time) {
         toast.error('Заполните все обязательные поля');
         return;
       }
 
-      const { data, error } = await supabase
-        .from('time_slots_table')
-        .insert([{
-          date: newSlotData.date,
-          start_time: newSlotData.start_time,
-          end_time: newSlotData.end_time,
-          slot_details: newSlotData.slot_details
-        }])
-        .select();
+      if (editingSlot) {
+        // Обновление существующего слота
+        const { data, error } = await supabase
+          .from('time_slots_table')
+          .update({
+            date: newSlotData.date,
+            start_time: newSlotData.start_time,
+            end_time: newSlotData.end_time,
+            slot_details: newSlotData.slot_details
+          })
+          .eq('id', editingSlot.id)
+          .select();
 
-      if (error) throw error;
+        if (error) throw error;
+        
+        toast.success('Слот успешно обновлен');
+      } else {
+        // Создание нового слота
+        const { data, error } = await supabase
+          .from('time_slots_table')
+          .insert([{
+            date: newSlotData.date,
+            start_time: newSlotData.start_time,
+            end_time: newSlotData.end_time,
+            slot_details: newSlotData.slot_details
+          }])
+          .select();
+
+        if (error) throw error;
+        
+        toast.success('Слот успешно создан');
+      }
       
-      toast.success('Слот успешно создан');
       setNewSlotModal(false);
       fetchTimeSlots();
     } catch (err) {
-      console.error('Error creating time slot:', err);
-      toast.error('Ошибка создания слота');
+      console.error('Error saving time slot:', err);
+      toast.error(editingSlot ? 'Ошибка обновления слота' : 'Ошибка создания слота');
     }
   };
 
@@ -163,7 +221,6 @@ const AdminCalendarPage = () => {
 
   const generateTimeSlots = (date: Date) => {
     const slots = [];
-    // Обновленный диапазон времени с 9:00 до 23:00
     for (let hour = 9; hour < 23; hour++) {
       slots.push({
         time: setMinutes(setHours(date, hour), 0),
@@ -202,7 +259,11 @@ const AdminCalendarPage = () => {
           return (
             <div 
               key={day.toString()}
-              className={`min-h-24 p-1.5 border rounded-md flex flex-col ${
+              onClick={() => {
+                setCurrentDate(day);
+                setViewMode('day');
+              }}
+              className={`min-h-24 p-1.5 border rounded-md flex flex-col cursor-pointer ${
                 !isCurrentMonth ? 'bg-gray-50 dark:bg-dark-700 opacity-50' : 
                 isDayToday ? 'bg-primary/5 border-primary' : 'bg-white dark:bg-dark-800 border-gray-200 dark:border-dark-600'
               }`}
@@ -219,6 +280,12 @@ const AdminCalendarPage = () => {
                     data-tooltip-id={`tooltip-${slot.id}`}
                     data-tooltip-content={`${slot.slot_details.title || 'Слот'}\n${slot.start_time}-${slot.end_time}\n${slot.slot_details.description || ''}`}
                     className={`text-xs p-1 rounded cursor-pointer ${getSlotColorClasses(slot.slot_details.type)}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (slot.slot_details.type === 'rent') {
+                        handleEditSlot(slot);
+                      }
+                    }}
                   >
                     <div className="truncate">
                       {slot.start_time} - {slot.slot_details.title || 'Слот'}
@@ -297,7 +364,8 @@ const AdminCalendarPage = () => {
                 {generateTimeSlots(day).map((slot, i) => (
                   <div 
                     key={i} 
-                    className="h-12 border-b border-gray-100 dark:border-dark-700 relative"
+                    className="h-12 border-b border-gray-100 dark:border-dark-700 relative hover:bg-gray-50 dark:hover:bg-dark-700 cursor-pointer"
+                    onClick={() => handleTimeSlotClick(day, 9 + i)}
                   ></div>
                 ))}
 
@@ -310,7 +378,6 @@ const AdminCalendarPage = () => {
                   
                   const startMinutes = startHour * 60 + startMin;
                   const endMinutes = endHour * 60 + endMin;
-                  // Обновленный расчет позиции с учетом нового диапазона (9:00 - 23:00)
                   const top = (startMinutes - 9 * 60) / ((23 - 9) * 60) * 100;
                   const height = (endMinutes - startMinutes) / ((23 - 9) * 60) * 100;
 
@@ -329,6 +396,12 @@ const AdminCalendarPage = () => {
                         top: `${top}%`,
                         height: `${height}%`,
                         zIndex: 10 + idx
+                      }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (group.slot_details.type === 'rent') {
+                          handleEditSlot(group);
+                        }
                       }}
                     >
                       <div className="font-medium truncate">
@@ -401,7 +474,8 @@ const AdminCalendarPage = () => {
             {generateTimeSlots(currentDate).map((slot, i) => (
               <div 
                 key={i} 
-                className="h-12 border-b border-gray-100 dark:border-dark-700 relative"
+                className="h-12 border-b border-gray-100 dark:border-dark-700 relative hover:bg-gray-50 dark:hover:bg-dark-700 cursor-pointer"
+                onClick={() => handleTimeSlotClick(currentDate, 9 + i)}
               >
                 {isToday(currentDate) && new Date().getHours() === slot.time.getHours() && (
                   <div 
@@ -423,7 +497,6 @@ const AdminCalendarPage = () => {
               
               const startMinutes = startHour * 60 + startMin;
               const endMinutes = endHour * 60 + endMin;
-              // Обновленный расчет позиции с учетом нового диапазона (9:00 - 23:00)
               const top = (startMinutes - 9 * 60) / ((23 - 9) * 60) * 100;
               const height = (endMinutes - startMinutes) / ((23 - 9) * 60) * 100;
 
@@ -442,6 +515,12 @@ const AdminCalendarPage = () => {
                     top: `${top}%`,
                     height: `${height}%`,
                     zIndex: 10 + idx
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (group.slot_details.type === 'rent') {
+                      handleEditSlot(group);
+                    }
                   }}
                 >
                   <div className="font-medium truncate">
@@ -532,7 +611,20 @@ const AdminCalendarPage = () => {
             </div>
 
             <button
-              onClick={() => setNewSlotModal(true)}
+              onClick={() => {
+                setEditingSlot(null);
+                setNewSlotData({
+                  date: format(currentDate, 'yyyy-MM-dd'),
+                  start_time: '10:00',
+                  end_time: '11:00',
+                  slot_details: {
+                    type: 'rent',
+                    title: '',
+                    booked: false
+                  }
+                });
+                setNewSlotModal(true);
+              }}
               className="p-2 rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center gap-1"
             >
               <Plus className="w-5 h-5" />
@@ -557,7 +649,9 @@ const AdminCalendarPage = () => {
       {newSlotModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white dark:bg-dark-800 rounded-lg shadow-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">Создать новый слот</h2>
+            <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">
+              {editingSlot ? 'Редактировать слот' : 'Создать новый слот'}
+            </h2>
             
             <div className="space-y-4">
               <div>
@@ -604,8 +698,8 @@ const AdminCalendarPage = () => {
                   })}
                   className="w-full p-2 border rounded-md dark:bg-dark-700 border-gray-300 dark:border-dark-600"
                 >
-                  <option value="event">Мероприятие</option>
                   <option value="rent">Аренда</option>
+                  <option value="event">Мероприятие</option>
                 </select>
               </div>
 
@@ -652,10 +746,10 @@ const AdminCalendarPage = () => {
                 Отмена
               </button>
               <button
-                onClick={createTimeSlot}
+                onClick={createOrUpdateTimeSlot}
                 className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90 transition-colors"
               >
-                Создать
+                {editingSlot ? 'Сохранить' : 'Создать'}
               </button>
             </div>
           </div>
