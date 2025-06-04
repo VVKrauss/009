@@ -265,7 +265,7 @@
 }
 
 .hexagon {
-  width: 150px;
+  width: 129.9px; /* Approximately 150 * sqrt(3) / 2 */
   height: 150px;
   position: relative;
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
