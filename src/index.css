@@ -277,10 +277,11 @@
 .hexagon-inner {
   width: 100%;
   height: 100%;
-  background-size: 100% auto; /* Changed from 'cover' */
+  background-size: auto 129.9px; /* Changed from '100% auto' */
   background-position: center;
   transform: rotate(-90deg);
 }
+
 
 
 .speaker-info {
