@@ -121,10 +121,10 @@ const PostersPage = () => {
             </div>
             <div className="speaker-info">
               <h3 className="speaker-name">{mainSpeaker.name}</h3>
-              <p className="speaker-description">
+              {/* <p className="speaker-description"> 
                 {mainSpeaker.description?.substring(0, 200)}
                 {mainSpeaker.description?.length > 200 ? '...' : ''}
-              </p>
+              </p> */}
             </div>
           </div>
         )}
