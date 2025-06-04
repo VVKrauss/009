@@ -112,7 +112,7 @@ const PostersPage = () => {
                 <div 
                   className="hexagon-inner" 
                   style={{ 
-                    backgroundImage: `url(${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/speakers/${mainSpeaker.photos?.[0]?.url || ''})`,
+                   backgroundImage: `url(${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${mainSpeaker.photos?.[0]?.url || ''})`,
 
                     transform: 'rotate(90deg)'
                   }}
