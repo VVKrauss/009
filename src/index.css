@@ -273,9 +273,9 @@
 }
 
 .hexagon-inner {
-  width: 110%;
-  height: 110%;
-  background-size: с;
+  width: 130%;
+  height: 130%;
+  background-size: cover;
   background-position: center;
   transform: rotate(-90deg);
 }
