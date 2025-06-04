@@ -59,28 +59,39 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
   
   const roundUpToHundred = (num: number) => Math.ceil(num / 100) * 100;
 
-  const sendTelegramNotification = async (message: string) => {
-    try {
-      const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: message,
-          parse_mode: 'HTML'
-        }),
-      });
+const sendTelegramNotification = async (message: string) => {
+  try {
+    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+    console.log('Sending Telegram notification to URL:', url);
+    console.log('Message payload:', {
+      chat_id: TELEGRAM_CHAT_ID,
+      text: message,
+      parse_mode: 'HTML'
+    });
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text: message,
+        parse_mode: 'HTML'
+      }),
+    });
 
-      if (!response.ok) {
-        console.error('Telegram notification failed:', await response.text());
-      }
-    } catch (error) {
-      console.error('Error sending Telegram notification:', error);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Telegram notification failed with status:', response.status, 'Error text:', errorText);
+      throw new Error(`Telegram API error: ${response.status} - ${errorText}`);
+    } else {
+      console.log('Telegram notification sent successfully!');
     }
-  };
+  } catch (error) {
+    console.error('Error sending Telegram notification:', error);
+  }
+};
+
 
   const calculateTotal = () => {
     if (isFreeOrDonation) return 0;
