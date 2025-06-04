@@ -265,23 +265,20 @@
 }
 
 .hexagon {
-  width: 129.9px; /* Approximately 150 * sqrt(3) / 2 */
+  width: 150px;
   height: 150px;
   position: relative;
   clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
   transform: rotate(90deg);
 }
 
-
-
 .hexagon-inner {
   width: 100%;
   height: 100%;
-  background-size: auto 129.9px; /* Changed from '100% auto' */
+  background-size: cover;
   background-position: center;
   transform: rotate(-90deg);
 }
-
 
 .speaker-info {
   flex: 1;
