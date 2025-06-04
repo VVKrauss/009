@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import QRCode from 'react-qr-code';
-import './PostersPage.css'; // We'll create this CSS file
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
