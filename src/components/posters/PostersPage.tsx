@@ -22,8 +22,8 @@ const PostersPage = () => {
         const { data, error } = await supabase
           .from('events')
           .select('*')
-          .lte('start_time', now)
-          .gte('end_time', now)
+          // .lte('start_time', now)
+          // .gte('end_time', now)
           .eq('status', 'active');
         
         if (error) throw error;
@@ -94,7 +94,7 @@ const PostersPage = () => {
         <div 
           className="poster-bg-image" 
           style={{ 
-            backgroundImage: `url(${currentEvent.bg_image})`,
+           backgroundImage: `url(${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${currentEvent.bg_image})`,
             height: '50vh'
           }}
         >
@@ -112,7 +112,8 @@ const PostersPage = () => {
                 <div 
                   className="hexagon-inner" 
                   style={{ 
-                    backgroundImage: `url(${mainSpeaker.photos?.[0] || ''})`,
+                    backgroundImage: `url(${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/speakers/${mainSpeaker.photos?.[0]?.url || ''})`,
+
                     transform: 'rotate(90deg)'
                   }}
                 />
