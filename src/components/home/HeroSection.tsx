@@ -63,7 +63,7 @@ const HeroSection = ({ height = 400 }: HeroSectionProps) => {
   const intervalRef = useRef<NodeJS.Timeout>();
 
   const sectionHeight = typeof height === 'number' ? `${height}px` : height;
-  const logoHeight = typeof height === 'number' ? `${height * 0.6}px` : `60vh`;
+  const logoHeight = typeof height === 'number' ? `${height * 0.4}px` : `40vh`;
 
   // Автопрокрутка слайдов
   useEffect(() => {
