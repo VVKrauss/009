@@ -1,10 +1,7 @@
-import { useState, useEffect, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-const Slider = lazy(() => import('react-slick'));
-const LazySlider = lazy(() => import('react-slick/slick-carousel'));
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -16,7 +13,7 @@ type Slide = {
   id: string;
   image: string;
   title: string;
-  subtitle: string; 
+  subtitle: string;
 };
 
 type HeaderData = {
@@ -54,7 +51,7 @@ const defaultHeaderData: HeaderData = {
 };
 
 interface HeroSectionProps {
-  height?: number | string; // Можно передать число (пиксели) или строку (например, "50vh")
+  height?: number | string;
 }
 
 const HeroSection = ({ height = 400 }: HeroSectionProps) => {
@@ -62,11 +59,47 @@ const HeroSection = ({ height = 400 }: HeroSectionProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const sliderRef = useRef<Slider>(null);
+  const sliderRef = useRef<HTMLDivElement>(null);
+  const intervalRef = useRef<NodeJS.Timeout>();
 
-  // Формируем значение высоты
   const sectionHeight = typeof height === 'number' ? `${height}px` : height;
   const logoHeight = typeof height === 'number' ? `${height * 0.6}px` : `60vh`;
+
+  // Автопрокрутка слайдов
+  useEffect(() => {
+    if (headerData.style !== 'slideshow' || headerData.slideshow.slides.length <= 1) {
+      return;
+    }
+
+    const startAutoplay = () => {
+      intervalRef.current = setInterval(() => {
+        goToNext();
+      }, headerData.slideshow.settings.autoplaySpeed);
+    };
+
+    const stopAutoplay = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+
+    startAutoplay();
+    return () => stopAutoplay();
+  }, [headerData, currentSlide]);
+
+  const goToSlide = (index: number) => {
+    setCurrentSlide(index);
+  };
+
+  const goToNext = () => {
+    setCurrentSlide(prev => (prev + 1) % headerData.slideshow.slides.length);
+  };
+
+  const goToPrev = () => {
+    setCurrentSlide(prev => 
+      prev === 0 ? headerData.slideshow.slides.length - 1 : prev - 1
+    );
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -112,29 +145,6 @@ const HeroSection = ({ height = 400 }: HeroSectionProps) => {
     };
   }, []);
 
-  const sliderSettings = {
-    dots: true,
-    infinite: true,
-    speed: 500,
-    slidesToShow: 1,
-    slidesToScroll: 1,
-    autoplay: true,
-    autoplaySpeed: headerData.slideshow.settings.autoplaySpeed,
-    fade: headerData.slideshow.settings.transition === 'fade',
-    beforeChange: (_: number, next: number) => setCurrentSlide(next),
-    customPaging: (i: number) => (
-      <div
-        className={`w-2 h-2 rounded-full transition-all duration-300 ${
-          i === currentSlide 
-            ? 'bg-white scale-125' 
-            : 'bg-white/50 hover:bg-white/75'
-        }`}
-      />
-    ),
-    arrows: false,
-    ref: sliderRef
-  };
-
   const getImageUrl = (image: string) => {
     if (!image) return 'https://via.placeholder.com/1920x600?text=No+image';
     if (image.startsWith('http')) return image;
@@ -165,11 +175,20 @@ const HeroSection = ({ height = 400 }: HeroSectionProps) => {
 
   if (headerData.style === 'slideshow' && headerData.slideshow.slides.length > 0) {
     return (
-      <section className="relative" style={{ height: sectionHeight }}>
-        <Suspense fallback={<div className="bg-gray-200 dark:bg-dark-700" style={{ height: sectionHeight }} />}>
-          <Slider {...sliderSettings} className="h-full">
-            {headerData.slideshow.slides.map((slide) => (
-              <div key={slide.id} className="relative" style={{ height: sectionHeight }}>
+      <section className="relative overflow-hidden" style={{ height: sectionHeight }}>
+        <div className="relative h-full w-full">
+          {/* Слайды */}
+          <div className="flex h-full transition-transform duration-500" 
+               style={{ 
+                 transform: `translateX(-${currentSlide * 100}%)`,
+                 width: `${headerData.slideshow.slides.length * 100}%`
+               }}>
+            {headerData.slideshow.slides.map((slide, index) => (
+              <div 
+                key={slide.id} 
+                className="relative w-full h-full"
+                style={{ flex: `0 0 ${100 / headerData.slideshow.slides.length}%` }}
+              >
                 <div className="absolute inset-0 overflow-hidden">
                   <img
                     src={getImageUrl(slide.image)}
@@ -186,15 +205,51 @@ const HeroSection = ({ height = 400 }: HeroSectionProps) => {
                     <h1 className="text-2xl md:text-4xl font-bold mb-4 text-white">
                       {slide.title}
                     </h1>
-                    <p className="text-lg md:text-xl mb-8 text-white/90 max-w-2xl">
+                    <p className="text-lg md:text-xl text-white/90 max-w-2xl">
                       {slide.subtitle}
                     </p>
                   </div>
                 </div>
               </div>
             ))}
-          </Slider>
-        </Suspense>
+          </div>
+        </div>
+
+        {/* Навигационные точки */}
+        <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
+          {headerData.slideshow.slides.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => goToSlide(index)}
+              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+                index === currentSlide 
+                  ? 'bg-white scale-125' 
+                  : 'bg-white/50 hover:bg-white/75'
+              }`}
+              aria-label={`Go to slide ${index + 1}`}
+            />
+          ))}
+        </div>
+
+        {/* Кнопки навигации */}
+        {headerData.slideshow.slides.length > 1 && (
+          <>
+            <button 
+              onClick={goToPrev}
+              className="absolute left-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 hover:bg-black/50 text-white transition-colors"
+              aria-label="Previous slide"
+            >
+              <ArrowRight className="rotate-180" />
+            </button>
+            <button 
+              onClick={goToNext}
+              className="absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-full bg-black/30 hover:bg-black/50 text-white transition-colors"
+              aria-label="Next slide"
+            >
+              <ArrowRight />
+            </button>
+          </>
+        )}
       </section>
     );
   }
@@ -229,7 +284,7 @@ const HeroSection = ({ height = 400 }: HeroSectionProps) => {
           <h1 className="text-3xl md:text-5xl font-bold mb-4">
             {headerData.centered.title}
           </h1>
-          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8">
+          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300">
             {headerData.centered.subtitle}
           </p>
         </div>
