@@ -21,8 +21,8 @@ const InfoSection = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [imageHeight, setImageHeight] = useState('auto');
+  const textBlockRef = useRef<HTMLDivElement>(null);
+  const imageContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -81,22 +81,22 @@ const InfoSection = () => {
     };
   }, [data?.image]);
 
-  // Эффект для вычисления высоты текстового контента
+  // Ресайз обсервер для текстового блока
   useEffect(() => {
-    const updateHeight = () => {
-      if (containerRef.current) {
-        const textContent = containerRef.current.querySelector('.text-content');
-        if (textContent) {
-          setImageHeight(`${textContent.scrollHeight}px`);
+    if (!textBlockRef.current || !imageContainerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        if (entry.target === textBlockRef.current) {
+          imageContainerRef.current.style.height = `${entry.contentRect.height}px`;
         }
       }
-    };
+    });
 
-    updateHeight();
-    window.addEventListener('resize', updateHeight);
+    resizeObserver.observe(textBlockRef.current);
 
     return () => {
-      window.removeEventListener('resize', updateHeight);
+      resizeObserver.disconnect();
     };
   }, [data]);
 
@@ -113,9 +113,9 @@ const InfoSection = () => {
   }
 
   return (
-    <section className="section bg-white dark:bg-dark-900" ref={containerRef}>
-      <div className="container grid-layout">
-        <div className="text-content">
+    <section className="section bg-white dark:bg-dark-900">
+      <div className="container grid-layout items-start">
+        <div className="text-content" ref={textBlockRef}>
           <h3 className="mb-6">{data.title}</h3>
           <div 
             className="text-base space-y-4 mb-8"
@@ -129,16 +129,13 @@ const InfoSection = () => {
             <ArrowRight className="ml-2" />
           </Link>
         </div>
-        <div className="image-content mt-8 md:mt-0">
-          <div 
-            className="w-full rounded-lg overflow-hidden"
-            style={{ height: imageHeight }}
-          >
+        <div className="image-content mt-8 md:mt-0" ref={imageContainerRef}>
+          <div className="w-full h-full rounded-lg overflow-hidden relative">
             <img 
               ref={imageRef}
               data-src={data.image}
               alt={data.title}
-              className="w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
               loading="lazy"
               width="600"
               height="400"
