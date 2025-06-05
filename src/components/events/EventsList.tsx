@@ -42,19 +42,8 @@ const EVENT_TYPE_MAP: Record<string, string> = {
   'Discussion': 'Дискуссия',
   'Swap': 'Обмен',
   'Quiz': 'Викторина',
-  'default': 'Мероприятие'  'Lecture': 'Лекция',
-  'Workshop': 'Мастер-класс',
-  'Movie Discussion': 'Обсуждение фильма',
-  'Conversation Club': 'Разговорный клуб',
-  'Festival': 'Фестиваль',
-  'Stand-up': 'Стендап',
-  'Concert': 'Концерт',
-  'Excursion': 'Экскурсия',
-  'Discussion': 'Дискуссия',
-  'Swap': 'Обмен',
-  'Quiz': 'Викторина',
   'default': 'Мероприятие'
-};
+}; 
 
 /**
  * Форматирует время события в единый формат HH:mm
