@@ -99,7 +99,7 @@ const RentPage = () => {
   if (loading) {
     return (
       <Layout>
-        <PageHeader title="Пространство" />
+        <PageHeader title="" />
         <div className="section bg-gray-50 dark:bg-dark-800">
           <div className="container text-center py-12">
             Загрузка...
@@ -112,7 +112,7 @@ const RentPage = () => {
   if (error || !settings) {
     return (
       <Layout>
-        <PageHeader title="Пространство" />
+        <PageHeader title="" />
         <div className="section bg-gray-50 dark:bg-dark-800">
           <div className="container text-center py-12 text-red-600">
             {error || 'Данные не найдены'}
