@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/layout/Layout';
 import PageHeader from '../components/ui/PageHeader';
-import { Mail, Phone, MapPin, Heart } from 'lucide-react';
+import { Mail, Phone, MapPin } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -30,6 +30,25 @@ interface AboutData {
     address: string;
   };
 }
+
+// Компонент для отображения иконки платформы
+const PlatformIcon = ({ platform }: { platform: string }) => {
+  const logos = {
+    'Boosty': 'https://jfvinriqydjtwsmayxix.supabase.co/storage/v1/object/public/images/logos/bosty-logo-100x100.png',
+    'Patreon': 'https://jfvinriqydjtwsmayxix.supabase.co/storage/v1/object/public/images/logos/pn-logo-100x100.png',
+    'PayPal': 'https://jfvinriqydjtwsmayxix.supabase.co/storage/v1/object/public/images/logos/pp-logo-100x100.png'
+  };
+
+  const logoUrl = logos[platform as keyof typeof logos] || '';
+
+  return (
+    <img 
+      src={logoUrl} 
+      alt={platform}
+      className="w-6 h-6 object-contain"
+    />
+  );
+};
 
 const AboutPage = () => {
   const [aboutData, setAboutData] = useState<AboutData | null>(null);
@@ -156,7 +175,7 @@ const AboutPage = () => {
                   rel="noopener noreferrer"
                   className="p-4 border border-gray-200 dark:border-dark-700 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors flex items-center justify-center gap-2"
                 >
-                  <Heart className="w-5 h-5 text-primary" />
+                  <PlatformIcon platform={platform.platform} />
                   <span>{platform.platform}</span>
                 </a>
               ))}
