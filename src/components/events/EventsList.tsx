@@ -31,7 +31,7 @@ type EventsListProps = {
 
 // Map event types to Russian
 const EVENT_TYPE_MAP: Record<string, string> = {
-  'Lecture': 'Лекция',
+  'lecture': 'Лекция',
   'Workshop': 'Мастер-класс',
   'Movie Discussion': 'Обсуждение фильма',
   'Conversation Club': 'Разговорный клуб',
@@ -41,7 +41,8 @@ const EVENT_TYPE_MAP: Record<string, string> = {
   'Excursion': 'Экскурсия',
   'Discussion': 'Дискуссия',
   'Swap': 'Обмен',
-  'Quiz': 'Викторина'
+  'Quiz': 'Викторина',
+  'default': 'Мероприятие'
 }; 
 
 /**
