@@ -29,11 +29,11 @@ type EventsListProps = {
   className?: string;
 };
 
-// Map event types to Russian
-const EVENT_TYPE_MAP: Record<string, string> = {
+// Полный список типов мероприятий с переводами
+const EVENT_TYPES: Record<string, string> = {
   'Lecture': 'Лекция',
   'Workshop': 'Мастер-класс',
-  'Movie Discussion': 'Обсуждение фильма',
+  'Movie Discussion': 'Кинообсуждение',
   'Conversation Club': 'Разговорный клуб',
   'Festival': 'Фестиваль',
   'Stand-up': 'Стендап',
@@ -41,8 +41,14 @@ const EVENT_TYPE_MAP: Record<string, string> = {
   'Excursion': 'Экскурсия',
   'Discussion': 'Дискуссия',
   'Swap': 'Обмен',
-  'Quiz': 'Викторина',
-  'default': 'Мероприятие'
+  'Quiz': 'Викторина'
+};
+
+/**
+ * Получает переведенный тип мероприятия
+ */
+const getEventType = (type: string): string => {
+  return EVENT_TYPES[type] || type;
 };
 
 /**
@@ -51,17 +57,14 @@ const EVENT_TYPE_MAP: Record<string, string> = {
 const formatEventTime = (timeString?: string): string => {
   if (!timeString) return '--:--';
 
-  // Если время уже в правильном формате
   if (/^\d{2}:\d{2}$/.test(timeString)) {
     return timeString;
   }
 
-  // Если время с секундами (HH:MM:SS)
   if (/^\d{2}:\d{2}:\d{2}$/.test(timeString)) {
     return timeString.slice(0, 5);
   }
 
-  // Для ISO строк (timestamp)
   try {
     const date = new Date(timeString);
     if (!isNaN(date.getTime())) {
@@ -71,7 +74,6 @@ const formatEventTime = (timeString?: string): string => {
     console.error('Error formatting time:', e);
   }
 
-  // Для других форматов - пытаемся извлечь часы и минуты
   const timeParts = timeString.match(/\d{1,2}:\d{2}/);
   return timeParts ? timeParts[0] : timeString;
 };
@@ -136,10 +138,6 @@ const EventsList = ({
     return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.bg_image}`;
   };
 
-  const getTranslatedEventType = (type: string) => {
-    return EVENT_TYPE_MAP[type] || EVENT_TYPE_MAP['default'];
-  };
-
   return (
     <div className={`${className} ${type === 'upcoming' ? 'upcoming-events' : 'past-events'}`}>
       {viewMode === 'list' ? (
@@ -150,9 +148,9 @@ const EventsList = ({
                 className="md:w-1/3 h-48 md:h-auto bg-cover bg-center relative"
                 style={{ backgroundImage: `url(${getImageUrl(event)})` }}
               >
-                <div className="absolute bottom-3 left-3 flex flex-wrap gap-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">
-                    <Users className="w-4 h-4 mr-1" />
+                <div className="absolute bottom-3 left-3">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">
+                    <Users className="w-3 h-3 mr-1" />
                     {event.age_category}
                   </span>
                 </div>
@@ -160,16 +158,16 @@ const EventsList = ({
               
               <div className="p-5 md:w-2/3 flex flex-col">
                 <div className="flex-grow">
-                  <div className="flex flex-wrap gap-2 mb-3">
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
                     {event.languages.map((lang, index) => (
-                      <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                        <Globe className="w-4 h-4 mr-1" />
+                      <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
+                        <Globe className="w-3 h-3 mr-1" />
                         {lang}
                       </span>
                     ))}
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-100">
-                      <Tag className="w-4 h-4 mr-1" />
-                      {getTranslatedEventType(event.event_type)}
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-100">
+                      <Tag className="w-3 h-3 mr-1" />
+                      {getEventType(event.event_type)}
                     </span>
                   </div>
                   
@@ -236,22 +234,22 @@ const EventsList = ({
                     Подробнее <ArrowRight className="ml-2 w-4 h-4" />
                   </span>
                 </div>
-                <div className="absolute bottom-3 left-3 flex gap-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">
+                <div className="absolute bottom-3 left-3">
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">
                     {event.age_category}
                   </span>
                 </div>
               </div>
               
               <div className="p-4">
-                <div className="flex flex-wrap gap-2 mb-3">
+                <div className="flex flex-wrap items-center gap-2 mb-3">
                   {event.languages.slice(0, 2).map((lang, index) => (
-                    <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
+                    <span key={index} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
                       {lang}
                     </span>
                   ))}
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-100">
-                    {getTranslatedEventType(event.event_type)}
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-100">
+                    {getEventType(event.event_type)}
                   </span>
                 </div>
                 
