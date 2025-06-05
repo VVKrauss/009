@@ -21,6 +21,8 @@ const InfoSection = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
+  const textContentRef = useRef<HTMLDivElement>(null);
+  const [imageHeight, setImageHeight] = useState('auto');
 
   useEffect(() => {
     let isMounted = true;
@@ -79,6 +81,22 @@ const InfoSection = () => {
     };
   }, [data?.image]);
 
+  // Эффект для вычисления высоты текстового блока
+  useEffect(() => {
+    const updateHeight = () => {
+      if (textContentRef.current) {
+        setImageHeight(`${textContentRef.current.offsetHeight}px`);
+      }
+    };
+
+    updateHeight();
+    window.addEventListener('resize', updateHeight);
+
+    return () => {
+      window.removeEventListener('resize', updateHeight);
+    };
+  }, [data]);
+
   if (isLoading) {
     return <div className="section bg-white dark:bg-dark-900 min-h-[400px] flex items-center justify-center">Загрузка...</div>;
   }
@@ -93,8 +111,8 @@ const InfoSection = () => {
 
   return (
     <section className="section bg-white dark:bg-dark-900">
-      <div className="container grid-layout items-center">
-        <div className="text-content">
+      <div className="container grid-layout items-stretch">
+        <div className="text-content" ref={textContentRef}>
           <h3 className="mb-6">{data.title}</h3>
           <div 
             className="text-base space-y-4 mb-8"
@@ -108,16 +126,19 @@ const InfoSection = () => {
             <ArrowRight className="ml-2" />
           </Link>
         </div>
-        <div className="image-content mt-8 md:mt-0">
-          <img 
-            ref={imageRef}
-            data-src={data.image}
-            alt={data.title}
-            className="w-full h-auto rounded-lg shadow-md bg-gray-100 dark:bg-dark-700"
-            loading="lazy"
-            width="600"
-            height="400"
-          />
+        <div className="image-content mt-8 md:mt-0 flex">
+          <div className="rounded-lg overflow-hidden w-full" style={{ height: imageHeight }}>
+            <img 
+              ref={imageRef}
+              data-src={data.image}
+              alt={data.title}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              width="600"
+              height="400"
+              style={{ borderRadius: '0.5rem' }}
+            />
+          </div>
         </div>
       </div>
     </section>
