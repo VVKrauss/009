@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -18,36 +17,77 @@ type InfoSectionData = {
 };
 
 const InfoSection = () => {
-  const [data, setData] = useState<InfoSectionData>({
-    title: 'Добро пожаловать в ScienceHub',
-    description: 'Мы создаем уникальное пространство для науки, образования и инноваций. Присоединяйтесь к нашему сообществу исследователей, предпринимателей и энтузиастов.',
-    image: 'https://wummwcsqsznyyaajcxww.supabase.co/storage/v1/object/public/images/logo/logo_science_hub%20no_title.png',
-    enabled: true,
-    order: 1
-  });
+  const [data, setData] = useState<InfoSectionData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
 
   useEffect(() => {
+    let isMounted = true;
+    
+    const fetchInfoData = async () => {
+      try {
+        const { data: settings, error } = await supabase
+          .from('site_settings')
+          .select('info_section')
+          .single();
+
+        if (!isMounted) return;
+
+        if (error) throw error;
+
+        if (settings?.info_section) {
+          setData(settings.info_section);
+        }
+      } catch (err) {
+        console.error('Error fetching info section data:', err);
+        if (isMounted) setError('Не удалось загрузить данные');
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
     fetchInfoData();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
-  const fetchInfoData = async () => {
-    try {
-      const { data: settings, error } = await supabase
-        .from('site_settings')
-        .select('info_section')
-        .single();
+  useEffect(() => {
+    if (!data?.image || !imageRef.current) return;
 
-      if (error) throw error;
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const img = entry.target as HTMLImageElement;
+          img.src = img.dataset.src || '';
+          observer.unobserve(img);
+        }
+      });
+    }, {
+      rootMargin: '200px',
+      threshold: 0.1
+    });
 
-      if (settings?.info_section) {
-        setData(settings.info_section);
+    observer.observe(imageRef.current);
+
+    return () => {
+      if (imageRef.current) {
+        observer.unobserve(imageRef.current);
       }
-    } catch (error) {
-      console.error('Error fetching info section data:', error);
-    }
-  };
+    };
+  }, [data?.image]);
 
-  if (!data.enabled) {
+  if (isLoading) {
+    return <div className="section bg-white dark:bg-dark-900 min-h-[400px] flex items-center justify-center">Загрузка...</div>;
+  }
+
+  if (error) {
+    return <div className="section bg-white dark:bg-dark-900 min-h-[400px] flex items-center justify-center text-red-500">{error}</div>;
+  }
+
+  if (!data || !data.enabled) {
     return null;
   }
 
@@ -70,9 +110,13 @@ const InfoSection = () => {
         </div>
         <div className="image-content mt-8 md:mt-0">
           <img 
-            src={data.image} 
-            alt={data.title} 
-            className="w-full h-auto rounded-lg shadow-md"
+            ref={imageRef}
+            data-src={data.image}
+            alt={data.title}
+            className="w-full h-auto rounded-lg shadow-md bg-gray-100 dark:bg-dark-700"
+            loading="lazy"
+            width="600"
+            height="400"
           />
         </div>
       </div>
