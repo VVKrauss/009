@@ -89,7 +89,7 @@ const SpeakersPage = () => {
     <Layout>
       <PageHeader 
         title="Наши спикеры" 
-        subtitle="Ведущие учёные и эксперты в своих областях"
+        subtitle="Учёные и эксперты в своих областях"
       />
       
       <main className="section bg-gray-50 dark:bg-dark-800">
