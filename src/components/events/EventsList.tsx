@@ -34,14 +34,14 @@ const EVENT_TYPE_MAP: Record<string, string> = {
   'lecture': 'Лекция',
   'workshop': 'Мастер-класс',
   'movie discussion': 'Обсуждение фильма',
-  'Conversation Club': 'Разговорный клуб',
-  'Festival': 'Фестиваль',
-  'Stand-up': 'Стендап',
-  'Concert': 'Концерт',
-  'Excursion': 'Экскурсия',
-  'Discussion': 'Дискуссия',
-  'Swap': 'Обмен',
-  'Quiz': 'Викторина',
+  'conversation club': 'Разговорный клуб',
+  'festival': 'Фестиваль',
+  'stand-up': 'Стендап',
+  'concert': 'Концерт',
+  'excursion': 'Экскурсия',
+  'discussion': 'Дискуссия',
+  'swap': 'Обмен',
+  'quiz': 'Викторина',
   'default': 'Мероприятие'
 }; 
 
