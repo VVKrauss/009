@@ -170,7 +170,7 @@ const EventsSection = () => {
   return (
     <section className="py-16 bg-gray-50 dark:bg-dark-800">
       <div className="container mx-auto px-4">
-        <h2 className="text-3xl font-semibold mb-12 text-center text-gray-900 dark:text-white">
+        <h2 className="text-3xl font-semibold mb-12 text-left text-gray-900 dark:text-white">
           Наши мероприятия
         </h2>
         
