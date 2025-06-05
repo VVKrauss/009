@@ -13,7 +13,7 @@ const supabase = createClient(
 
 // Конфигурация высоты hero-секции
 const HERO_HEIGHT = 'min-h-[40vh]'; // Можно изменить на нужное значение
-const LOGO_HEIGHT_RATIO = 0.6; // 60% от высоты hero-секции
+const LOGO_HEIGHT_RATIO = 0.3; // 60% от высоты hero-секции
 
 type HeaderStyle = 'centered' | 'slideshow';
 type Slide = {
