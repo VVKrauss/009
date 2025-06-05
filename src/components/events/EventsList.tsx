@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowRight, Calendar, Users, Globe, Tag, Clock } from 'lucide-react';
+import { ArrowRight, Calendar, Users, Globe, Tag, Clock, MapPin } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
@@ -27,6 +27,18 @@ type EventsListProps = {
   viewMode?: 'grid' | 'list';
   showPrice?: boolean;
   className?: string;
+};
+
+// Map event types to Russian
+const EVENT_TYPE_MAP: Record<string, string> = {
+  'workshop': 'Мастер-класс',
+  'lecture': 'Лекция',
+  'concert': 'Концерт',
+  'exhibition': 'Выставка',
+  'meeting': 'Встреча',
+  'tour': 'Экскурсия',
+  'festival': 'Фестиваль',
+  'default': 'Мероприятие'
 };
 
 /**
@@ -120,6 +132,10 @@ const EventsList = ({
     return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.bg_image}`;
   };
 
+  const getTranslatedEventType = (type: string) => {
+    return EVENT_TYPE_MAP[type] || EVENT_TYPE_MAP['default'];
+  };
+
   return (
     <div className={`${className} ${type === 'upcoming' ? 'upcoming-events' : 'past-events'}`}>
       {viewMode === 'list' ? (
@@ -131,7 +147,7 @@ const EventsList = ({
                 style={{ backgroundImage: `url(${getImageUrl(event)})` }}
               >
                 <div className="absolute bottom-3 left-3 flex flex-wrap gap-1">
-                  <span className="badge bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                  <span className="badge bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">
                     <Users className="icon-sm mr-1" />
                     {event.age_category}
                   </span>
@@ -142,14 +158,14 @@ const EventsList = ({
                 <div className="flex-grow">
                   <div className="flex flex-wrap gap-2 mb-3">
                     {event.languages.map((lang, index) => (
-                      <span key={index} className="badge bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                      <span key={index} className="badge bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
                         <Globe className="icon-sm mr-1" />
                         {lang}
                       </span>
                     ))}
-                    <span className="badge bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                    <span className="badge bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-100">
                       <Tag className="icon-sm mr-1" />
-                      {event.event_type}
+                      {getTranslatedEventType(event.event_type)}
                     </span>
                   </div>
                   
@@ -217,7 +233,7 @@ const EventsList = ({
                   </span>
                 </div>
                 <div className="absolute bottom-3 left-3 flex gap-1">
-                  <span className="badge bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                  <span className="badge bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">
                     {event.age_category}
                   </span>
                 </div>
@@ -226,12 +242,12 @@ const EventsList = ({
               <div className="p-4">
                 <div className="flex flex-wrap gap-2 mb-3">
                   {event.languages.slice(0, 2).map((lang, index) => (
-                    <span key={index} className="badge bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+                    <span key={index} className="badge bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
                       {lang}
                     </span>
                   ))}
-                  <span className="badge bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
-                    {event.event_type}
+                  <span className="badge bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-100">
+                    {getTranslatedEventType(event.event_type)}
                   </span>
                 </div>
                 
