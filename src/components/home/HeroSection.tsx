@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -10,6 +10,10 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
+
+// Конфигурация высоты hero-секции
+const HERO_HEIGHT = 'min-h-[80vh]'; // Можно изменить на нужное значение
+const LOGO_HEIGHT_RATIO = 0.6; // 60% от высоты hero-секции
 
 type HeaderStyle = 'centered' | 'slideshow';
 type Slide = {
@@ -56,38 +60,53 @@ const defaultHeaderData: HeaderData = {
 const HeroSection = () => {
   const [headerData, setHeaderData] = useState<HeaderData>(defaultHeaderData);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const sliderRef = useRef<Slider>(null);
 
   useEffect(() => {
-    fetchHeaderData();
-  }, []);
+    let isMounted = true;
+    
+    const fetchHeaderData = async () => {
+      try {
+        setIsLoading(true);
+        const { data, error } = await supabase
+          .from('site_settings')
+          .select('header_settings')
+          .single();
 
-  const fetchHeaderData = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('site_settings')
-        .select('header_settings')
-        .single();
+        if (!isMounted) return;
 
-      if (error) throw error;
+        if (error) throw error;
 
-      if (data?.header_settings) {
-        setHeaderData({
-          ...defaultHeaderData,
-          ...data.header_settings,
-          slideshow: {
-            ...defaultHeaderData.slideshow,
-            ...data.header_settings.slideshow,
-            settings: {
-              ...defaultHeaderData.slideshow.settings,
-              ...data.header_settings.slideshow?.settings
+        if (data?.header_settings) {
+          setHeaderData({
+            ...defaultHeaderData,
+            ...data.header_settings,
+            slideshow: {
+              ...defaultHeaderData.slideshow,
+              ...data.header_settings.slideshow,
+              settings: {
+                ...defaultHeaderData.slideshow.settings,
+                ...data.header_settings.slideshow?.settings
+              }
             }
-          }
-        });
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching header settings:', error);
+        if (isMounted) setError('Не удалось загрузить данные заголовка');
+      } finally {
+        if (isMounted) setIsLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching header settings:', error);
-    }
-  };
+    };
+
+    fetchHeaderData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const sliderSettings = {
     dots: true,
@@ -108,6 +127,8 @@ const HeroSection = () => {
         }`}
       />
     ),
+    arrows: false,
+    ref: sliderRef
   };
 
   const getImageUrl = (image: string) => {
@@ -116,18 +137,35 @@ const HeroSection = () => {
     return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${image}`;
   };
 
+  if (isLoading) {
+    return (
+      <section className={`relative ${HERO_HEIGHT} flex items-center justify-center bg-gray-100 dark:bg-dark-800`}>
+        <div className="text-center">Загрузка...</div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className={`relative ${HERO_HEIGHT} flex items-center justify-center bg-gray-100 dark:bg-dark-800`}>
+        <div className="text-center text-red-500">{error}</div>
+      </section>
+    );
+  }
+
   if (headerData.style === 'slideshow' && headerData.slideshow.slides.length > 0) {
     return (
-      <section className="relative h-hero">
-        <Slider {...sliderSettings} className="h-full events-slideshow">
+      <section className={`relative ${HERO_HEIGHT}`}>
+        <Slider {...sliderSettings} className="h-full">
           {headerData.slideshow.slides.map((slide) => (
-            <div key={slide.id} className="h-hero relative">
-              {/* Image container with proper aspect ratio */}
+            <div key={slide.id} className={`${HERO_HEIGHT} relative`}>
+              {/* Lazy-loaded image with placeholder */}
               <div className="absolute inset-0 overflow-hidden">
                 <img
                   src={getImageUrl(slide.image)}
                   alt=""
                   className="w-full h-full object-cover"
+                  loading="lazy"
                 />
                 <div className="absolute inset-0 bg-black/50" />
               </div>
@@ -135,19 +173,20 @@ const HeroSection = () => {
               {/* Content overlay */}
               <div className="relative h-full flex flex-col items-center justify-center">
                 <div className="flex flex-col items-center text-center px-4">
-                  <h1 className="text-2xl md:text-3xl font-bold mb-2 text-white">
+                  <h1 className="text-2xl md:text-4xl font-bold mb-4 text-white">
                     {slide.title}
                   </h1>
-                  <p className="text-base md:text-lg mb-6 text-white/90 max-w-md">
+                  <p className="text-lg md:text-xl mb-8 text-white/90 max-w-2xl">
                     {slide.subtitle}
                   </p>
+                  <Link 
+                    to="/about" 
+                    className="inline-flex items-center px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors"
+                  >
+                    Узнать больше
+                    <ArrowRight className="ml-2" />
+                  </Link>
                 </div>
-                {/* <Link 
-                  to="/about" 
-                  className="absolute bottom-6 right-6 p-2 text-white hover:text-primary-300 transition-colors"
-                >
-                  <ArrowRight className="h-6 w-6" />
-                </Link> */}
               </div>
             </div>
           ))}
@@ -157,33 +196,43 @@ const HeroSection = () => {
   }
 
   return (
-    <section className="relative h-hero flex items-center justify-center">
+    <section className={`relative ${HERO_HEIGHT} flex items-center justify-center bg-gray-50 dark:bg-dark-900`}>
       <div className="flex flex-col items-center justify-center h-full w-full">
-        {/* Logo container - 20% of hero height */}
-        <div className="h-[60%] flex items-center justify-center mb-4">
+        {/* Logo container with dynamic height */}
+        <div 
+          className={`w-full flex items-center justify-center mb-8`}
+          style={{ height: `calc(${LOGO_HEIGHT_RATIO * 100}%)` }}
+        >
           <img 
             src={headerData.centered.logoLight}
             alt="ScienceHub Logo"
             className="h-full w-auto object-contain dark:hidden"
+            loading="eager"
           />
           <img 
             src={headerData.centered.logoDark}
             alt="ScienceHub Logo"
             className="h-full w-auto object-contain hidden dark:block"
+            loading="eager"
           />
         </div>
         
-        {/* Title and subtitle - compact */}
+        {/* Title and subtitle */}
         <div className="text-center px-4 max-w-2xl">
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">
+          <h1 className="text-3xl md:text-5xl font-bold mb-4">
             {headerData.centered.title}
           </h1>
-          <p className="text-base md:text-lg text-gray-600 dark:text-gray-300">
+          <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8">
             {headerData.centered.subtitle}
           </p>
+          <Link 
+            to="/about" 
+            className="inline-flex items-center px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors"
+          >
+            Узнать больше
+            <ArrowRight className="ml-2" />
+          </Link>
         </div>
-        
-  
       </div>
     </section>
   );
