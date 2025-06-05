@@ -21,7 +21,7 @@ const InfoSection = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-  const textContentRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [imageHeight, setImageHeight] = useState('auto');
 
   useEffect(() => {
@@ -81,11 +81,14 @@ const InfoSection = () => {
     };
   }, [data?.image]);
 
-  // Эффект для вычисления высоты текстового блока
+  // Эффект для вычисления высоты текстового контента
   useEffect(() => {
     const updateHeight = () => {
-      if (textContentRef.current) {
-        setImageHeight(`${textContentRef.current.offsetHeight}px`);
+      if (containerRef.current) {
+        const textContent = containerRef.current.querySelector('.text-content');
+        if (textContent) {
+          setImageHeight(`${textContent.scrollHeight}px`);
+        }
       }
     };
 
@@ -110,9 +113,9 @@ const InfoSection = () => {
   }
 
   return (
-    <section className="section bg-white dark:bg-dark-900">
-      <div className="container grid-layout items-stretch">
-        <div className="text-content" ref={textContentRef}>
+    <section className="section bg-white dark:bg-dark-900" ref={containerRef}>
+      <div className="container grid-layout">
+        <div className="text-content">
           <h3 className="mb-6">{data.title}</h3>
           <div 
             className="text-base space-y-4 mb-8"
@@ -126,8 +129,11 @@ const InfoSection = () => {
             <ArrowRight className="ml-2" />
           </Link>
         </div>
-        <div className="image-content mt-8 md:mt-0 flex">
-          <div className="rounded-lg overflow-hidden w-full" style={{ height: imageHeight }}>
+        <div className="image-content mt-8 md:mt-0">
+          <div 
+            className="w-full rounded-lg overflow-hidden"
+            style={{ height: imageHeight }}
+          >
             <img 
               ref={imageRef}
               data-src={data.image}
@@ -136,7 +142,6 @@ const InfoSection = () => {
               loading="lazy"
               width="600"
               height="400"
-              style={{ borderRadius: '0.5rem' }}
             />
           </div>
         </div>
