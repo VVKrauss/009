@@ -33,7 +33,7 @@ type EventsListProps = {
 const EVENT_TYPE_MAP: Record<string, string> = {
   'lecture': 'Лекция',
   'workshop': 'Мастер-класс',
-  'movie Discussion': 'Обсуждение фильма',
+  'movie discussion': 'Обсуждение фильма',
   'Conversation Club': 'Разговорный клуб',
   'Festival': 'Фестиваль',
   'Stand-up': 'Стендап',
