@@ -146,6 +146,7 @@ const EventsPage = () => {
   }, []);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
     fetchEvents();
   }, [sortBy, selectedEventTypes]);
 
