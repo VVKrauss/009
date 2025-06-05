@@ -38,6 +38,13 @@ const EVENT_TYPE_MAP: Record<string, string> = {
   'meeting': 'Встреча',
   'tour': 'Экскурсия',
   'festival': 'Фестиваль',
+  'movie_discussion': 'Обсуждение фильма',
+  'conversation_club': 'Разговорный клуб',
+  'stand_up': 'Стендап',
+  'excursion': 'Экскурсия',
+  'discussion': 'Дискуссия',
+  'swap': 'Обмен',
+  'quiz': 'Викторина',
   'default': 'Мероприятие'
 };
 
@@ -133,7 +140,8 @@ const EventsList = ({
   };
 
   const getTranslatedEventType = (type: string) => {
-    return EVENT_TYPE_MAP[type] || EVENT_TYPE_MAP['default'];
+    const normalizedType = type.toLowerCase().replace(/-/g, '_');
+    return EVENT_TYPE_MAP[normalizedType] || EVENT_TYPE_MAP['default'];
   };
 
   return (
@@ -143,12 +151,12 @@ const EventsList = ({
           {filteredEvents.map(event => (
             <div key={event.id} className="card hover:shadow-md transition-shadow flex flex-col md:flex-row">
               <div 
-                className="md:w-1/3 h-48 md:h-auto bg-cover bg-center relative rounded-t-lg md:rounded-l-lg md:rounded-r-none"
+                className="md:w-1/3 h-48 md:h-auto bg-cover bg-center relative"
                 style={{ backgroundImage: `url(${getImageUrl(event)})` }}
               >
                 <div className="absolute bottom-3 left-3 flex flex-wrap gap-1">
-                  <span className="badge bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">
-                    <Users className="icon-sm mr-1" />
+                  <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                    <Users className="h-4 w-4 mr-1.5" />
                     {event.age_category}
                   </span>
                 </div>
@@ -158,13 +166,13 @@ const EventsList = ({
                 <div className="flex-grow">
                   <div className="flex flex-wrap gap-2 mb-3">
                     {event.languages.map((lang, index) => (
-                      <span key={index} className="badge bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                        <Globe className="icon-sm mr-1" />
+                      <span key={index} className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
+                        <Globe className="h-4 w-4 mr-1.5" />
                         {lang}
                       </span>
                     ))}
-                    <span className="badge bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-100">
-                      <Tag className="icon-sm mr-1" />
+                    <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300">
+                      <Tag className="h-4 w-4 mr-1.5" />
                       {getTranslatedEventType(event.event_type)}
                     </span>
                   </div>
@@ -173,16 +181,16 @@ const EventsList = ({
                   
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
                     <div className="flex items-center">
-                      <Calendar className="icon-sm mr-1" />
+                      <Calendar className="h-4 w-4 mr-1" />
                       <span>{format(parseISO(event.date), 'd MMMM yyyy', { locale: ru })}</span>
                     </div>
                     <div className="flex items-center">
-                      <Clock className="icon-sm mr-1" />
+                      <Clock className="h-4 w-4 mr-1" />
                       <span>{formatTimeRange(event.start_time, event.end_time)}</span>
                     </div>
                     {event.location && (
                       <div className="flex items-center">
-                        <MapPin className="icon-sm mr-1" />
+                        <MapPin className="h-4 w-4 mr-1" />
                         <span>{event.location}</span>
                       </div>
                     )}
@@ -229,11 +237,11 @@ const EventsList = ({
                 />
                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <span className="text-white font-medium flex items-center">
-                    Подробнее <ArrowRight className="ml-2 icon-sm" />
+                    Подробнее <ArrowRight className="ml-2 h-4 w-4" />
                   </span>
                 </div>
                 <div className="absolute bottom-3 left-3 flex gap-1">
-                  <span className="badge bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-100">
+                  <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
                     {event.age_category}
                   </span>
                 </div>
@@ -242,11 +250,11 @@ const EventsList = ({
               <div className="p-4">
                 <div className="flex flex-wrap gap-2 mb-3">
                   {event.languages.slice(0, 2).map((lang, index) => (
-                    <span key={index} className="badge bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
+                    <span key={index} className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                       {lang}
                     </span>
                   ))}
-                  <span className="badge bg-violet-100 text-violet-800 dark:bg-violet-900 dark:text-violet-100">
+                  <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-violet-100 text-violet-800 dark:bg-violet-900/30 dark:text-violet-300">
                     {getTranslatedEventType(event.event_type)}
                   </span>
                 </div>
@@ -257,11 +265,11 @@ const EventsList = ({
                 
                 <div className="flex flex-col gap-1 text-sm text-gray-500 dark:text-gray-400">
                   <div className="flex items-center">
-                    <Calendar className="icon-sm mr-1 flex-shrink-0" />
+                    <Calendar className="h-4 w-4 mr-1 flex-shrink-0" />
                     <span>{format(parseISO(event.date), 'd MMMM yyyy', { locale: ru })}</span>
                   </div>
                   <div className="flex items-center">
-                    <Clock className="icon-sm mr-1 flex-shrink-0" />
+                    <Clock className="h-4 w-4 mr-1 flex-shrink-0" />
                     <span>{formatTimeRange(event.start_time, event.end_time)}</span>
                   </div>
                 </div>
