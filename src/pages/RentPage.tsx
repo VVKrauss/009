@@ -32,6 +32,11 @@ type RentInfoSettings = {
     email: string;
     map_link?: string;
   };
+  main_prices: {
+    hourly: number;
+    daily: number;
+  };
+  included_services: string[];
 };
 
 const getDurationIcon = (duration: string) => {
@@ -150,58 +155,40 @@ const RentPage = () => {
           </div>
 
           {/* Main pricing section */}
-<div className="mb-6 p-6 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
-  <h2 className="text-2xl font-semibold text-center mb-6">Стоимость аренды</h2>
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-    <div className="text-center p-4 bg-white dark:bg-dark-800 rounded-lg shadow-sm">
-      <div className="text-lg text-gray-600 dark:text-gray-400 mb-2">Почасовая аренда</div>
-      <div className="text-3xl font-bold text-primary-600 dark:text-primary-400">
-        20 €<span className="text-base font-normal text-gray-500 dark:text-gray-400"> / час</span>
-      </div>
-    </div>
-    <div className="text-center p-4 bg-white dark:bg-dark-800 rounded-lg shadow-sm">
-      <div className="text-lg text-gray-600 dark:text-gray-400 mb-2">Дневная аренда</div>
-      <div className="text-3xl font-bold text-primary-600 dark:text-primary-400">
-        120 €<span className="text-base font-normal text-gray-500 dark:text-gray-400"> / день</span>
-      </div>
-    </div>
-  </div>
-  
-  {/* Included services */}
-  <div className="mt-8 max-w-2xl mx-auto">
-    <h3 className="text-lg font-medium text-center mb-4">Включено в стоимость:</h3>
-    <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-600 dark:text-gray-300">
-      <li className="flex items-center gap-2">
-        <Check className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-        Проектор
-      </li>
-      <li className="flex items-center gap-2">
-        <Check className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-        Звуковое оборудование
-      </li>
-      <li className="flex items-center gap-2">
-        <Check className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-        Световое оборудование
-      </li>
-      <li className="flex items-center gap-2">
-        <Check className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-        Стулья и столы
-      </li>
-      <li className="flex items-center gap-2">
-        <Check className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-        Вода
-      </li>
-      <li className="flex items-center gap-2">
-        <Check className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-        Скидки при регулярной аренде
-      </li>
-      <li className="flex items-center gap-2">
-        <Check className="h-4 w-4 text-primary-600 dark:text-primary-400" />
-        Индивидуальные условия для НКО
-      </li>
-    </ul>
-  </div>
-</div>
+          {settings.main_prices && (
+            <div className="mb-6 p-6 bg-primary-50 dark:bg-primary-900/20 rounded-lg">
+              <h2 className="text-2xl font-semibold text-center mb-6">Стоимость аренды</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+                <div className="text-center p-4 bg-white dark:bg-dark-800 rounded-lg shadow-sm">
+                  <div className="text-lg text-gray-600 dark:text-gray-400 mb-2">Почасовая аренда</div>
+                  <div className="text-3xl font-bold text-primary-600 dark:text-primary-400">
+                    {settings.main_prices.hourly} €<span className="text-base font-normal text-gray-500 dark:text-gray-400"> / час</span>
+                  </div>
+                </div>
+                <div className="text-center p-4 bg-white dark:bg-dark-800 rounded-lg shadow-sm">
+                  <div className="text-lg text-gray-600 dark:text-gray-400 mb-2">Дневная аренда</div>
+                  <div className="text-3xl font-bold text-primary-600 dark:text-primary-400">
+                    {settings.main_prices.daily} €<span className="text-base font-normal text-gray-500 dark:text-gray-400"> / день</span>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Included services */}
+              {settings.included_services && settings.included_services.length > 0 && (
+                <div className="mt-8 max-w-2xl mx-auto">
+                  <h3 className="text-lg font-medium text-center mb-4">Включено в стоимость:</h3>
+                  <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-gray-600 dark:text-gray-300">
+                    {settings.included_services.map((service, index) => (
+                      <li key={index} className="flex items-center gap-2">
+                        <Check className="h-4 w-4 text-primary-600 dark:text-primary-400" />
+                        {service}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Additional services */}
           {settings.pricelist && settings.pricelist.length > 0 && (
