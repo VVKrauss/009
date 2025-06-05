@@ -1,19 +1,15 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, lazy, Suspense } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import Slider from 'react-slick';
-import "slick-carousel/slick/slick.css";
-import "slick-carousel/slick/slick-theme.css";
+
+const Slider = lazy(() => import('react-slick'));
+const LazySlider = lazy(() => import('react-slick/slick-carousel'));
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
-
-// Конфигурация высоты hero-секции
-const HERO_HEIGHT = 'min-h-[40vh]'; // Можно изменить на нужное значение
-const LOGO_HEIGHT_RATIO = 0.3; // 60% от высоты hero-секции
 
 type HeaderStyle = 'centered' | 'slideshow';
 type Slide = {
@@ -57,12 +53,20 @@ const defaultHeaderData: HeaderData = {
   }
 };
 
-const HeroSection = () => {
+interface HeroSectionProps {
+  height?: number | string; // Можно передать число (пиксели) или строку (например, "50vh")
+}
+
+const HeroSection = ({ height = 400 }: HeroSectionProps) => {
   const [headerData, setHeaderData] = useState<HeaderData>(defaultHeaderData);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const sliderRef = useRef<Slider>(null);
+
+  // Формируем значение высоты
+  const sectionHeight = typeof height === 'number' ? `${height}px` : height;
+  const logoHeight = typeof height === 'number' ? `${height * 0.6}px` : `60vh`;
 
   useEffect(() => {
     let isMounted = true;
@@ -139,7 +143,10 @@ const HeroSection = () => {
 
   if (isLoading) {
     return (
-      <section className={`relative ${HERO_HEIGHT} flex items-center justify-center bg-gray-100 dark:bg-dark-800`}>
+      <section 
+        className="relative flex items-center justify-center bg-gray-100 dark:bg-dark-800" 
+        style={{ height: sectionHeight }}
+      >
         <div className="text-center">Загрузка...</div>
       </section>
     );
@@ -147,7 +154,10 @@ const HeroSection = () => {
 
   if (error) {
     return (
-      <section className={`relative ${HERO_HEIGHT} flex items-center justify-center bg-gray-100 dark:bg-dark-800`}>
+      <section 
+        className="relative flex items-center justify-center bg-gray-100 dark:bg-dark-800" 
+        style={{ height: sectionHeight }}
+      >
         <div className="text-center text-red-500">{error}</div>
       </section>
     );
@@ -155,69 +165,66 @@ const HeroSection = () => {
 
   if (headerData.style === 'slideshow' && headerData.slideshow.slides.length > 0) {
     return (
-      <section className={`relative ${HERO_HEIGHT}`}>
-        <Slider {...sliderSettings} className="h-full">
-          {headerData.slideshow.slides.map((slide) => (
-            <div key={slide.id} className={`${HERO_HEIGHT} relative`}>
-              {/* Lazy-loaded image with placeholder */}
-              <div className="absolute inset-0 overflow-hidden">
-                <img
-                  src={getImageUrl(slide.image)}
-                  alt=""
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-black/50" />
-              </div>
-              
-              {/* Content overlay */}
-              <div className="relative h-full flex flex-col items-center justify-center">
-                <div className="flex flex-col items-center text-center px-4">
-                  <h1 className="text-2xl md:text-4xl font-bold mb-4 text-white">
-                    {slide.title}
-                  </h1>
-                  <p className="text-lg md:text-xl mb-8 text-white/90 max-w-2xl">
-                    {slide.subtitle}
-                  </p>
-                  <Link 
-                    to="/about" 
-                    className="inline-flex items-center px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors"
-                  >
-                    Узнать больше
-                    <ArrowRight className="ml-2" />
-                  </Link>
+      <section className="relative" style={{ height: sectionHeight }}>
+        <Suspense fallback={<div className="bg-gray-200 dark:bg-dark-700" style={{ height: sectionHeight }} />}>
+          <Slider {...sliderSettings} className="h-full">
+            {headerData.slideshow.slides.map((slide) => (
+              <div key={slide.id} className="relative" style={{ height: sectionHeight }}>
+                <div className="absolute inset-0 overflow-hidden">
+                  <img
+                    src={getImageUrl(slide.image)}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <div className="absolute inset-0 bg-black/50" />
+                </div>
+                
+                <div className="relative h-full flex flex-col items-center justify-center">
+                  <div className="flex flex-col items-center text-center px-4">
+                    <h1 className="text-2xl md:text-4xl font-bold mb-4 text-white">
+                      {slide.title}
+                    </h1>
+                    <p className="text-lg md:text-xl mb-8 text-white/90 max-w-2xl">
+                      {slide.subtitle}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </Slider>
+            ))}
+          </Slider>
+        </Suspense>
       </section>
     );
   }
 
   return (
-    <section className={`relative ${HERO_HEIGHT} flex items-center justify-center bg-gray-50 dark:bg-dark-900`}>
+    <section 
+      className="relative flex items-center justify-center bg-gray-50 dark:bg-dark-900" 
+      style={{ height: sectionHeight }}
+    >
       <div className="flex flex-col items-center justify-center h-full w-full">
-        {/* Logo container with dynamic height */}
         <div 
-          className={`w-full flex items-center justify-center mb-8`}
-          style={{ height: `calc(${LOGO_HEIGHT_RATIO * 100}%)` }}
+          className="w-full flex items-center justify-center mb-8"
+          style={{ height: logoHeight }}
         >
           <img 
             src={headerData.centered.logoLight}
             alt="ScienceHub Logo"
             className="h-full w-auto object-contain dark:hidden"
-            loading="eager"
+            loading="lazy"
+            decoding="async"
           />
           <img 
             src={headerData.centered.logoDark}
             alt="ScienceHub Logo"
             className="h-full w-auto object-contain hidden dark:block"
-            loading="eager"
+            loading="lazy"
+            decoding="async"
           />
         </div>
         
-        {/* Title and subtitle */}
         <div className="text-center px-4 max-w-2xl">
           <h1 className="text-3xl md:text-5xl font-bold mb-4">
             {headerData.centered.title}
@@ -225,13 +232,6 @@ const HeroSection = () => {
           <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8">
             {headerData.centered.subtitle}
           </p>
-          <Link 
-            to="/about" 
-            className="inline-flex items-center px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors"
-          >
-            Узнать больше
-            <ArrowRight className="ml-2" />
-          </Link>
         </div>
       </div>
     </section>
