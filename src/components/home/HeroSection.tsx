@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Slider from 'react-slick';
 import "slick-carousel/slick/slick.css";
@@ -26,6 +25,7 @@ type HeaderData = {
     subtitle: string;
     logoLight: string;
     logoDark: string;
+    logoSize: number;
   };
   slideshow: {
     slides: Slide[];
@@ -42,7 +42,8 @@ const defaultHeaderData: HeaderData = {
     title: 'ScienceHub',
     subtitle: 'Место для научного сообщества',
     logoLight: 'https://jfvinriqydjtwsmayxix.supabase.co/storage/v1/object/public/images/logo/logo_science_hub%20no_title.png',
-    logoDark: 'https://jfvinriqydjtwsmayxix.supabase.co/storage/v1/object/public/images/logo/logo_white_science_hub%20no_title.png'
+    logoDark: 'https://jfvinriqydjtwsmayxix.supabase.co/storage/v1/object/public/images/logo/logo_white_science_hub%20no_title.png',
+    logoSize: 150
   },
   slideshow: {
     slides: [],
@@ -74,6 +75,10 @@ const HeroSection = () => {
         setHeaderData({
           ...defaultHeaderData,
           ...data.header_settings,
+          centered: {
+            ...defaultHeaderData.centered,
+            ...data.header_settings.centered
+          },
           slideshow: {
             ...defaultHeaderData.slideshow,
             ...data.header_settings.slideshow,
@@ -122,7 +127,6 @@ const HeroSection = () => {
         <Slider {...sliderSettings} className="h-full events-slideshow">
           {headerData.slideshow.slides.map((slide) => (
             <div key={slide.id} className="h-hero relative">
-              {/* Image container with proper aspect ratio */}
               <div className="absolute inset-0 overflow-hidden">
                 <img
                   src={getImageUrl(slide.image)}
@@ -132,7 +136,6 @@ const HeroSection = () => {
                 <div className="absolute inset-0 bg-black/50" />
               </div>
               
-              {/* Content overlay */}
               <div className="relative h-full flex flex-col items-center justify-center">
                 <div className="flex flex-col items-center text-center px-4">
                   <h1 className="text-2xl md:text-3xl font-bold mb-2 text-white">
@@ -142,12 +145,6 @@ const HeroSection = () => {
                     {slide.subtitle}
                   </p>
                 </div>
-                {/* <Link 
-                  to="/about" 
-                  className="absolute bottom-6 right-6 p-2 text-white hover:text-primary-300 transition-colors"
-                >
-                  <ArrowRight className="h-6 w-6" />
-                </Link> */}
               </div>
             </div>
           ))}
@@ -159,21 +156,24 @@ const HeroSection = () => {
   return (
     <section className="relative h-hero flex items-center justify-center">
       <div className="flex flex-col items-center justify-center h-full w-full">
-        {/* Logo container - 20% of hero height */}
-        <div className="h-[60%] flex items-center justify-center mb-4">
+        <div 
+          className="h-[60%] flex items-center justify-center mb-4"
+          style={{ maxHeight: `${headerData.centered.logoSize}px` }}
+        >
           <img 
             src={headerData.centered.logoLight}
             alt="ScienceHub Logo"
             className="h-full w-auto object-contain dark:hidden"
+            style={{ maxWidth: `${headerData.centered.logoSize}px` }}
           />
           <img 
             src={headerData.centered.logoDark}
             alt="ScienceHub Logo"
             className="h-full w-auto object-contain hidden dark:block"
+            style={{ maxWidth: `${headerData.centered.logoSize}px` }}
           />
         </div>
         
-        {/* Title and subtitle - compact */}
         <div className="text-center px-4 max-w-2xl">
           <h1 className="text-2xl md:text-3xl font-bold mb-2">
             {headerData.centered.title}
@@ -182,8 +182,6 @@ const HeroSection = () => {
             {headerData.centered.subtitle}
           </p>
         </div>
-        
-  
       </div>
     </section>
   );
