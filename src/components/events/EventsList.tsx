@@ -41,8 +41,7 @@ const EVENT_TYPE_MAP: Record<string, string> = {
   'Excursion': 'Экскурсия',
   'Discussion': 'Дискуссия',
   'Swap': 'Обмен',
-  'Quiz': 'Викторина',
-  'default': 'Мероприятие'
+  'Quiz': 'Викторина'
 }; 
 
 /**
