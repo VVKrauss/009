@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { Calendar, MapPin, ArrowRight } from 'lucide-react';
+import { Calendar, ArrowRight } from 'lucide-react';
 import Slider from 'react-slick';
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
@@ -128,51 +128,37 @@ const EventSlideshow = ({ events }: EventSlideshowProps) => {
                     {event.title}
                   </h2>
                   <p className="text-base md:text-lg mb-6 line-clamp-2">
-                    {event.short_description} {/* Changed from description to short_description */}
+                    {event.short_description}
                   </p>
                   <div className="flex flex-row flex-wrap gap-6 mb-8 text-white/90">
-                    <div className="flex items-center gap-2 text-base">
-                      <Calendar className="h-5 w-5" />
-                      <span>
-                        {format(parseISO(event.date), 'd MMMM', { locale: ru })}
-                        {' • '}
-                        {formatTimeRange(event.start_time, event.end_time)}
-                      </span>
-                    </div>
-                    {event.location && (
-                      <div className="flex items-center gap-2 text-base">
-                        <MapPin className="h-5 w-5" />
-                        <span>{event.location}</span>
-                      </div>
-                    )}
+                    <Link 
+                      to={`/events/${event.id}`}
+                      className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all duration-300 group"
+                      aria-label="Подробнее о мероприятии"
+                    >
+                      <ArrowRight className="h-6 w-6 text-white group-hover:translate-x-1 transition-transform" />
+                    </Link>
                   </div>
-                  <Link 
-                    to={`/events/${event.id}`}
-                    className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all duration-300 group"
-                    aria-label="Подробнее о мероприятии"
-                  >
-                    <ArrowRight className="h-6 w-6 text-white group-hover:translate-x-1 transition-transform" />
-                  </Link>
+                  <div className="flex items-center gap-2 text-base">
+                    <Calendar className="h-5 w-5" />
+                    <span>
+                      {format(parseISO(event.date), 'd MMMM', { locale: ru })}
+                      {' • '}
+                      {formatTimeRange(event.start_time, event.end_time)}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Мобильная версия (только мета-информация) */}
                 <div className="md:hidden absolute bottom-6 left-0 right-0 px-4 sm:px-6">
                   <div className="flex flex-col sm:flex-row sm:flex-wrap justify-between items-start sm:items-center gap-3 text-white">
-                    <div className="flex flex-col sm:flex-row gap-3 sm:gap-6">
-                      <div className="flex items-center gap-2 text-sm sm:text-base">
-                        <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
-                        <span>
-                          {format(parseISO(event.date), 'd MMMM', { locale: ru })}
-                          {' • '}
-                          {formatTimeRange(event.start_time, event.end_time)}
-                        </span>
-                      </div>
-                      {event.location && (
-                        <div className="flex items-center gap-2 text-sm sm:text-base">
-                          <MapPin className="h-4 w-4 sm:h-5 sm:w-5" />
-                          <span>{event.location}</span>
-                        </div>
-                      )}
+                    <div className="flex items-center gap-2 text-sm sm:text-base">
+                      <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+                      <span>
+                        {format(parseISO(event.date), 'd MMMM', { locale: ru })}
+                        {' • '}
+                        {formatTimeRange(event.start_time, event.end_time)}
+                      </span>
                     </div>
                     <Link 
                       to={`/events/${event.id}`}
@@ -200,7 +186,7 @@ const EventSlideshow = ({ events }: EventSlideshowProps) => {
               {event.title}
             </h2>
             <p className="text-sm line-clamp-2">
-              {event.short_description} {/* Changed from description to short_description */}
+              {event.short_description}
             </p>
           </div>
         ))}
