@@ -648,7 +648,7 @@ const CreateEditEventPage = () => {
     }
   };
 
-  const handleAddProgramItem = () => {
+const handleAddProgramItem = () => {
     if (!currentProgramItem.title) {
       toast.error('Введите название пункта программы');
       return;
@@ -668,13 +668,16 @@ const CreateEditEventPage = () => {
       
       if (editingProgramIndex !== null) {
         newProgram[editingProgramIndex] = currentProgramItem;
+        toast.success('Пункт программы обновлен');
       } else {
         newProgram.push(currentProgramItem);
+        toast.success('Пункт программы добавлен');
       }
 
       // Add speaker to main speakers list if not already present
       if (currentProgramItem.lecturer_id && !selectedSpeakers.includes(currentProgramItem.lecturer_id)) {
         setSelectedSpeakers(prev => [...prev, currentProgramItem.lecturer_id]);
+        toast.info('Спикер добавлен в мероприятие');
       }
 
       return {
@@ -708,22 +711,26 @@ const CreateEditEventPage = () => {
     }
     setEditingProgramIndex(index);
     setShowProgramForm(true);
+    toast.info('Редактирование пункта программы');
   };
 
   const handleDeleteProgramItem = async (index: number) => {
     const program = formData.festival_program || [];
     const itemToDelete = program[index];
     
-    if (!confirm('Вы уверены, что хотите удалить этот пункт программы?')) {
+    if (!window.confirm('Вы уверены, что хотите удалить этот пункт программы?')) {
       return;
     }
 
+    const toastId = toast.loading('Удаление пункта программы...');
+    
     try {
       // Delete image from storage if exists
       if (itemToDelete.image_url) {
         await supabase.storage
           .from('images')
           .remove([itemToDelete.image_url]);
+        toast.update(toastId, { render: 'Изображение удалено', type: 'info', isLoading: false, autoClose: 3000 });
       }
 
       setFormData(prev => {
@@ -735,12 +742,23 @@ const CreateEditEventPage = () => {
         };
       });
 
-      toast.success('Пункт программы удалён');
+      toast.update(toastId, { 
+        render: 'Пункт программы удалён', 
+        type: 'success', 
+        isLoading: false, 
+        autoClose: 3000 
+      });
     } catch (error) {
       console.error('Error deleting program item:', error);
-      toast.error('Ошибка при удалении пункта программы');
+      toast.update(toastId, { 
+        render: 'Ошибка при удалении пункта программы', 
+        type: 'error', 
+        isLoading: false, 
+        autoClose: 3000 
+      });
     }
   };
+
 
   const toggleSpeaker = (speakerId: string) => {
     setSelectedSpeakers(prev => {
