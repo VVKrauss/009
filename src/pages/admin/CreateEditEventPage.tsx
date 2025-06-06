@@ -9,7 +9,7 @@ import 'cropperjs/dist/cropper.css';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
+  import.meta.env.VITE_SUPABASE_ANON_KEY 
 );
 
 interface Speaker {
@@ -32,6 +32,7 @@ interface FestivalProgramItem {
 type Event = {
   id: string;
   title: string;
+  short_description: string;
   description: string;
   event_type: string;
   bg_image: string | null;
@@ -52,6 +53,8 @@ type Event = {
   couple_discount?: string;
   child_half_price?: boolean;
   payment_link?: string;
+  payment_widget_id?: string;
+  widget_chooser?: boolean;
   video_url?: string;
   photo_gallery?: string;
   festival_program?: FestivalProgramItem[];
@@ -77,6 +80,10 @@ const ageCategories = ['0+', '12+', '18+'];
 const currencies = ['RSD', 'EUR', 'RUB'];
 const statuses = ['draft', 'active', 'past'];
 
+const TITLE_MAX_LENGTH = 50;
+const SHORT_DESC_MAX_LENGTH = 150;
+const DESC_MAX_LENGTH = 800;
+
 const CreateEditEventPage = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -89,11 +96,13 @@ const CreateEditEventPage = () => {
   const [speakers, setSpeakers] = useState<Speaker[]>([]);
   const [selectedSpeakers, setSelectedSpeakers] = useState<string[]>([]);
   const [speakersLoading, setSpeakersLoading] = useState(true);
-  const [speakersError, setSpekersError] = useState<string | null>(null);
+  const [speakersError, setSpeakersError] = useState<string | null>(null);
   const [speakerSearchQuery, setSpeakerSearchQuery] = useState('');
+  const [usePaymentWidget, setUsePaymentWidget] = useState(false);
 
   // Festival program states
   const [editingProgramIndex, setEditingProgramIndex] = useState<number | null>(null);
+  const [showProgramForm, setShowProgramForm] = useState(false);
   const [currentProgramItem, setCurrentProgramItem] = useState<FestivalProgramItem>({
     title: '',
     description: '',
@@ -111,6 +120,7 @@ const CreateEditEventPage = () => {
   const [formData, setFormData] = useState<Event>({
     id: crypto.randomUUID(),
     title: '',
+    short_description: '',
     description: '',
     event_type: eventTypes[0],
     bg_image: null,
@@ -131,6 +141,8 @@ const CreateEditEventPage = () => {
     couple_discount: '',
     child_half_price: false,
     payment_link: '',
+    payment_widget_id: '',
+    widget_chooser: false,
     video_url: '',
     photo_gallery: '',
     festival_program: []
@@ -176,11 +188,17 @@ const CreateEditEventPage = () => {
 
         setFormData({
           ...data,
+          short_description: data.short_description || '',
           start_time: startTime,
           end_time: endTime,
-          festival_program: data.festival_program || []
+          festival_program: data.festival_program || [],
+          payment_widget_id: data.payment_widget_id || '',
+          widget_chooser: data.widget_chooser || false
         });
+        
         setSelectedSpeakers(data.speakers || []);
+        setUsePaymentWidget(data.widget_chooser || false);
+        
         if (data.bg_image) {
           setPreviewUrl(`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${data.bg_image}`);
         }
@@ -204,7 +222,7 @@ const CreateEditEventPage = () => {
       setSpeakers(data || []);
     } catch (error) {
       console.error('Error fetching speakers:', error);
-      setSpekersError('Failed to load speakers');
+      setSpeakersError('Failed to load speakers');
     } finally {
       setSpeakersLoading(false);
     }
@@ -266,8 +284,24 @@ const CreateEditEventPage = () => {
       toast.error('Введите название мероприятия');
       return false;
     }
+    
+    if (formData.title.length > TITLE_MAX_LENGTH) {
+      toast.error(`Название слишком длинное. Уменьшите на ${formData.title.length - TITLE_MAX_LENGTH} символов`);
+      return false;
+    }
+  
     if (!formData.description.trim()) {
       toast.error('Введите описание мероприятия');
+      return false;
+    }
+  
+    if (formData.description.length > DESC_MAX_LENGTH) {
+      toast.error(`Описание слишком длинное. Уменьшите на ${formData.description.length - DESC_MAX_LENGTH} символов`);
+      return false;
+    }
+  
+    if (formData.short_description.length > SHORT_DESC_MAX_LENGTH) {
+      toast.error(`Короткое описание слишком длинное. Уменьшите на ${formData.short_description.length - SHORT_DESC_MAX_LENGTH} символов`);
       return false;
     }
     if (!formData.date) {
@@ -283,10 +317,13 @@ const CreateEditEventPage = () => {
       return false;
     }
 
-    if (formData.payment_link && !isValidUrl(formData.payment_link)) {
-      toast.error('Неверный формат ссылки для оплаты');
-      return false;
+    if (formData.payment_type === 'cost') {
+      if (formData.payment_link && !isValidUrl(formData.payment_link)) {
+        toast.error('Неверный формат ссылки для оплаты');
+        return false;
+      }
     }
+
     if (formData.video_url && !isValidUrl(formData.video_url)) {
       toast.error('Неверный формат ссылки на видео');
       return false;
@@ -324,7 +361,10 @@ const CreateEditEventPage = () => {
         speakers: selectedSpeakers,
         start_time: startDateTime.toISOString(),
         end_time: endDateTime.toISOString(),
-        festival_program: festivalProgram
+        festival_program: festivalProgram,
+        widget_chooser: usePaymentWidget,
+        payment_link: formData.payment_link,
+        payment_widget_id: formData.payment_widget_id
       };
 
       const { error } = await supabase
@@ -342,7 +382,7 @@ const CreateEditEventPage = () => {
       setLoading(false);
     }
   };
-
+  
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -370,8 +410,17 @@ const CreateEditEventPage = () => {
         height: 400
       });
 
+      if (!croppedCanvas) {
+        throw new Error('Cropping failed');
+      }
+
       const croppedBlob = await new Promise<Blob>((resolve) => {
-        croppedCanvas.toBlob((blob: Blob) => resolve(blob), 'image/jpeg', 0.9);
+        croppedCanvas.toBlob((blob: Blob | null) => {
+          if (!blob) {
+            throw new Error('Failed to create blob');
+          }
+          resolve(blob);
+        }, 'image/jpeg', 0.9);
       });
 
       const croppedFile = new File([croppedBlob], imageFile.name, {
@@ -425,13 +474,13 @@ const CreateEditEventPage = () => {
   const handleProgramImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
+  
     try {
       const compressedFile = await imageCompression(file, {
-        maxWidthOrHeight: 1000,
+        maxWidthOrHeight: 2000,
         useWebWorker: true
       });
-
+  
       setProgramImageFile(compressedFile);
       setShowProgramCropper(true);
     } catch (error) {
@@ -445,14 +494,25 @@ const CreateEditEventPage = () => {
 
     try {
       const croppedCanvas = programCropper.getCroppedCanvas({
-        width: 300,
-        height: 300,
-        minWidth: 300,
-        minHeight: 300
+        width: 400,
+        height: 500,
+        minWidth: 400,
+        minHeight: 500,
+        maxWidth: 400,
+        maxHeight: 500
       });
 
+      if (!croppedCanvas) {
+        throw new Error('Cropping failed');
+      }
+
       const croppedBlob = await new Promise<Blob>((resolve) => {
-        croppedCanvas.toBlob((blob: Blob) => resolve(blob), 'image/jpeg', 0.9);
+        croppedCanvas.toBlob((blob: Blob | null) => {
+          if (!blob) {
+            throw new Error('Failed to create blob');
+          }
+          resolve(blob);
+        }, 'image/jpeg', 0.9);
       });
 
       const croppedFile = new File([croppedBlob], programImageFile.name, {
@@ -469,7 +529,6 @@ const CreateEditEventPage = () => {
 
       if (error) throw error;
 
-      // Delete old image if exists
       if (currentProgramItem.image_url) {
         await supabase.storage
           .from('images')
@@ -514,12 +573,18 @@ const CreateEditEventPage = () => {
         newProgram.push(currentProgramItem);
       }
 
+      // Add speaker to main speakers list if not already present
+      if (currentProgramItem.lecturer_id && !selectedSpeakers.includes(currentProgramItem.lecturer_id)) {
+        setSelectedSpeakers(prev => [...prev, currentProgramItem.lecturer_id]);
+      }
+
       return {
         ...prev,
         festival_program: newProgram
       };
     });
 
+    // Reset form
     setCurrentProgramItem({
       title: '',
       description: '',
@@ -530,6 +595,7 @@ const CreateEditEventPage = () => {
     });
     setProgramPreviewUrl(null);
     setEditingProgramIndex(null);
+    setShowProgramForm(false);
     if (programFileInputRef.current) {
       programFileInputRef.current.value = '';
     }
@@ -542,6 +608,7 @@ const CreateEditEventPage = () => {
       setProgramPreviewUrl(`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${program[index].image_url}`);
     }
     setEditingProgramIndex(index);
+    setShowProgramForm(true);
   };
 
   const handleDeleteProgramItem = async (index: number) => {
@@ -709,40 +776,48 @@ const CreateEditEventPage = () => {
           </div>
 
           {/* Basic information */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="form-group">
-              <label htmlFor="title" className="block font-medium mb-2">
-                Название
-              </label>
-              <input
-                type="text"
-                id="title"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="form-input"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="event_type" className="block font-medium mb-2">
-                Тип мероприятия
-              </label>
-              <select
-                id="event_type"
-                value={formData.event_type}
-                onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
-                className="form-input"
-              >
-                {eventTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
+          <div className="form-group">
+            <label htmlFor="title" className="block font-medium mb-2">
+              Название ({formData.title.length}/{TITLE_MAX_LENGTH})
+            </label>
+            <input
+              type="text"
+              id="title"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              className="form-input"
+              maxLength={TITLE_MAX_LENGTH}
+            />
+            {formData.title.length >= TITLE_MAX_LENGTH && (
+              <p className="text-sm text-red-600 mt-1">
+                Максимальная длина достигнута
+              </p>
+            )}
           </div>
-
+          
+          <div className="form-group">
+            <label htmlFor="short_description" className="block font-medium mb-2">
+              Короткое описание ({formData.short_description.length}/{SHORT_DESC_MAX_LENGTH})
+              <span className="text-sm text-gray-500 ml-2">(необязательное)</span>
+            </label>
+            <textarea
+              id="short_description"
+              value={formData.short_description}
+              onChange={(e) => setFormData({ ...formData, short_description: e.target.value })}
+              className="form-input"
+              rows={2}
+              maxLength={SHORT_DESC_MAX_LENGTH}
+            />
+            {formData.short_description.length >= SHORT_DESC_MAX_LENGTH && (
+              <p className="text-sm text-red-600 mt-1">
+                Максимальная длина достигнута
+              </p>
+            )}
+          </div>
+          
           <div className="form-group">
             <label htmlFor="description" className="block font-medium mb-2">
-              Описание
+              Описание ({formData.description.length}/{DESC_MAX_LENGTH})
             </label>
             <textarea
               id="description"
@@ -750,7 +825,29 @@ const CreateEditEventPage = () => {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="form-input"
               rows={4}
+              maxLength={DESC_MAX_LENGTH}
             />
+            {formData.description.length >= DESC_MAX_LENGTH && (
+              <p className="text-sm text-red-600 mt-1">
+                Максимальная длина достигнута
+              </p>
+            )}
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="event_type" className="block font-medium mb-2">
+              Тип мероприятия
+            </label>
+            <select
+              id="event_type"
+              value={formData.event_type}
+              onChange={(e) => setFormData({ ...formData, event_type: e.target.value })}
+              className="form-input"
+            >
+              {eventTypes.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
           </div>
 
           {/* Date and time */}
@@ -973,17 +1070,57 @@ const CreateEditEventPage = () => {
               </div>
 
               <div className="form-group">
-                <label htmlFor="payment_link" className="block font-medium mb-2">
-                  Ссылка для оплаты
+                <label className="flex items-center justify-between mb-2">
+                  <span className="font-medium">Использовать виджет оплаты</span>
+                  <button
+                    type="button"
+                    onClick={() => setUsePaymentWidget(!usePaymentWidget)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
+                      usePaymentWidget ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        usePaymentWidget ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
                 </label>
-                <input
-                  type="url"
-                  id="payment_link"
-                  value={formData.payment_link || ''}
-                  onChange={(e) => setFormData({ ...formData, payment_link: e.target.value })}
-                  className="form-input"
-                  placeholder="https://"
-                />
+                <p className="text-sm text-gray-500 mb-2">
+                  Тумблер только сохраняет предпочтение, оба поля будут сохранены
+                </p>
+
+                <div className="space-y-4">
+                  <div>
+                    <label htmlFor="payment_link" className="block font-medium mb-2">
+                      Ссылка для оплаты
+                    </label>
+                    <input
+                      type="url"
+                      id="payment_link"
+                      value={formData.payment_link || ''}
+                      onChange={(e) => setFormData({ ...formData, payment_link: e.target.value })}
+                      className="form-input"
+                      placeholder="https://"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="payment_widget_id" className="block font-medium mb-2">
+                      Код виджета оплаты
+                    </label>
+                    <textarea
+                      id="payment_widget_id"
+                      value={formData.payment_widget_id || ''}
+                      onChange={(e) => setFormData({ ...formData, payment_widget_id: e.target.value })}
+                      className="form-input h-32"
+                      placeholder='<a href="#" data-oblak-widget data-event-id="ID">Buy ticket</a>'
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      Вставьте полный HTML-код виджета
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -1172,6 +1309,7 @@ const CreateEditEventPage = () => {
                     });
                     setProgramPreviewUrl(null);
                     setEditingProgramIndex(null);
+                    setShowProgramForm(true);
                   }}
                   className="btn-outline flex items-center gap-2"
                 >
@@ -1216,7 +1354,7 @@ const CreateEditEventPage = () => {
               </div>
 
               {/* Program item form */}
-              {(editingProgramIndex !== null || (formData.festival_program || []).length === 0) && (
+              {showProgramForm && (
                 <div className="border rounded-lg p-6 space-y-4">
                   <h4 className="font-medium">
                     {editingProgramIndex !== null ? 'Редактирование пункта программы' : 'Добавление пункта программы'}
@@ -1284,17 +1422,29 @@ const CreateEditEventPage = () => {
 
                   <div className="form-group">
                     <label className="block font-medium mb-2">Изображение</label>
+
                     {showProgramCropper && programImageFile ? (
                       <div className="space-y-4">
-                        <Cropper
-                          src={URL.createObjectURL(programImageFile)}
-                          style={{ height: 300, width: 300 }}
-                          aspectRatio={1}
-                          guides={true}
-                          minCropBoxWidth={300}
-                          minCropBoxHeight={300}
-                          onInitialized={instance => setProgramCropper(instance)}
-                        />
+                        <div className="relative" style={{ height: '70vh', width: '100%' }}>
+                          <Cropper
+                            src={URL.createObjectURL(programImageFile)}
+                            style={{ height: '100%', width: '100%' }}
+                            aspectRatio={4/5}
+                            viewMode={1}
+                            autoCropArea={0.8}
+                            movable={true}
+                            zoomable={true}
+                            cropBoxMovable={true}
+                            cropBoxResizable={true}
+                            guides={true}
+                            minContainerWidth={300}
+                            minContainerHeight={375}
+                            onInitialized={(instance) => {
+                              setProgramCropper(instance);
+                              instance.crop();
+                            }}
+                          />
+                        </div>
                         <div className="flex justify-end gap-4">
                           <button
                             type="button"
@@ -1317,7 +1467,7 @@ const CreateEditEventPage = () => {
                         <img
                           src={programPreviewUrl}
                           alt="Preview"
-                          className="w-32 h-32 object-cover rounded-lg"
+                          className="w-full max-w-[400px] aspect-[4/5] object-cover rounded-lg"
                         />
                         <button
                           type="button"
@@ -1351,13 +1501,20 @@ const CreateEditEventPage = () => {
                           Загрузить изображение
                         </button>
                         <p className="mt-2 text-xs text-dark-500">
-                          Рекомендуемый размер: квадратное изображение минимум 300×300px
+                          Рекомендуемый размер: изображение в пропорции 4:5 (например, 400×500px)
                         </p>
                       </div>
                     )}
                   </div>
 
                   <div className="flex justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowProgramForm(false)}
+                      className="btn-outline mr-4"
+                    >
+                      Отмена
+                    </button>
                     <button
                       type="button"
                       onClick={handleAddProgramItem}
