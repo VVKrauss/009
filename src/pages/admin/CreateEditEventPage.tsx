@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 import { ArrowLeft, Upload, Trash2, User, Search, X, Check, Plus } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 import imageCompression from 'browser-image-compression';
 import Cropper from 'react-cropper';
 import 'cropperjs/dist/cropper.css';
@@ -161,6 +162,62 @@ const CreateEditEventPage = () => {
     }
   };
 
+  const updateTimeSlots = async (eventData: Event) => {
+    try {
+      const startDateTime = new Date(`${eventData.date}T${eventData.start_time}:00`);
+      const endDateTime = new Date(`${eventData.date}T${eventData.end_time}:00`);
+
+      // Check if slot already exists
+      const { data: existingSlot, error: slotError } = await supabase
+        .from('time_slots_table')
+        .select('*')
+        .eq('slot_details->>event_id', eventData.id)
+        .single();
+
+      if (slotError && slotError.code !== 'PGRST116') { // PGRST116 - no rows found
+        throw slotError;
+      }
+
+      const slotData = {
+        date: eventData.date,
+        start_time: startDateTime.toTimeString().slice(0, 8),
+        end_time: endDateTime.toTimeString().slice(0, 8),
+        slot_details: {
+          event_id: eventData.id,
+          event_title: eventData.title,
+          event_type: eventData.event_type,
+          location: eventData.location,
+          max_registrations: eventData.max_registrations,
+          current_registrations: 0,
+          speakers: eventData.speakers || []
+        }
+      };
+
+      if (existingSlot) {
+        // Update existing slot
+        const { error: updateError } = await supabase
+          .from('time_slots_table')
+          .update(slotData)
+          .eq('id', existingSlot.id);
+
+        if (updateError) throw updateError;
+        toast.info('Временной слот обновлен');
+      } else {
+        // Create new slot
+        const { error: insertError } = await supabase
+          .from('time_slots_table')
+          .insert(slotData);
+
+        if (insertError) throw insertError;
+        toast.info('Создан новый временной слот');
+      }
+    } catch (error) {
+      console.error('Error updating time slots:', error);
+      toast.error('Ошибка при обновлении временных слотов');
+      throw error;
+    }
+  };
+
   useEffect(() => {
     const initializeEvent = async () => {
       if (id && id !== 'new') {
@@ -223,6 +280,7 @@ const CreateEditEventPage = () => {
     } catch (error) {
       console.error('Error fetching speakers:', error);
       setSpeakersError('Failed to load speakers');
+      toast.error('Ошибка при загрузке спикеров');
     } finally {
       setSpeakersLoading(false);
     }
@@ -231,14 +289,25 @@ const CreateEditEventPage = () => {
   const handleDeleteEvent = async () => {
     if (!id || id === 'new') return;
     
-    if (!confirm('Вы уверены, что хотите удалить это мероприятие?')) {
+    if (!window.confirm('Вы уверены, что хотите удалить это мероприятие?')) {
       return;
     }
 
+    const toastId = toast.loading('Удаление мероприятия...');
+    
     try {
       setLoading(true);
       
-      // Delete all program item images first
+      // Delete time slot first
+      const { error: slotError } = await supabase
+        .from('time_slots_table')
+        .delete()
+        .eq('slot_details->>event_id', id);
+
+      if (slotError) throw slotError;
+      toast.update(toastId, { render: 'Временной слот удален', type: 'info', isLoading: false, autoClose: 3000 });
+
+      // Delete program images
       if (formData.festival_program && formData.festival_program.length > 0) {
         const imagesToDelete = formData.festival_program
           .map(item => item.image_url)
@@ -248,9 +317,11 @@ const CreateEditEventPage = () => {
           await supabase.storage
             .from('images')
             .remove(imagesToDelete);
+          toast.update(toastId, { render: 'Изображения программы удалены', type: 'info', isLoading: false, autoClose: 3000 });
         }
       }
 
+      // Delete the event
       const { error } = await supabase
         .from('events')
         .delete()
@@ -258,6 +329,7 @@ const CreateEditEventPage = () => {
 
       if (error) throw error;
 
+      // Delete event images
       if (formData.bg_image) {
         await supabase.storage
           .from('images')
@@ -269,11 +341,21 @@ const CreateEditEventPage = () => {
           .remove([formData.original_bg_image]);
       }
 
-      toast.success('Мероприятие успешно удалено');
+      toast.update(toastId, { 
+        render: 'Мероприятие успешно удалено', 
+        type: 'success', 
+        isLoading: false, 
+        autoClose: 3000 
+      });
       navigate('/admin/events');
     } catch (error) {
       console.error('Error deleting event:', error);
-      toast.error('Ошибка при удалении мероприятия');
+      toast.update(toastId, { 
+        render: 'Ошибка при удалении мероприятия', 
+        type: 'error', 
+        isLoading: false, 
+        autoClose: 3000 
+      });
     } finally {
       setLoading(false);
     }
@@ -343,6 +425,7 @@ const CreateEditEventPage = () => {
       return;
     }
 
+    const toastId = toast.loading(id === 'new' ? 'Создание мероприятия...' : 'Обновление мероприятия...');
     setLoading(true);
 
     try {
@@ -367,17 +450,31 @@ const CreateEditEventPage = () => {
         payment_widget_id: formData.payment_widget_id
       };
 
+      // Save event
       const { error } = await supabase
         .from('events')
         .upsert(dataToSave);
 
       if (error) throw error;
 
-      toast.success(id === 'new' ? 'Мероприятие создано' : 'Мероприятие обновлено');
+      // Update time slots
+      await updateTimeSlots(dataToSave);
+
+      toast.update(toastId, { 
+        render: id === 'new' ? 'Мероприятие создано' : 'Мероприятие обновлено', 
+        type: 'success', 
+        isLoading: false, 
+        autoClose: 3000 
+      });
       navigate('/admin/events');
     } catch (error) {
       console.error('Error saving event:', error);
-      toast.error('Ошибка при сохранении мероприятия');
+      toast.update(toastId, { 
+        render: 'Ошибка при сохранении мероприятия', 
+        type: 'error', 
+        isLoading: false, 
+        autoClose: 3000 
+      });
     } finally {
       setLoading(false);
     }
