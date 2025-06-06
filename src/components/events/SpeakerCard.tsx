@@ -1,4 +1,4 @@
-import { User } from 'lucide-react';
+import { User, Link2 } from 'lucide-react';
 
 type SpeakerCardProps = {
   speaker: {
@@ -7,11 +7,18 @@ type SpeakerCardProps = {
     field_of_expertise: string;
     description: string;
     photos: { url: string; isMain?: boolean }[];
+    blog_visibility?: boolean;
+    blogs?: string; // JSON string of blog array
   };
 };
 
 const SpeakerCard = ({ speaker }: SpeakerCardProps) => {
   const mainPhoto = speaker.photos?.find(photo => photo.isMain) || speaker.photos?.[0];
+  
+  // Parse blogs if they exist and are visible
+  const parsedBlogs = speaker.blog_visibility && speaker.blogs 
+    ? JSON.parse(speaker.blogs) 
+    : null;
 
   return (
     <div className="bg-white dark:bg-dark-800 rounded-lg p-6 shadow-sm">
@@ -52,9 +59,32 @@ const SpeakerCard = ({ speaker }: SpeakerCardProps) => {
       
       {/* Нижний блок с описанием */}
       <div className="pt-4 border-t border-gray-200 dark:border-dark-700">
-        <p className="text-dark-600 dark:text-dark-300">
+        <p className="text-dark-600 dark:text-dark-300 mb-4">
           {speaker.description}
         </p>
+        
+        {/* Блок с блогами */}
+        {parsedBlogs && parsedBlogs.length > 0 && (
+          <div className="mt-4">
+            <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">
+              Блоги и соцсети:
+            </h4>
+            <div className="flex flex-wrap gap-2">
+              {parsedBlogs.map((blog: { url: string; platform: string }, index: number) => (
+                <a
+                  key={index}
+                  href={blog.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-primary-100 dark:bg-dark-700 text-primary-800 dark:text-primary-300 hover:bg-primary-200 dark:hover:bg-dark-600 transition-colors"
+                >
+                  <Link2 className="w-3 h-3 mr-1.5" />
+                  {blog.platform}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
