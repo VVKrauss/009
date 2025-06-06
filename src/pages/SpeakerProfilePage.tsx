@@ -28,7 +28,7 @@ interface Speaker {
     date: string;
   }>;
   blog_visibility?: boolean;
-  blogs?: string; // JSON string of blog array
+  blogs?: string | Array<{ url: string; platform: string }>;
 }
 
 const SpeakerProfilePage = () => {
@@ -83,6 +83,18 @@ const SpeakerProfilePage = () => {
     );
   };
 
+  const parseBlogs = (blogs: string | Array<{ url: string; platform: string }>) => {
+    try {
+      if (typeof blogs === 'string') {
+        return JSON.parse(blogs) as Array<{ url: string; platform: string }>;
+      }
+      return blogs;
+    } catch (error) {
+      console.error('Error parsing blogs:', error);
+      return null;
+    }
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -103,10 +115,8 @@ const SpeakerProfilePage = () => {
     );
   }
 
-  // Parse blogs if they exist and are visible
-  const parsedBlogs = speaker.blog_visibility && speaker.blogs 
-    ? JSON.parse(speaker.blogs)
-    : null;
+  const parsedBlogs = speaker.blog_visibility ? parseBlogs(speaker.blogs || '[]') : null;
+  const hasBlogs = parsedBlogs && parsedBlogs.length > 0;
 
   return (
     <Layout>
@@ -120,10 +130,8 @@ const SpeakerProfilePage = () => {
             Назад к списку спикеров
           </button>
 
-          {/* Hero Block */}
           <div className="bg-white dark:bg-dark-900 rounded-xl shadow-lg overflow-hidden mb-8">
             <div className="flex flex-col md:flex-row">
-              {/* Photo Gallery */}
               <div className="w-full md:w-1/3 lg:w-1/4 p-6">
                 <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-dark-700 shadow-md">
                   {speaker.photos.length > 0 ? (
@@ -133,8 +141,6 @@ const SpeakerProfilePage = () => {
                         alt={speaker.name}
                         className="w-full h-full object-cover transition-opacity duration-300"
                       />
-                      
-                      {/* Navigation Arrows */}
                       {speaker.photos.length > 1 && (
                         <>
                           <button
@@ -163,7 +169,6 @@ const SpeakerProfilePage = () => {
                   )}
                 </div>
 
-                {/* Thumbnails */}
                 {speaker.photos.length > 1 && (
                   <div className="mt-4 grid grid-cols-4 gap-2">
                     {speaker.photos.map((photo, index) => (
@@ -187,7 +192,6 @@ const SpeakerProfilePage = () => {
                 )}
               </div>
 
-              {/* Speaker Info */}
               <div className="w-full md:w-2/3 lg:w-3/4 p-6 md:p-8 flex flex-col justify-center">
                 <h1 className="text-3xl md:text-4xl font-bold text-dark-800 dark:text-white mb-2">
                   {speaker.name}
@@ -233,14 +237,13 @@ const SpeakerProfilePage = () => {
                   )}
                 </div>
 
-                {/* Blog Links Section */}
-                {parsedBlogs && parsedBlogs.length > 0 && (
+                {hasBlogs && (
                   <div className="mb-6">
                     <h3 className="text-lg font-semibold mb-3 text-dark-800 dark:text-white">
                       Блоги и социальные сети
                     </h3>
                     <div className="flex flex-wrap gap-3">
-                      {parsedBlogs.map((blog: { url: string; platform: string }, index: number) => (
+                      {parsedBlogs.map((blog, index) => (
                         <a
                           key={index}
                           href={blog.url}
@@ -259,9 +262,7 @@ const SpeakerProfilePage = () => {
             </div>
           </div>
 
-          {/* Additional Sections */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Achievements */}
             {Array.isArray(speaker.achievements) && speaker.achievements.length > 0 && (
               <div className="bg-white dark:bg-dark-900 rounded-xl shadow-lg p-6">
                 <h2 className="text-2xl font-bold mb-4">Достижения</h2>
@@ -276,7 +277,6 @@ const SpeakerProfilePage = () => {
               </div>
             )}
 
-            {/* Past Events */}
             {Array.isArray(speaker.past_events) && speaker.past_events.length > 0 && (
               <div className="bg-white dark:bg-dark-900 rounded-xl shadow-lg p-6">
                 <h2 className="text-2xl font-bold mb-4">Прошедшие мероприятия</h2>
