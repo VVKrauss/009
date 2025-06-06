@@ -9,6 +9,7 @@ const supabase = createClient(
 );
 
 type AboutData = {
+  id?: number;
   project_info: string;
   team_members: Array<{
     name: string;
@@ -56,31 +57,29 @@ const AdminAbout = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
-const { data, error } = await supabase
-  .from('about_table')
-  .select('*')
-  .limit(1)
-  .single();
-
+      const { data, error } = await supabase
+        .from('about_table')
+        .select('*')
+        .eq('id', 7)
+        .single();
 
       if (error) {
         if (error.code === 'PGRST116') {
-          setAboutData(defaultAboutData);
+          // Если записи нет, создаем новую с id = 7
+          const { data: newData, error: insertError } = await supabase
+            .from('about_table')
+            .insert([{ ...defaultAboutData, id: 7 }])
+            .select()
+            .single();
+
+          if (insertError) throw insertError;
+          
+          setAboutData(newData || { ...defaultAboutData, id: 7 });
         } else {
           throw error;
         }
       } else if (data) {
-        setAboutData({
-          project_info: data.project_info || '',
-          team_members: Array.isArray(data.team_members) ? data.team_members : [],
-          contributors: Array.isArray(data.contributors) ? data.contributors : [],
-          support_platforms: Array.isArray(data.support_platforms) ? data.support_platforms : [],
-          contact_info: {
-            email: data.contact_info?.email || '',
-            phone: data.contact_info?.phone || '',
-            address: data.contact_info?.address || ''
-          }
-        });
+        setAboutData(data);
       }
     } catch (err) {
       console.error('Error fetching about data:', err);
@@ -93,9 +92,11 @@ const { data, error } = await supabase
   const handleSave = async () => {
     try {
       setSaving(true);
+      
+      // Всегда обновляем запись с id = 7
       const { error } = await supabase
         .from('about_table')
-        .upsert([aboutData]);
+        .upsert({ ...aboutData, id: 7 });
 
       if (error) throw error;
 
@@ -127,20 +128,17 @@ const { data, error } = await supabase
       const fileName = `${type}_${timestamp}.${fileExt}`;
       const filePath = `about/${fileName}`;
 
-      // Upload file to Supabase Storage
       const { error: uploadError } = await supabase.storage
         .from('images')
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
       const { data: { publicUrl } } = supabase
         .storage
         .from('images')
         .getPublicUrl(filePath);
 
-      // Update the corresponding photo URL in state
       if (type === 'team') {
         const newTeamMembers = [...aboutData.team_members];
         newTeamMembers[index].photo = publicUrl;
@@ -157,7 +155,6 @@ const { data, error } = await supabase
       toast.error('Ошибка при загрузке изображения');
     } finally {
       setUploading(null);
-      // Reset file input
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -225,7 +222,6 @@ const { data, error } = await supabase
 
   return (
     <div className="min-h-[calc(100vh-200px)] bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
-      {/* Hidden file input */}
       <input
         type="file"
         ref={fileInputRef}
