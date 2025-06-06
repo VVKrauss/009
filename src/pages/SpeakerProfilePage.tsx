@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
-import { ArrowLeft, Mail, Globe, MapPin } from 'lucide-react';
+import { ArrowLeft, Mail, Globe, MapPin, Link2 } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { toast } from 'react-hot-toast';
 
@@ -27,6 +27,8 @@ interface Speaker {
     title: string;
     date: string;
   }>;
+  blog_visibility?: boolean;
+  blogs?: string; // JSON string of blog array
 }
 
 const SpeakerProfilePage = () => {
@@ -100,6 +102,11 @@ const SpeakerProfilePage = () => {
       </Layout>
     );
   }
+
+  // Parse blogs if they exist and are visible
+  const parsedBlogs = speaker.blog_visibility && speaker.blogs 
+    ? JSON.parse(speaker.blogs)
+    : null;
 
   return (
     <Layout>
@@ -218,13 +225,36 @@ const SpeakerProfilePage = () => {
                   )}
                 </div>
 
-                <div className="prose dark:prose-invert max-w-none mb-4">
+                <div className="prose dark:prose-invert max-w-none mb-6">
                   {speaker.description || (
                     <p className="text-gray-500 dark:text-gray-400">
                       Описание спикера отсутствует
                     </p>
                   )}
                 </div>
+
+                {/* Blog Links Section */}
+                {parsedBlogs && parsedBlogs.length > 0 && (
+                  <div className="mb-6">
+                    <h3 className="text-lg font-semibold mb-3 text-dark-800 dark:text-white">
+                      Блоги и социальные сети
+                    </h3>
+                    <div className="flex flex-wrap gap-3">
+                      {parsedBlogs.map((blog: { url: string; platform: string }, index: number) => (
+                        <a
+                          key={index}
+                          href={blog.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center px-4 py-2 rounded-lg bg-gray-100 dark:bg-dark-700 hover:bg-gray-200 dark:hover:bg-dark-600 transition-colors text-dark-700 dark:text-dark-200"
+                        >
+                          <Link2 className="w-4 h-4 mr-2 flex-shrink-0" />
+                          <span>{blog.platform}</span>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
