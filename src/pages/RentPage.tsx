@@ -146,38 +146,38 @@ const RentPage = () => {
             )}
           </div>
 
-{/* Description with HTML and Photo Gallery */}
-<div className="mb-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-  {/* Text content - takes 2/3 of width on large screens */}
-  <div 
-    className="lg:col-span-2 prose dark:prose-invert max-w-none"
-    dangerouslySetInnerHTML={{ __html: settings.description }}
-  />
-  
-  {/* Photo gallery - takes 1/3 of width on large screens */}
-  {settings.photos && settings.photos.length > 0 && (
-    <div className="hidden lg:flex flex-col gap-4 h-full">
-      {settings.photos.map((photo, index) => (
-        <div 
-          key={index}
-          className="flex-1 rounded-xl overflow-hidden"
-          style={{
-            maxHeight: `calc((100% - ${(settings.photos!.length - 1) * 16}px) / ${settings.photos!.length})`,
-            minHeight: '100px'
-          }}
-        >
-          <img
-            src={photo.startsWith('http') 
-              ? photo 
-              : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${photo}`}
-            alt={`${settings.title} - фото ${index + 1}`}
-            className="w-full h-full object-cover rounded-xl"
-          />
-        </div>
-      ))}
-    </div>
-  )}
-</div>
+          {/* Description with HTML and Photo Gallery */}
+          <div className="mb-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Text content - takes 2/3 of width on large screens */}
+            <div 
+              className="lg:col-span-2 prose dark:prose-invert max-w-none"
+              dangerouslySetInnerHTML={{ __html: settings.description }}
+            />
+            
+            {/* Photo gallery - takes 1/3 of width on large screens */}
+            {settings.photos && settings.photos.length > 0 && (
+              <div className="hidden lg:flex flex-col gap-4 h-full">
+                {settings.photos.map((photo, index) => (
+                  <div 
+                    key={index}
+                    className="flex-1 rounded-xl overflow-hidden"
+                    style={{
+                      maxHeight: `calc((100% - ${(settings.photos!.length - 1) * 16}px) / ${settings.photos!.length})`,
+                      minHeight: '100px'
+                    }}
+                  >
+                    <img
+                      src={photo.startsWith('http') 
+                        ? photo 
+                        : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${photo}`}
+                      alt={`${settings.title} - фото ${index + 1}`}
+                      className="w-full h-full object-cover rounded-xl"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Main pricing section */}
           {settings.main_prices && (
