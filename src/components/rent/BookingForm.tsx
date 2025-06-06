@@ -91,8 +91,6 @@ const BookingForm = () => {
   useEffect(() => {
     fetchTimeSlots();
 
-    
-    return () => clearTimeout(timer);
   }, []);
 
   const showErrorToast = (message: React.ReactNode) => {
