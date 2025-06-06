@@ -1,9 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
-import { Plus, X, ArrowUp, ArrowDown, Edit, Trash2, Image as ImageIcon, Save, Eye, Home, Clock, Users, Check, Crop } from 'lucide-react';
-import Cropper from 'react-cropper';
-import 'cropperjs/dist/cropper.css';
+import { Plus, X, ArrowUp, ArrowDown, Edit, Trash2, Image as ImageIcon, Save, Eye, Home, Clock, Users, Check } from 'lucide-react';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -109,10 +107,7 @@ const AdminHomeHeader = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedSlide, setSelectedSlide] = useState<string | null>(null);
-  const [croppingImage, setCroppingImage] = useState<string | null>(null);
-  const [cropper, setCropper] = useState<any>(null);
   const [currentUploadType, setCurrentUploadType] = useState<'slide' | 'info' | 'rent' | 'coworking'>('slide');
-  const cropperRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -222,38 +217,81 @@ const AdminHomeHeader = () => {
     }
   };
 
-  const handleImageUpload = (file: File, type: 'slide' | 'info' | 'rent' | 'coworking') => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      setCurrentUploadType(type);
-      setCroppingImage(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+  const compressImage = async (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.src = event.target?.result as string;
+        
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Рассчитываем новые размеры с сохранением пропорций
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > 1000) {
+            const ratio = 1000 / width;
+            width = 1000;
+            height = height * ratio;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Сначала пробуем качество 0.7
+            canvas.toBlob((blob) => {
+              if (blob && blob.size > 1000000) {
+                // Если размер больше 1MB, уменьшаем качество
+                canvas.toBlob((smallerBlob) => {
+                  if (smallerBlob) {
+                    const compressedFile = new File([smallerBlob], file.name, {
+                      type: 'image/jpeg',
+                      lastModified: Date.now()
+                    });
+                    resolve(compressedFile);
+                  } else {
+                    resolve(file); // fallback
+                  }
+                }, 'image/jpeg', 0.5);
+              } else if (blob) {
+                const compressedFile = new File([blob], file.name, {
+                  type: 'image/jpeg',
+                  lastModified: Date.now()
+                });
+                resolve(compressedFile);
+              } else {
+                resolve(file); // fallback
+              }
+            }, 'image/jpeg', 0.7);
+          } else {
+            resolve(file); // fallback
+          }
+        };
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
-  const getCropData = async () => {
-    if (typeof cropper !== 'undefined') {
-      const canvas = cropper.getCroppedCanvas({
-        width: 1200,
-        height: 400,
-        minWidth: 600,
-        minHeight: 200,
-        maxWidth: 3000,
-        maxHeight: 1000,
-        fillColor: '#fff',
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: 'high',
-      });
-
-      if (canvas) {
-        canvas.toBlob(async (blob: Blob | null) => {
-          if (blob) {
-            const file = new File([blob], 'cropped-image.jpg', { type: 'image/jpeg' });
-            await uploadAndSetImage(file, currentUploadType);
-            setCroppingImage(null);
-          }
-        }, 'image/jpeg', 0.9);
-      }
+  const handleImageUpload = async (file: File, type: 'slide' | 'info' | 'rent' | 'coworking') => {
+    try {
+      setCurrentUploadType(type);
+      
+      // Сжимаем изображение перед загрузкой
+      const compressedFile = await compressImage(file);
+      
+      // Загружаем сжатое изображение
+      await uploadAndSetImage(compressedFile, type);
+      
+      toast.success('Изображение успешно загружено и сжато');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Ошибка при загрузке изображения');
     }
   };
 
@@ -304,11 +342,9 @@ const AdminHomeHeader = () => {
           image: imageUrl
         }));
       }
-
-      toast.success('Изображение успешно загружено');
     } catch (error) {
       console.error('Error uploading image:', error);
-      toast.error('Ошибка при загрузке изображения');
+      throw error;
     }
   };
 
@@ -350,179 +386,8 @@ const AdminHomeHeader = () => {
     );
   }
 
-  const renderSection = (
-    section: InfoSection | RentSection | CoworkingSection,
-    setSection: React.Dispatch<React.SetStateAction<any>>,
-    icon: React.ReactNode,
-    title: string
-  ) => {
-    return (
-      <div className="bg-white dark:bg-dark-800 rounded-xl shadow-sm border border-dark-300 dark:border-dark-700 p-6 mb-6">
-        <div className="flex justify-between items-center mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary-100 dark:bg-primary-900/30 rounded-lg text-primary-600 dark:text-primary-400">
-              {icon}
-            </div>
-            <h2 className="text-xl font-semibold text-dark-900 dark:text-white">{title}</h2>
-          </div>
-          <label className="inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={section.enabled}
-              onChange={(e) => setSection((prev: any) => ({
-                ...prev,
-                enabled: e.target.checked
-              }))}
-              className="sr-only peer"
-            />
-            <div className="relative w-11 h-6 bg-dark-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary-300 dark:peer-focus:ring-primary-800 rounded-full peer dark:bg-dark-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-dark-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-dark-600 peer-checked:bg-primary-600"></div>
-            <span className="ms-3 text-sm font-medium text-dark-700 dark:text-dark-300">
-              {section.enabled ? 'Активен' : 'Неактивен'}
-            </span>
-          </label>
-        </div>
-
-        <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
-              Заголовок
-            </label>
-            <input
-              type="text"
-              value={section.title}
-              onChange={(e) => setSection((prev: any) => ({
-                ...prev,
-                title: e.target.value
-              }))}
-              className="w-full p-2.5 border border-dark-300 dark:border-dark-600 rounded-lg dark:bg-dark-700 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Введите заголовок"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
-              Описание
-            </label>
-            <textarea
-              value={section.description}
-              onChange={(e) => setSection((prev: any) => ({
-                ...prev,
-                description: e.target.value
-              }))}
-              rows={4}
-              className="w-full p-2.5 border border-dark-300 dark:border-dark-600 rounded-lg dark:bg-dark-700 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              placeholder="Введите описание"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
-              Изображение
-            </label>
-            <div className="relative group aspect-[3/1] bg-dark-100 dark:bg-dark-700 rounded-lg overflow-hidden">
-              <img
-                src={section.image}
-                alt="Section preview"
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <button
-                  onClick={() => {
-                    const input = document.createElement('input');
-                    input.type = 'file';
-                    input.accept = 'image/*';
-                    input.onchange = (e) => {
-                      const file = (e.target as HTMLInputElement).files?.[0];
-                      if (file) handleImageUpload(file, sectionKey);
-                    };
-                    input.click();
-                  }}
-                  className="p-3 bg-white/90 hover:bg-white text-dark-800 rounded-full shadow-lg"
-                  title="Изменить изображение"
-                >
-                  <Edit className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="w-24">
-              <label className="block text-sm font-medium text-dark-700 dark:text-dark-300 mb-2">
-                Порядок
-              </label>
-              <input
-                type="number"
-                value={section.order}
-                onChange={(e) => setSection((prev: any) => ({
-                  ...prev,
-                  order: parseInt(e.target.value)
-                }))}
-                min="1"
-                className="w-full p-2.5 border border-dark-300 dark:border-dark-600 rounded-lg dark:bg-dark-700 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="min-h-[calc(100vh-200px)] bg-gray-50 dark:bg-dark-900 py-8 px-4 sm:px-6 lg:px-8">
-      {/* Cropping Modal */}
-      {croppingImage && (
-        <div className="fixed inset-0 bg-black/75 z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-dark-800 rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-auto">
-            <div className="p-4 border-b border-dark-200 dark:border-dark-700 flex justify-between items-center">
-              <h3 className="text-lg font-medium">Обрежьте изображение (соотношение 3:1)</h3>
-              <button
-                onClick={() => setCroppingImage(null)}
-                className="text-dark-500 hover:text-dark-700 dark:hover:text-dark-300"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="p-4">
-              <div className="relative w-full aspect-[3/1] bg-dark-100 dark:bg-dark-700">
-                <Cropper
-                  src={croppingImage}
-                  style={{ height: '100%', width: '100%' }}
-                  initialAspectRatio={3 / 1}
-                  aspectRatio={3 / 1}
-                  guides={true}
-                  ref={cropperRef}
-                  viewMode={1}
-                  minCropBoxWidth={600}
-                  minCropBoxHeight={200}
-                  responsive={true}
-                  autoCropArea={1}
-                  checkOrientation={false}
-                  onInitialized={(instance) => {
-                    setCropper(instance);
-                  }}
-                />
-              </div>
-            </div>
-            <div className="p-4 border-t border-dark-200 dark:border-dark-700 flex justify-end gap-3">
-              <button
-                onClick={() => setCroppingImage(null)}
-                className="px-4 py-2 bg-dark-100 hover:bg-dark-200 dark:bg-dark-700 dark:hover:bg-dark-600 text-dark-800 dark:text-white rounded-lg"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={getCropData}
-                className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg flex items-center gap-2"
-              >
-                <Check className="w-5 h-5" />
-                Применить обрезку
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
@@ -630,9 +495,9 @@ const AdminHomeHeader = () => {
                         const input = document.createElement('input');
                         input.type = 'file';
                         input.accept = 'image/*';
-                        input.onchange = (e) => {
+                        input.onchange = async (e) => {
                           const file = (e.target as HTMLInputElement).files?.[0];
-                          if (file) handleImageUpload(file, 'info');
+                          if (file) await handleImageUpload(file, 'info');
                         };
                         input.click();
                       }}
@@ -659,9 +524,9 @@ const AdminHomeHeader = () => {
                         const input = document.createElement('input');
                         input.type = 'file';
                         input.accept = 'image/*';
-                        input.onchange = (e) => {
+                        input.onchange = async (e) => {
                           const file = (e.target as HTMLInputElement).files?.[0];
-                          if (file) handleImageUpload(file, 'info');
+                          if (file) await handleImageUpload(file, 'info');
                         };
                         input.click();
                       }}
@@ -688,9 +553,9 @@ const AdminHomeHeader = () => {
                   accept="image/*"
                   className="hidden"
                   ref={fileInputRef}
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
-                    if (file) handleImageUpload(file, 'slide');
+                    if (file) await handleImageUpload(file, 'slide');
                   }}
                 />
                 <button
@@ -928,9 +793,9 @@ const AdminHomeHeader = () => {
                       const input = document.createElement('input');
                       input.type = 'file';
                       input.accept = 'image/*';
-                      input.onchange = (e) => {
+                      input.onchange = async (e) => {
                         const file = (e.target as HTMLInputElement).files?.[0];
-                        if (file) handleImageUpload(file, 'info');
+                        if (file) await handleImageUpload(file, 'info');
                       };
                       input.click();
                     }}
@@ -1038,9 +903,9 @@ const AdminHomeHeader = () => {
                       const input = document.createElement('input');
                       input.type = 'file';
                       input.accept = 'image/*';
-                      input.onchange = (e) => {
+                      input.onchange = async (e) => {
                         const file = (e.target as HTMLInputElement).files?.[0];
-                        if (file) handleImageUpload(file, 'rent');
+                        if (file) await handleImageUpload(file, 'rent');
                       };
                       input.click();
                     }}
@@ -1148,9 +1013,9 @@ const AdminHomeHeader = () => {
                       const input = document.createElement('input');
                       input.type = 'file';
                       input.accept = 'image/*';
-                      input.onchange = (e) => {
+                      input.onchange = async (e) => {
                         const file = (e.target as HTMLInputElement).files?.[0];
-                        if (file) handleImageUpload(file, 'coworking');
+                        if (file) await handleImageUpload(file, 'coworking');
                       };
                       input.click();
                     }}
