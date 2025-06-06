@@ -92,7 +92,7 @@ const BookingForm = () => {
     fetchTimeSlots();
     
     
-    }, 300);
+    };
     
     return () => clearTimeout(timer);
   }, []);
