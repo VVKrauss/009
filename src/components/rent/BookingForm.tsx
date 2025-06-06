@@ -91,15 +91,7 @@ const BookingForm = () => {
   useEffect(() => {
     fetchTimeSlots();
     
-    const timer = setTimeout(() => {
-      if (calendarRef.current) {
-        const todayElement = calendarRef.current.querySelector('[data-today="true"]');
-        todayElement?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
-          inline: 'center'
-        });
-      }
+    
     }, 300);
     
     return () => clearTimeout(timer);
