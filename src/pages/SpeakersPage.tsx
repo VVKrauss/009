@@ -59,32 +59,6 @@ const SpeakersPage = () => {
     fetchSpeakers();
   }, [sortBy]);
 
-  if (loading) {
-    return (
-      <Layout>
-        <PageHeader title="" />
-        <div className="section bg-gray-50 dark:bg-dark-800">
-          <div className="container text-center py-12">
-            Loading...
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
-  if (error) {
-    return (
-      <Layout>
-        <PageHeader title="" />
-        <div className="section bg-gray-50 dark:bg-dark-800">
-          <div className="container text-center py-12 text-red-600">
-            {error}
-          </div>
-        </div>
-      </Layout>
-    );
-  }
-
   return (
     <Layout>
       <PageHeader 
