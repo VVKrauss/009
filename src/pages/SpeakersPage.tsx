@@ -62,7 +62,7 @@ const SpeakersPage = () => {
   if (loading) {
     return (
       <Layout>
-        <PageHeader title="Наши спикеры" />
+        <PageHeader title="" />
         <div className="section bg-gray-50 dark:bg-dark-800">
           <div className="container text-center py-12">
             Loading...
@@ -75,7 +75,7 @@ const SpeakersPage = () => {
   if (error) {
     return (
       <Layout>
-        <PageHeader title="Наши спикеры" />
+        <PageHeader title="" />
         <div className="section bg-gray-50 dark:bg-dark-800">
           <div className="container text-center py-12 text-red-600">
             {error}
