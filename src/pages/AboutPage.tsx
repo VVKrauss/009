@@ -142,11 +142,11 @@ const AboutPage = () => {
             </div>
           </div>
 
-          {/* Contributors Section */}
+        {/* Contributors Section */}
           {aboutData.contributors.length > 0 && (
             <div className="mb-16">
               <h2 className="text-2xl font-semibold mb-8">Нам помогают</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+              <div className="flex flex-wrap justify-center gap-6">
                 {aboutData.contributors.map((contributor, index) => (
                   <div key={index} className="flex flex-col items-center">
                     <div className="w-20 h-20 rounded-full overflow-hidden mb-3">
@@ -162,7 +162,7 @@ const AboutPage = () => {
               </div>
             </div>
           )}
-
+          
           {/* Support Section */}
           <div className="mb-16">
             <h2 className="text-2xl font-semibold mb-8">Поддержать</h2>
