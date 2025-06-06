@@ -146,7 +146,7 @@ const AboutPage = () => {
           {aboutData.contributors.length > 0 && (
             <div className="mb-16">
               <h2 className="text-2xl font-semibold mb-8">Нам помогают</h2>
-              <div className="flex flex-wrap gap-10">
+              <div className="flex flex-wrap justify-around gap-10">
                 {aboutData.contributors.map((contributor, index) => (
                   <div key={index} className="flex flex-col items-center">
                     <div className="w-20 h-20 rounded-full overflow-hidden mb-3">
