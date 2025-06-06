@@ -126,7 +126,7 @@ const RentPage = () => {
     <Layout>
       <PageHeader 
         title={settings.title}
-        subtitle="Аренда пространства для мероприятий"
+        subtitle="Аренда пространства для ваших мероприятий"
       />
       
       <main className="section bg-gray-50 dark:bg-dark-800">
