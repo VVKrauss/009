@@ -162,36 +162,19 @@ const CreateEditEventPage = () => {
     }
   };
 
-  const isValidTime = (time: string) => {
-    if (!time || time.trim() === '') return false;
-    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    return timeRegex.test(time);
-  };
-
-  const formatTimeForDatabase = (time: string) => {
-    if (!time || time.trim() === '' || !isValidTime(time)) {
-      return null;
-    }
-    return time;
-  };
-
   const updateTimeSlots = async (eventData: Event) => {
     try {
-      // Validate time fields before processing
-      if (!isValidTime(eventData.start_time) || !isValidTime(eventData.end_time)) {
-        throw new Error('Invalid time format');
-      }
-
       const startDateTime = new Date(`${eventData.date}T${eventData.start_time}:00`);
       const endDateTime = new Date(`${eventData.date}T${eventData.end_time}:00`);
 
-      // Check if slot already exists - remove .single() to handle multiple or no rows
-      const { data: existingSlots, error: slotError } = await supabase
+      // Check if slot already exists
+      const { data: existingSlot, error: slotError } = await supabase
         .from('time_slots_table')
         .select('*')
-        .eq('slot_details->>event_id', eventData.id);
+        .eq('slot_details->>event_id', eventData.id)
+        .single();
 
-      if (slotError) {
+      if (slotError && slotError.code !== 'PGRST116') { // PGRST116 - no rows found
         throw slotError;
       }
 
@@ -210,12 +193,12 @@ const CreateEditEventPage = () => {
         }
       };
 
-      if (existingSlots && existingSlots.length > 0) {
-        // Update existing slot (use the first one if multiple exist)
+      if (existingSlot) {
+        // Update existing slot
         const { error: updateError } = await supabase
           .from('time_slots_table')
           .update(slotData)
-          .eq('id', existingSlots[0].id);
+          .eq('id', existingSlot.id);
 
         if (updateError) throw updateError;
         toast.info('Временной слот обновлен');
@@ -315,7 +298,7 @@ const CreateEditEventPage = () => {
     try {
       setLoading(true);
       
-      // Delete time slot first - remove .single() to handle multiple or no rows
+      // Delete time slot first
       const { error: slotError } = await supabase
         .from('time_slots_table')
         .delete()
@@ -407,12 +390,8 @@ const CreateEditEventPage = () => {
       toast.error('Выберите дату мероприятия');
       return false;
     }
-    if (!isValidTime(formData.start_time)) {
-      toast.error('Укажите корректное время начала (формат ЧЧ:ММ)');
-      return false;
-    }
-    if (!isValidTime(formData.end_time)) {
-      toast.error('Укажите корректное время окончания (формат ЧЧ:ММ)');
+    if (!formData.start_time || !formData.end_time) {
+      toast.error('Укажите время начала и окончания');
       return false;
     }
     if (!formData.location.trim()) {
@@ -450,16 +429,8 @@ const CreateEditEventPage = () => {
     setLoading(true);
 
     try {
-      // Validate and format time fields
-      const formattedStartTime = formatTimeForDatabase(formData.start_time);
-      const formattedEndTime = formatTimeForDatabase(formData.end_time);
-
-      if (!formattedStartTime || !formattedEndTime) {
-        throw new Error('Invalid time format');
-      }
-
-      const startDateTime = new Date(`${formData.date}T${formattedStartTime}:00`);
-      const endDateTime = new Date(`${formData.date}T${formattedEndTime}:00`);
+      const startDateTime = new Date(`${formData.date}T${formData.start_time}:00`);
+      const endDateTime = new Date(`${formData.date}T${formData.end_time}:00`);
 
       // Convert program item times to ISO format
       const festivalProgram = formData.festival_program?.map(item => ({
