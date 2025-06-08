@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
-import { ArrowLeft, Mail, Globe, MapPin, Link2 } from 'lucide-react';
+import { ArrowLeft, Mail, Globe, MapPin, Link2, Calendar, Clock, Users, Globe2 } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { toast } from 'react-hot-toast';
 
@@ -31,11 +31,27 @@ interface Speaker {
   blogs?: string | Array<{ url: string; platform: string }>;
 }
 
+interface Event {
+  id: string;
+  title: string;
+  description: string;
+  short_description: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  event_type: string;
+  languages: string[];
+  speakers: { id: string; name: string }[];
+}
+
 const SpeakerProfilePage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [speaker, setSpeaker] = useState<Speaker | null>(null);
   const [loading, setLoading] = useState(true);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
   const photoRef = useRef<HTMLDivElement>(null);
 
@@ -69,6 +85,43 @@ const SpeakerProfilePage = () => {
 
     fetchSpeaker();
   }, [id]);
+
+  useEffect(() => {
+    const fetchSpeakerEvents = async () => {
+      if (!speaker) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('events')
+          .select(`
+            id,
+            title,
+            description,
+            short_description,
+            date,
+            start_time,
+            end_time,
+            location,
+            event_type,
+            languages,
+            speakers
+          `)
+          .contains('speakers', [{ id: speaker.id }]);
+
+        if (error) throw error;
+        setEvents(data || []);
+      } catch (error) {
+        console.error('Error fetching events:', error);
+        toast.error('Не удалось загрузить мероприятия спикера');
+      } finally {
+        setEventsLoading(false);
+      }
+    };
+
+    if (speaker) {
+      fetchSpeakerEvents();
+    }
+  }, [speaker]);
 
   useEffect(() => {
     if (!loading && photoRef.current) {
@@ -140,6 +193,32 @@ const SpeakerProfilePage = () => {
         })}
       </div>
     );
+  };
+
+  const formatDate = (dateString: string) => {
+    const options: Intl.DateTimeFormatOptions = { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    };
+    return new Date(dateString).toLocaleDateString('ru-RU', options);
+  };
+
+  const formatTime = (timeString: string) => {
+    return new Date(timeString).toLocaleTimeString('ru-RU', { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    });
+  };
+
+  const getEventDescription = (event: Event) => {
+    if (event.short_description) return event.short_description;
+    if (event.description) {
+      return event.description.length > 200 
+        ? `${event.description.substring(0, 200)}...` 
+        : event.description;
+    }
+    return 'Описание мероприятия отсутствует';
   };
 
   if (loading) {
@@ -309,7 +388,7 @@ const SpeakerProfilePage = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {Array.isArray(speaker.achievements) && speaker.achievements.length > 0 && (
               <div className="bg-white dark:bg-dark-900 rounded-xl shadow-lg p-6">
                 <h2 className="text-2xl font-bold mb-4">Достижения</h2>
@@ -323,6 +402,68 @@ const SpeakerProfilePage = () => {
                 </ul>
               </div>
             )}
+
+            <div className="bg-white dark:bg-dark-900 rounded-xl shadow-lg p-6">
+              <h2 className="text-2xl font-bold mb-4">Мероприятия спикера</h2>
+              {eventsLoading ? (
+                <div className="flex justify-center py-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+                </div>
+              ) : events.length > 0 ? (
+                <div className="space-y-4">
+                  {events.map((event) => (
+                    <div 
+                      key={event.id}
+                      className="border border-gray-200 dark:border-dark-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow"
+                    >
+                      <div className="p-4">
+                        <h3 className="text-lg font-semibold text-dark-800 dark:text-white mb-2">
+                          {event.title}
+                        </h3>
+                        <p className="text-dark-600 dark:text-dark-300 mb-3">
+                          {getEventDescription(event)}
+                        </p>
+                        
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="flex items-center text-dark-500 dark:text-dark-400">
+                            <Calendar className="h-4 w-4 mr-2" />
+                            {formatDate(event.date)}
+                          </div>
+                          <div className="flex items-center text-dark-500 dark:text-dark-400">
+                            <Clock className="h-4 w-4 mr-2" />
+                            {formatTime(event.start_time)} - {formatTime(event.end_time)}
+                          </div>
+                          {event.location && (
+                            <div className="flex items-center text-dark-500 dark:text-dark-400">
+                              <MapPin className="h-4 w-4 mr-2" />
+                              {event.location}
+                            </div>
+                          )}
+                          {event.languages && event.languages.length > 0 && (
+                            <div className="flex items-center text-dark-500 dark:text-dark-400">
+                              <Globe2 className="h-4 w-4 mr-2" />
+                              {event.languages.join(', ')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="bg-gray-50 dark:bg-dark-800 px-4 py-3 flex justify-end">
+                        <a
+                          href={`/events/${event.id}`}
+                          className="text-primary-600 dark:text-primary-400 hover:underline font-medium"
+                        >
+                          Подробнее →
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-500 dark:text-gray-400">
+                  Нет запланированных мероприятий
+                </p>
+              )}
+            </div>
 
             {Array.isArray(speaker.past_events) && speaker.past_events.length > 0 && (
               <div className="bg-white dark:bg-dark-900 rounded-xl shadow-lg p-6">
