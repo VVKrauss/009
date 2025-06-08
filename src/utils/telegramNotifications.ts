@@ -2,15 +2,15 @@ import { toast } from 'react-hot-toast';
 
 /**
  * Sends a notification to Telegram using the configured bot
+ * @param chatId The target Telegram chat ID to send the message to
  * @param message The message to send (supports HTML formatting)
  * @returns Promise that resolves when the message is sent
  */
-export const sendTelegramNotification = async (message: string): Promise<boolean> => {
+export const sendTelegramNotification = async (chatId: string, message: string): Promise<boolean> => {
   try {
     const TELEGRAM_BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-    const TELEGRAM_CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID;
 
-    if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
+    if (!TELEGRAM_BOT_TOKEN || !chatId) {
       console.error('Telegram configuration missing: Bot token or Chat ID not set');
       return false;
     }
@@ -23,7 +23,7 @@ export const sendTelegramNotification = async (message: string): Promise<boolean
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
+        chat_id: chatId,
         text: message,
         parse_mode: 'HTML'
       }),
@@ -47,13 +47,15 @@ export const sendTelegramNotification = async (message: string): Promise<boolean
  * Sends a notification to Telegram with error handling and user feedback
  * @param message The message to send
  * @param showToast Whether to show success/error toasts
+ * @param targetChatId The target Telegram chat ID to send the message to
  */
 export const sendTelegramNotificationWithFeedback = async (
   message: string, 
-  showToast = false
+  showToast = false,
+  targetChatId: string
 ): Promise<boolean> => {
   try {
-    const success = await sendTelegramNotification(message);
+    const success = await sendTelegramNotification(targetChatId, message);
     
     if (success && showToast) {
       toast.success('Уведомление отправлено');
