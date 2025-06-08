@@ -16,7 +16,7 @@ const supabase = createClient(
 // Telegram notification function
 const sendTelegramNotification = async (message: string) => {
   const botToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-  const chatId = import.meta.env.VITE_TELEGRAM_COFFEE_CHAT_ID;
+  const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
   
   if (!botToken || !chatId) {
     console.warn('Telegram bot token or chat ID not configured');
