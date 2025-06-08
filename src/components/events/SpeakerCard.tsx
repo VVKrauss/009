@@ -77,9 +77,10 @@ const SpeakerCard = ({ speaker }: SpeakerCardProps) => {
       
       {/* Нижний блок с описанием */}
       <div className="pt-4 border-t border-gray-200 dark:border-dark-700">
-        <p className="text-dark-600 dark:text-dark-300 mb-4">
-          {speaker.description}
-        </p>
+        <div 
+          className="text-dark-600 dark:text-dark-300 mb-4"
+          dangerouslySetInnerHTML={{ __html: processedDescription }}
+        />
         
         {/* Блок с блогами */}
         {parsedBlogs && parsedBlogs.length > 0 && (
