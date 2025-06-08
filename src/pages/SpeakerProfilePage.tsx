@@ -87,6 +87,9 @@ const SpeakerProfilePage = () => {
   }, [id]);
 
   useEffect(() => {
+
+
+    
 const fetchSpeakerEvents = async () => {
   if (!speaker) return;
   
@@ -106,7 +109,7 @@ const fetchSpeakerEvents = async () => {
         languages,
         speakers
       `)
-      .contains('speakers', [{ id: speaker.id, name: speaker.name }]); // Измененный формат
+      .textSearch('speakers', `"id":"${speaker.id}"`); // Поиск по текстовому представлению JSON
 
     if (error) throw error;
     setEvents(data || []);
@@ -117,6 +120,9 @@ const fetchSpeakerEvents = async () => {
     setEventsLoading(false);
   }
 };
+
+
+    
     if (speaker) {
       fetchSpeakerEvents();
     }
