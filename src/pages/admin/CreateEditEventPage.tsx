@@ -204,101 +204,81 @@ const CreateEditEventPage = () => {
     return date.toISOString();
   };
 
-  const updateTimeSlots = async (eventData: Event, isNewEvent: boolean) => {
-    try {
-      // Создаем правильные timestamp
-      const startAt = createTimestamp(eventData.date, eventData.start_time); 
-      const endAt = createTimestamp(eventData.date, eventData.end_time);
 
-      // Проверяем валидность дат
-      if (isNaN(new Date(startAt).getTime())) {
-        throw new Error('Invalid start time');
-      }
-      if (isNaN(new Date(endAt).getTime())) {
-        throw new Error('Invalid end time');
-      }
 
-      // Проверяем, существует ли уже слот для этого мероприятия
-      const { data: existingSlots, error: slotError } = await supabase
-        .from('time_slots_table')
-        .select('*')
-        .eq('slot_details->>event_id', eventData.id);
+  
+// Измените функцию updateTimeSlots:
+const updateTimeSlots = async (eventData: Event, isNewEvent: boolean) => {
+  try {
+    // Создаем правильные timestamp
+    const startAt = createTimestamp(eventData.date, eventData.start_time);
+    const endAt = createTimestamp(eventData.date, eventData.end_time);
 
-      if (slotError) {
-        throw slotError;
-      }
-
-      const existingSlot = existingSlots && existingSlots.length > 0 ? existingSlots[0] : null;
-
-      const slotData = {
-        start_at: startAt,
-        end_at: endAt,
-        slot_details: {
-          event_id: eventData.id,
-          event_title: eventData.title,
-          event_type: eventData.event_type,
-          location: eventData.location,
-          max_registrations: eventData.max_registrations,
-          current_registrations: 0,
-          speakers: eventData.speakers || []
-        }
-      };
-
-      if (existingSlot) {
-        // Check if time has changed
-        const timeChanged = 
-          existingSlot.start_at !== startAt || 
-          existingSlot.end_at !== endAt;
-
-        // Update existing slot
-        const { error: updateError } = await supabase
-          .from('time_slots_table')
-          .update(slotData)
-          .eq('id', existingSlot.id);
-
-        if (updateError) throw updateError;
-
-        // Send notification if time changed
-        if (timeChanged && !isNewEvent) {
-          const message = `⏰ Время мероприятия изменено\n\n` +
-            `Мероприятие: <b>${eventData.title}</b>\n` +
-            `Новое время: ${new Date(startAt).toLocaleString()} - ${new Date(endAt).toLocaleString()}\n` +
-            `Место: ${eventData.location}\n` +
-            `Ссылка: ${window.location.origin}/event/${eventData.id}`;
-          
-          await sendTelegramNotification(message);
-        }
-
-        toast.info('Временной слот обновлен');
-      } else {
-        // Create new slot
-        const { error: insertError } = await supabase
-          .from('time_slots_table')
-          .insert(slotData);
-
-        if (insertError) throw insertError;
-
-        // Send notification for new event
-        if (isNewEvent) {
-          const message = `🎉 Добавлено новое мероприятие\n\n` +
-            `Название: <b>${eventData.title}</b>\n` +
-            `Время: ${new Date(startAt).toLocaleString()} - ${new Date(endAt).toLocaleString()}\n` +
-            `Место: ${eventData.location}\n` +
-            `Тип: ${eventData.event_type}\n` +
-            `Ссылка: ${window.location.origin}/event/${eventData.id}`;
-          
-          await sendTelegramNotification(message);
-        }
-
-        toast.info('Создан новый временной слот');
-      }
-    } catch (error) {
-      console.error('Error updating time slots:', error);
-      toast.error('Ошибка при обновлении временных слотов');
-      throw error;
+    // Проверяем валидность дат
+    if (isNaN(new Date(startAt).getTime())) {
+      throw new Error('Invalid start time');
     }
-  };
+    if (isNaN(new Date(endAt).getTime())) {
+      throw new Error('Invalid end time');
+    }
 
+    // Проверяем, существует ли уже слот для этого мероприятия
+    const { data: existingSlots, error: slotError } = await supabase
+      .from('time_slots_table')
+      .select('*')
+      .eq('slot_details->>event_id', eventData.id);
+
+    if (slotError) {
+      throw slotError;
+    }
+
+    // Если слот уже существует, просто выходим из функции
+    if (existingSlots && existingSlots.length > 0) {
+      return;
+    }
+
+    // Создаем данные для нового слота
+    const slotData = {
+      start_at: startAt,
+      end_at: endAt,
+      slot_details: {
+        event_id: eventData.id,
+        event_title: eventData.title,
+        event_type: eventData.event_type,
+        location: eventData.location,
+        max_registrations: eventData.max_registrations,
+        current_registrations: 0,
+        speakers: eventData.speakers || []
+      }
+    };
+
+    // Создаем новый слот только если это новое мероприятие
+    if (isNewEvent) {
+      const { error: insertError } = await supabase
+        .from('time_slots_table')
+        .insert(slotData);
+
+      if (insertError) throw insertError;
+
+      // Отправляем уведомление для нового мероприятия
+      const message = `🎉 Добавлено новое мероприятие\n\n` +
+        `Название: <b>${eventData.title}</b>\n` +
+        `Время: ${new Date(startAt).toLocaleString()} - ${new Date(endAt).toLocaleString()}\n` +
+        `Место: ${eventData.location}\n` +
+        `Тип: ${eventData.event_type}\n` +
+        `Ссылка: ${window.location.origin}/event/${eventData.id}`;
+      
+      await sendTelegramNotification(message);
+
+      toast.info('Создан новый временной слот');
+    }
+  } catch (error) {
+    console.error('Error updating time slots:', error);
+    toast.error('Ошибка при обновлении временных слотов');
+    throw error;
+  }
+};
+  
   useEffect(() => {
     const initializeEvent = async () => {
       if (id && id !== 'new') {
