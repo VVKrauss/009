@@ -218,7 +218,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
         `Сумма: ${total} ${event.currency}\n` +
         `ID: ${registrationId}`;
 
-      await sendTelegramNotification(message);
+      await sendTelegramNotificationWithFeedback("import.meta.env.VITE_TELEGRAM_CHAT_ID", message);
 
     } catch (error) {
       console.error('Registration error:', error);
