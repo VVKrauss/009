@@ -316,7 +316,7 @@ const BookingForm = () => {
     social_contact?: string;
   }) => {
     try {
-      const text = `📅 Новая бронь пространства:\n\n` +
+      const message = `📅 Новая бронь пространства:\n\n` +
         `📌 Дата: ${bookingDetails.date}\n` +
         `⏰ Время: ${bookingDetails.startTime}-${bookingDetails.endTime}\n` +
         `👤 Имя: ${bookingDetails.name}\n` +
@@ -325,8 +325,7 @@ const BookingForm = () => {
         `${bookingDetails.social_contact ? `💬 Соцсети: ${bookingDetails.social_contact}\n` : ''}`;
       
       
-      
-      
+       await sendTelegramNotificationWithFeedback("import.meta.env.VITE_TELEGRAM_CHAT_ID", message);
       
       );
     } catch (err) {
