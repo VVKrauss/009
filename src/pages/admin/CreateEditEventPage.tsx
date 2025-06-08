@@ -127,8 +127,8 @@ const CreateEditEventPage = () => {
     bg_image: null,
     original_bg_image: null,
     date: new Date().toISOString().split('T')[0],
-    start_time: '',
-    end_time: '',
+    start_time: '10:00',
+    end_time: '12:00',
     location: 'Science Hub',
     age_category: ageCategories[0],
     price: null,
@@ -162,21 +162,38 @@ const CreateEditEventPage = () => {
     }
   };
 
+  const isValidTime = (time: string) => {
+    if (!time) return false;
+    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    return timeRegex.test(time);
+  };
+
   const updateTimeSlots = async (eventData: Event) => {
     try {
+      // Validate time values before proceeding
+      if (!isValidTime(eventData.start_time) || !isValidTime(eventData.end_time)) {
+        throw new Error('Invalid time format');
+      }
+
       const startDateTime = new Date(`${eventData.date}T${eventData.start_time}:00`);
       const endDateTime = new Date(`${eventData.date}T${eventData.end_time}:00`);
 
-      // Check if slot already exists
-      const { data: existingSlot, error: slotError } = await supabase
+      // Check if dates are valid
+      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+        throw new Error('Invalid date/time values');
+      }
+
+      // Check if slot already exists - use select() instead of single()
+      const { data: existingSlots, error: slotError } = await supabase
         .from('time_slots_table')
         .select('*')
-        .eq('slot_details->>event_id', eventData.id)
-        .single();
+        .eq('slot_details->>event_id', eventData.id);
 
-      if (slotError && slotError.code !== 'PGRST116') { // PGRST116 - no rows found
+      if (slotError) {
         throw slotError;
       }
+
+      const existingSlot = existingSlots && existingSlots.length > 0 ? existingSlots[0] : null;
 
       const slotData = {
         date: eventData.date,
@@ -240,8 +257,32 @@ const CreateEditEventPage = () => {
       if (error) throw error;
       
       if (data) {
-        const startTime = data.start_time ? new Date(data.start_time).toTimeString().slice(0, 5) : '';
-        const endTime = data.end_time ? new Date(data.end_time).toTimeString().slice(0, 5) : '';
+        let startTime = '10:00';
+        let endTime = '12:00';
+
+        // Safely parse start_time
+        if (data.start_time) {
+          try {
+            const startDate = new Date(data.start_time);
+            if (!isNaN(startDate.getTime())) {
+              startTime = startDate.toTimeString().slice(0, 5);
+            }
+          } catch (e) {
+            console.warn('Invalid start_time format:', data.start_time);
+          }
+        }
+
+        // Safely parse end_time
+        if (data.end_time) {
+          try {
+            const endDate = new Date(data.end_time);
+            if (!isNaN(endDate.getTime())) {
+              endTime = endDate.toTimeString().slice(0, 5);
+            }
+          } catch (e) {
+            console.warn('Invalid end_time format:', data.end_time);
+          }
+        }
 
         setFormData({
           ...data,
@@ -298,14 +339,23 @@ const CreateEditEventPage = () => {
     try {
       setLoading(true);
       
-      // Delete time slot first
-      const { error: slotError } = await supabase
+      // Delete time slot first - use select() instead of single()
+      const { data: existingSlots, error: slotSelectError } = await supabase
         .from('time_slots_table')
-        .delete()
+        .select('*')
         .eq('slot_details->>event_id', id);
 
-      if (slotError) throw slotError;
-      toast.update(toastId, { render: 'Временной слот удален', type: 'info', isLoading: false, autoClose: 3000 });
+      if (slotSelectError) throw slotSelectError;
+
+      if (existingSlots && existingSlots.length > 0) {
+        const { error: slotError } = await supabase
+          .from('time_slots_table')
+          .delete()
+          .eq('slot_details->>event_id', id);
+
+        if (slotError) throw slotError;
+        toast.update(toastId, { render: 'Временной слот удален', type: 'info', isLoading: false, autoClose: 3000 });
+      }
 
       // Delete program images
       if (formData.festival_program && formData.festival_program.length > 0) {
@@ -394,6 +444,17 @@ const CreateEditEventPage = () => {
       toast.error('Укажите время начала и окончания');
       return false;
     }
+
+    // Validate time format
+    if (!isValidTime(formData.start_time)) {
+      toast.error('Неверный формат времени начала');
+      return false;
+    }
+    if (!isValidTime(formData.end_time)) {
+      toast.error('Неверный формат времени окончания');
+      return false;
+    }
+
     if (!formData.location.trim()) {
       toast.error('Укажите место проведения');
       return false;
@@ -429,15 +490,39 @@ const CreateEditEventPage = () => {
     setLoading(true);
 
     try {
+      // Validate and create date objects
+      if (!isValidTime(formData.start_time) || !isValidTime(formData.end_time)) {
+        throw new Error('Invalid time format');
+      }
+
       const startDateTime = new Date(`${formData.date}T${formData.start_time}:00`);
       const endDateTime = new Date(`${formData.date}T${formData.end_time}:00`);
 
+      // Check if dates are valid
+      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+        throw new Error('Invalid date/time combination');
+      }
+
       // Convert program item times to ISO format
-      const festivalProgram = formData.festival_program?.map(item => ({
-        ...item,
-        start_time: new Date(item.start_time).toISOString(),
-        end_time: new Date(item.end_time).toISOString()
-      })) || [];
+      const festivalProgram = formData.festival_program?.map(item => {
+        try {
+          const startTime = new Date(item.start_time);
+          const endTime = new Date(item.end_time);
+          
+          if (isNaN(startTime.getTime()) || isNaN(endTime.getTime())) {
+            throw new Error('Invalid program item time');
+          }
+          
+          return {
+            ...item,
+            start_time: startTime.toISOString(),
+            end_time: endTime.toISOString()
+          };
+        } catch (error) {
+          console.error('Error processing program item:', item, error);
+          throw new Error('Invalid program item time format');
+        }
+      }) || [];
 
       const dataToSave = {
         ...formData,
