@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 import { ArrowLeft, Mail, Globe, MapPin, Link2 } from 'lucide-react';
@@ -37,6 +37,7 @@ const SpeakerProfilePage = () => {
   const [speaker, setSpeaker] = useState<Speaker | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const photoRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchSpeaker = async () => {
@@ -69,6 +70,12 @@ const SpeakerProfilePage = () => {
     fetchSpeaker();
   }, [id]);
 
+  useEffect(() => {
+    if (!loading && photoRef.current) {
+      photoRef.current.focus();
+    }
+  }, [loading]);
+
   const nextSlide = () => {
     if (!speaker) return;
     setCurrentSlide((prev) => 
@@ -93,6 +100,46 @@ const SpeakerProfilePage = () => {
       console.error('Error parsing blogs:', error);
       return null;
     }
+  };
+
+  const renderDescription = (description: string) => {
+    if (!description) {
+      return <p className="text-gray-500 dark:text-gray-400">Описание спикера отсутствует</p>;
+    }
+
+    const withLinks = description.replace(
+      /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1(?:[^>]*?)>(.*?)<\/a>/g,
+      (match, quote, url, text) => {
+        return `@@@LINK_START@@@${url}@@@TEXT_START@@@${text}@@@LINK_END@@@`;
+      }
+    );
+
+    const parts = withLinks.split(/@@@LINK_START@@@|@@@TEXT_START@@@|@@@LINK_END@@@/);
+    
+    return (
+      <div className="text-dark-600 dark:text-dark-300">
+        {parts.map((part, index) => {
+          if (index % 4 === 0) {
+            return <span key={index}>{part}</span>;
+          } else if (index % 4 === 1) {
+            const url = part;
+            const text = parts[index + 1];
+            return (
+              <a
+                key={index}
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 dark:text-primary-400 hover:opacity-80 underline"
+              >
+                {text}
+              </a>
+            );
+          }
+          return null;
+        })}
+      </div>
+    );
   };
 
   if (loading) {
@@ -132,7 +179,11 @@ const SpeakerProfilePage = () => {
 
           <div className="bg-white dark:bg-dark-900 rounded-xl shadow-lg overflow-hidden mb-8">
             <div className="flex flex-col md:flex-row">
-              <div className="w-full md:w-1/3 lg:w-1/4 p-6">
+              <div 
+                ref={photoRef}
+                tabIndex={-1}
+                className="w-full md:w-1/3 lg:w-1/4 p-6 outline-none"
+              >
                 <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-dark-700 shadow-md">
                   {speaker.photos.length > 0 ? (
                     <>
@@ -229,12 +280,8 @@ const SpeakerProfilePage = () => {
                   )}
                 </div>
 
-                <div className="prose dark:prose-invert max-w-none mb-6">
-                  {speaker.description || (
-                    <p className="text-gray-500 dark:text-gray-400">
-                      Описание спикера отсутствует
-                    </p>
-                  )}
+                <div className="mb-6">
+                  {renderDescription(speaker.description)}
                 </div>
 
                 {hasBlogs && (
