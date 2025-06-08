@@ -87,37 +87,36 @@ const SpeakerProfilePage = () => {
   }, [id]);
 
   useEffect(() => {
-    const fetchSpeakerEvents = async () => {
-      if (!speaker) return;
-      
-      try {
-        const { data, error } = await supabase
-          .from('events')
-          .select(`
-            id,
-            title,
-            description,
-            short_description,
-            date,
-            start_time,
-            end_time,
-            location,
-            event_type,
-            languages,
-            speakers
-          `)
-          .contains('speakers', [{ id: speaker.id }]);
+const fetchSpeakerEvents = async () => {
+  if (!speaker) return;
+  
+  try {
+    const { data, error } = await supabase
+      .from('events')
+      .select(`
+        id,
+        title,
+        description,
+        short_description,
+        date,
+        start_time,
+        end_time,
+        location,
+        event_type,
+        languages,
+        speakers
+      `)
+      .contains('speakers', [{ id: speaker.id, name: speaker.name }]); // Измененный формат
 
-        if (error) throw error;
-        setEvents(data || []);
-      } catch (error) {
-        console.error('Error fetching events:', error);
-        toast.error('Не удалось загрузить мероприятия спикера');
-      } finally {
-        setEventsLoading(false);
-      }
-    };
-
+    if (error) throw error;
+    setEvents(data || []);
+  } catch (error) {
+    console.error('Error fetching events:', error);
+    toast.error('Не удалось загрузить мероприятия спикера');
+  } finally {
+    setEventsLoading(false);
+  }
+};
     if (speaker) {
       fetchSpeakerEvents();
     }
