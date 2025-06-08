@@ -476,8 +476,10 @@ const handleSubmit = async (e: React.FormEvent) => {
         `Тип: ${eventData.event_type}\n` +
         `Ссылка: ${window.location.origin}/events/${eventData.id}`;
 
-      const TELEGRAM_CHAT_ID = import.meta.env.VITE_TELEGRAM_COFFEE_CHAT_ID;
-      await sendTelegramNotificationWithFeedback(TELEGRAM_CHAT_ID, message);
+      const chatId = import.meta.env.VITE_TELEGRAM_COFFEE_CHAT_ID;
+      await sendTelegramNotification(chatId, message);
+
+      
 
       toast.update(toastId, { 
         render: 'Мероприятие успешно создано', 
@@ -505,7 +507,8 @@ const handleSubmit = async (e: React.FormEvent) => {
         `Тип: ${eventData.event_type}\n` +
         `Ссылка: ${window.location.origin}/events/${eventData.id}`;
       
-      await sendTelegramNotificationWithFeedback("import.meta.env.VITE_TELEGRAM_COFFEE_CHAT_ID", message);
+      const chatId = import.meta.env.VITE_TELEGRAM_COFFEE_CHAT_ID;
+      await sendTelegramNotification(chatId, message);
 
       toast.update(toastId, { 
         render: 'Мероприятие успешно обновлено', 
