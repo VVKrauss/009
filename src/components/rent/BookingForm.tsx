@@ -324,17 +324,11 @@ const BookingForm = () => {
         `${bookingDetails.phone ? `📞 Телефон: ${bookingDetails.phone}\n` : ''}` +
         `${bookingDetails.social_contact ? `💬 Соцсети: ${bookingDetails.social_contact}\n` : ''}`;
       
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: text,
-          parse_mode: 'Markdown'
-        })
-      });
+      
+      
+      
+      
+      );
     } catch (err) {
       console.error('Ошибка отправки в Telegram:', err);
     }
