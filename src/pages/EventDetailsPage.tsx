@@ -5,7 +5,6 @@ import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { Calendar, Clock, MapPin, Users, Globe, Share2, ArrowLeft } from 'lucide-react';
 import Layout from '../components/layout/Layout';
-import SpeakerCard from '../components/events/SpeakerCard';
 import RegistrationModal from '../components/events/RegistrationModal';
 import PaymentOptionsModal from '../components/events/PaymentOptionsModal';
 import { toast } from 'react-hot-toast';
@@ -62,6 +61,16 @@ const formatTimeFromTimestamp = (timestamp: string) => {
   } catch (e) {
     console.error('Error formatting time:', e);
     return '';
+  }
+};
+
+const isPastEvent = (eventDate: string) => {
+  try {
+    const eventDateTime = parseISO(eventDate);
+    return eventDateTime < new Date();
+  } catch (e) {
+    console.error('Error checking event date:', e);
+    return false;
   }
 };
 
@@ -274,7 +283,6 @@ const EventDetailsPage = () => {
                           console.error('Error sorting program items:', e);
                           return 0;
                         }
-                
                       })
                       .map((item, index) => {
                         const speaker = item.lecturer_id 
@@ -307,15 +315,22 @@ const EventDetailsPage = () => {
                                 
                                 {speaker && (
                                   <div className="mt-4 flex items-center gap-3">
-                                    {speaker.photos?.find(p => p.isMain)?.url && (
-                                      <img
-                                        src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos.find(p => p.isMain)?.url}`}
-                                        alt={speaker.name}
-                                        className="w-12 h-12 rounded-full object-cover"
-                                      />
-                                    )}
+                                    <Link to={`/speakers/${speaker.id}`} className="shrink-0">
+                                      {speaker.photos?.find(p => p.isMain)?.url && (
+                                        <img
+                                          src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos.find(p => p.isMain)?.url}`}
+                                          alt={speaker.name}
+                                          className="w-12 h-12 rounded-full object-cover"
+                                        />
+                                      )}
+                                    </Link>
                                     <div>
-                                      <p className="font-medium">{speaker.name}</p>
+                                      <Link 
+                                        to={`/speakers/${speaker.id}`}
+                                        className="font-medium hover:text-primary-600 dark:hover:text-primary-400"
+                                      >
+                                        {speaker.name}
+                                      </Link>
                                       <p className="text-sm text-dark-500 dark:text-dark-400">
                                         {speaker.field_of_expertise}
                                       </p>
@@ -334,91 +349,116 @@ const EventDetailsPage = () => {
                 <div className="space-y-6">
                   <h2 className="text-2xl font-semibold">Спикеры</h2>
                   {speakers.map(speaker => (
-                    <SpeakerCard key={speaker.id} speaker={speaker} />
+                    <div key={speaker.id} className="card p-6">
+                      <div className="flex items-start gap-4">
+                        <Link to={`/speakers/${speaker.id}`} className="shrink-0">
+                          <img
+                            src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos.find(p => p.isMain)?.url}`}
+                            alt={speaker.name}
+                            className="w-16 h-16 rounded-full object-cover"
+                          />
+                        </Link>
+                        <div>
+                          <Link 
+                            to={`/speakers/${speaker.id}`}
+                            className="text-lg font-semibold hover:text-primary-600 dark:hover:text-primary-400"
+                          >
+                            {speaker.name}
+                          </Link>
+                          <p className="text-sm text-primary-600 dark:text-primary-400 mb-2">
+                            {speaker.field_of_expertise}
+                          </p>
+                          <p className="text-dark-600 dark:text-dark-300">
+                            {speaker.description}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="space-y-6">
-              <div className="card p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <span className="block text-sm text-dark-500 dark:text-dark-400">Стоимость</span>
-                    <span className="text-2xl font-bold">
-                      {event.payment_type === 'free' 
-                        ? 'Бесплатно'
-                        : event.payment_type === 'donation'
-                          ? 'Донейшн'
-                          : `${event.price} ${event.currency}`
-                      }
-                    </span>
+            {!isPastEvent(event.date) && (
+              <div className="space-y-6">
+                <div className="card p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <span className="block text-sm text-dark-500 dark:text-dark-400">Стоимость</span>
+                      <span className="text-2xl font-bold">
+                        {event.payment_type === 'free' 
+                          ? 'Бесплатно'
+                          : event.payment_type === 'donation'
+                            ? 'Донейшн'
+                            : `${event.price} ${event.currency}`
+                        }
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setShowShareMenu(!showShareMenu)}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-full relative"
+                    >
+                      <Share2 className="h-5 w-5" />
+                      
+                      {showShareMenu && (
+                        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-dark-800 rounded-lg shadow-lg py-2 z-50">
+                          <button
+                            onClick={() => handleShare('telegram')}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-dark-700"
+                          >
+                            Telegram
+                          </button>
+                          <button
+                            onClick={() => handleShare('vk')}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-dark-700"
+                          >
+                            VKontakte
+                          </button>
+                          <button
+                            onClick={() => handleShare('copy')}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-dark-700"
+                          >
+                            Копировать ссылку
+                          </button>
+                        </div>
+                      )}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setShowShareMenu(!showShareMenu)}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-full relative"
+
+                  {event.payment_widget_id && (
+                    <div 
+                      className="mb-4"
+                      dangerouslySetInnerHTML={{ __html: event.payment_widget_id }}
+                    />
+                  )}
+
+                  <button 
+                    onClick={handleRegisterClick}
+                    className="w-full btn-primary mb-4"
                   >
-                    <Share2 className="h-5 w-5" />
-                    
-                    {showShareMenu && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-dark-800 rounded-lg shadow-lg py-2 z-50">
-                        <button
-                          onClick={() => handleShare('telegram')}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-dark-700"
-                        >
-                          Telegram
-                        </button>
-                        <button
-                          onClick={() => handleShare('vk')}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-dark-700"
-                        >
-                          VKontakte
-                        </button>
-                        <button
-                          onClick={() => handleShare('copy')}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-dark-700"
-                        >
-                          Копировать ссылку
-                        </button>
+                    Зарегистрироваться
+                  </button>
+
+                  <div className="space-y-4 text-sm">
+                    {event.languages?.length > 0 && (
+                      <div className="flex items-center gap-2 text-dark-500 dark:text-dark-400">
+                        <Globe className="h-5 w-5" />
+                        <span>{event.languages.join(', ')}</span>
                       </div>
                     )}
-                  </button>
-                </div>
-
-                {/* Виджет регистрации */}
-                {event.payment_widget_id && (
-                  <div 
-                    className="mb-4"
-                    dangerouslySetInnerHTML={{ __html: event.payment_widget_id }}
-                  />
-                )}
-
-                <button 
-                  onClick={handleRegisterClick}
-                  className="w-full btn-primary mb-4"
-                >
-                  Зарегистрироваться
-                </button>
-
-                <div className="space-y-4 text-sm">
-                  {event.languages?.length > 0 && (
-                    <div className="flex items-center gap-2 text-dark-500 dark:text-dark-400">
-                      <Globe className="h-5 w-5" />
-                      <span>{event.languages.join(', ')}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {event.location && (
-                <div className="card p-6">
-                  <p className="font-semibold mb-4">Место проведения</p>
-                  <div className="space-y-2">
-                    <p className="text-dark-600 dark:text-dark-300">{event.location}</p>
                   </div>
                 </div>
-              )}
-            </div>
+
+                {event.location && (
+                  <div className="card p-6">
+                    <p className="font-semibold mb-4">Место проведения</p>
+                    <div className="space-y-2">
+                      <p className="text-dark-600 dark:text-dark-300">{event.location}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </main>
