@@ -524,93 +524,83 @@ const updateTimeSlots = async (eventData: Event, isNewEvent: boolean) => {
     return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!validateForm()) return;
 
-    const toastId = toast.loading('Сохранение мероприятия...');
-    
-    try {
-      setLoading(true);
+  const toastId = toast.loading('Сохранение мероприятия...');
+  
+  try {
+    setLoading(true);
 
-      // Prepare event data
-      const eventData = {
-        ...formData,
-        speakers: selectedSpeakers,
-        widget_chooser: usePaymentWidget,
-        start_time: createTimestamp(formData.date, formData.start_time),
-        end_time: createTimestamp(formData.date, formData.end_time)
-      };
+    // Prepare event data
+    const eventData = {
+      ...formData,
+      speakers: selectedSpeakers,
+      widget_chooser: usePaymentWidget,
+      start_time: createTimestamp(formData.date, formData.start_time),
+      end_time: createTimestamp(formData.date, formData.end_time)
+    };
 
-      const isNewEvent = id === 'new';
+    const isNewEvent = id === 'new';
 
-      if (isNewEvent) {
-        // Create new event
-        const { error } = await supabase
-          .from('events')
-          .insert(eventData);
+    if (isNewEvent) {
+      // Create new event
+      const { error } = await supabase
+        .from('events')
+        .insert(eventData);
 
-        if (error) throw error;
+      if (error) throw error;
 
-        toast.update(toastId, { 
-          render: 'Мероприятие создано', 
-          type: 'info', 
-          isLoading: false,  
-          autoClose: 3000 
-        });
-
-        // Update time slots for new event
-        await updateTimeSlots(eventData, true);
-
-        toast.update(toastId, { 
-          render: 'Мероприятие успешно создано', 
-          type: 'success', 
-          isLoading: false, 
-          autoClose: 3000 
-        });
-
-        navigate('/admin/events');
-      } else {
-        // Update existing event
-        const { error } = await supabase
-          .from('events')
-          .update(eventData)
-          .eq('id', id);
-
-        if (error) throw error;
-
-        toast.update(toastId, { 
-          render: 'Мероприятие обновлено', 
-          type: 'info', 
-          isLoading: false, 
-          autoClose: 3000 
-        });
-
-        // Update time slots for existing event
-        await updateTimeSlots(eventData, false);
-
-        toast.update(toastId, { 
-          render: 'Мероприятие успешно обновлено', 
-          type: 'success', 
-          isLoading: false, 
-          autoClose: 3000 
-        });
-
-        navigate('/admin/events');
-      }
-    } catch (error) {
-      console.error('Error saving event:', error);
       toast.update(toastId, { 
-        render: 'Ошибка при сохранении мероприятия', 
-        type: 'error', 
+        render: 'Мероприятие создано', 
+        type: 'info', 
+        isLoading: false,  
+        autoClose: 3000 
+      });
+
+      // Update time slots ONLY for new event
+      await updateTimeSlots(eventData, true);
+
+      toast.update(toastId, { 
+        render: 'Мероприятие успешно создано', 
+        type: 'success', 
         isLoading: false, 
         autoClose: 3000 
       });
-    } finally {
-      setLoading(false);
+
+      navigate('/admin/events');
+    } else {
+      // Update existing event WITHOUT updating time slots
+      const { error } = await supabase
+        .from('events')
+        .update(eventData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast.update(toastId, { 
+        render: 'Мероприятие успешно обновлено', 
+        type: 'success', 
+        isLoading: false, 
+        autoClose: 3000 
+      });
+
+      navigate('/admin/events');
     }
-  };
+  } catch (error) {
+    console.error('Error saving event:', error);
+    toast.update(toastId, { 
+      render: 'Ошибка при сохранении мероприятия', 
+      type: 'error', 
+      isLoading: false, 
+      autoClose: 3000 
+    });
+  } finally {
+    setLoading(false);
+  }
+};
   
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
