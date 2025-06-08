@@ -7,38 +7,12 @@ import 'react-toastify/dist/ReactToastify.css';
 import imageCompression from 'browser-image-compression';
 import Cropper from 'react-cropper';
 import 'cropperjs/dist/cropper.css';
+import { sendTelegramNotificationWithFeedback } from '../../utils/telegramNotifications';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY 
 );
-
-// Telegram notification function
-const sendTelegramNotification = async (message: string) => {
-  const botToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-  const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
-  
-  if (!botToken || !chatId) {
-    console.warn('Telegram bot token or chat ID not configured');
-    return;
-  }
-
-  try {
-    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: message,
-        parse_mode: 'HTML'
-      })
-    });
-  } catch (error) {
-    console.error('Error sending Telegram notification:', error);
-  }
-};
 
 interface Speaker {
   id: string;
@@ -204,81 +178,6 @@ const CreateEditEventPage = () => {
     return date.toISOString();
   };
 
-
-
-  
-// Измените функцию updateTimeSlots:
-const updateTimeSlots = async (eventData: Event, isNewEvent: boolean) => {
-  try {
-    // Создаем правильные timestamp
-    const startAt = createTimestamp(eventData.date, eventData.start_time);
-    const endAt = createTimestamp(eventData.date, eventData.end_time);
-
-    // Проверяем валидность дат
-    if (isNaN(new Date(startAt).getTime())) {
-      throw new Error('Invalid start time');
-    }
-    if (isNaN(new Date(endAt).getTime())) {
-      throw new Error('Invalid end time');
-    }
-
-    // Проверяем, существует ли уже слот для этого мероприятия
-    const { data: existingSlots, error: slotError } = await supabase
-      .from('time_slots_table')
-      .select('*')
-      .eq('slot_details->>event_id', eventData.id);
-
-    if (slotError) {
-      throw slotError;
-    }
-
-    // Если слот уже существует, просто выходим из функции
-    if (existingSlots && existingSlots.length > 0) {
-      return;
-    }
-
-    // Создаем данные для нового слота
-    const slotData = {
-      start_at: startAt,
-      end_at: endAt,
-      slot_details: {
-        event_id: eventData.id,
-        event_title: eventData.title,
-        event_type: eventData.event_type,
-        location: eventData.location,
-        max_registrations: eventData.max_registrations,
-        current_registrations: 0,
-        speakers: eventData.speakers || []
-      }
-    };
-
-    // Создаем новый слот только если это новое мероприятие
-    if (isNewEvent) {
-      const { error: insertError } = await supabase
-        .from('time_slots_table')
-        .insert(slotData);
-
-      if (insertError) throw insertError;
-
-      // Отправляем уведомление для нового мероприятия
-      const message = `🎉 Добавлено новое мероприятие\n\n` +
-        `Название: <b>${eventData.title}</b>\n` +
-        `Время: ${new Date(startAt).toLocaleString()} - ${new Date(endAt).toLocaleString()}\n` +
-        `Место: ${eventData.location}\n` +
-        `Тип: ${eventData.event_type}\n` +
-        `Ссылка: ${window.location.origin}/event/${eventData.id}`;
-      
-      await sendTelegramNotification(message);
-
-      toast.info('Создан новый временной слот');
-    }
-  } catch (error) {
-    console.error('Error updating time slots:', error);
-    toast.error('Ошибка при обновлении временных слотов');
-    throw error;
-  }
-};
-  
   useEffect(() => {
     const initializeEvent = async () => {
       if (id && id !== 'new') {
@@ -560,8 +459,16 @@ const handleSubmit = async (e: React.FormEvent) => {
         autoClose: 3000 
       });
 
-      // Update time slots ONLY for new event
-      await updateTimeSlots(eventData, true);
+      // Send notification for new event
+      const message = `🎉 Добавлено новое мероприятие\n\n` +
+        `Название: <b>${eventData.title}</b>\n` +
+        `Дата: ${eventData.date}\n` +
+        `Время: ${eventData.start_time} - ${eventData.end_time}\n` +
+        `Место: ${eventData.location}\n` +
+        `Тип: ${eventData.event_type}\n` +
+        `Ссылка: ${window.location.origin}/events/${eventData.id}`;
+      
+      await sendTelegramNotificationWithFeedback(message, true);
 
       toast.update(toastId, { 
         render: 'Мероприятие успешно создано', 
@@ -572,13 +479,24 @@ const handleSubmit = async (e: React.FormEvent) => {
 
       navigate('/admin/events');
     } else {
-      // Update existing event WITHOUT updating time slots
+      // Update existing event
       const { error } = await supabase
         .from('events')
         .update(eventData)
         .eq('id', id);
 
       if (error) throw error;
+
+      // Send notification for updated event
+      const message = `🔄 Обновлено мероприятие\n\n` +
+        `Название: <b>${eventData.title}</b>\n` +
+        `Дата: ${eventData.date}\n` +
+        `Время: ${eventData.start_time} - ${eventData.end_time}\n` +
+        `Место: ${eventData.location}\n` +
+        `Тип: ${eventData.event_type}\n` +
+        `Ссылка: ${window.location.origin}/events/${eventData.id}`;
+      
+      await sendTelegramNotificationWithFeedback(message, true);
 
       toast.update(toastId, { 
         render: 'Мероприятие успешно обновлено', 
