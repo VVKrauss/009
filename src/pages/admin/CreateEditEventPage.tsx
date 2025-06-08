@@ -543,22 +543,23 @@ const updateTimeSlots = async (eventData: Event, isNewEvent: boolean) => {
         end_time: createTimestamp(formData.date, formData.end_time)
       };
 
-      const isNewEvent = id === 'new';
+      const { error } = await supabase
+  .from('events')
+  .upsert(dataToSave);
 
-      if (isNewEvent) {
-        // Create new event
-        const { error } = await supabase
-          .from('events')
-          .insert(eventData);
+if (error) throw error;
 
-        if (error) throw error;
+// Для новых мероприятий создаем слот
+if (isNewEvent) {
+  await updateTimeSlots(dataToSave, isNewEvent);
+}
 
-        toast.update(toastId, { 
-          render: 'Мероприятие создано', 
-          type: 'info', 
-          isLoading: false, 
-          autoClose: 3000 
-        });
+toast.update(toastId, { 
+  render: isNewEvent ? 'Мероприятие создано' : 'Мероприятие обновлено', 
+  type: 'success', 
+  isLoading: false, 
+  autoClose: 3000 
+});
 
         // Update time slots for new event
         await updateTimeSlots(eventData, true);
