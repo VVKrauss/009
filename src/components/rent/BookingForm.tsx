@@ -89,7 +89,6 @@ const BookingForm = () => {
 
   useEffect(() => {
     fetchTimeSlots();
-
   }, []);
 
   const showErrorToast = (message: React.ReactNode) => {
@@ -533,7 +532,7 @@ const BookingForm = () => {
             onClick={prevMonth}
             className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 text-sm sm:text-base"
           >
-            < Назад
+            &lt; Назад
           </button>
           <h2 className="text-lg sm:text-xl font-semibold">
             {format(currentMonth, 'MMMM yyyy', { locale: ru })}
@@ -541,8 +540,8 @@ const BookingForm = () => {
           <button 
             onClick={nextMonth}
             className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 text-sm sm:text-base"
-          
-            Вперед >
+          >
+            Вперед &gt;
           </button>
         </div>
         

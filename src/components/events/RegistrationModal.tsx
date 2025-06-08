@@ -40,7 +40,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
     phone: '',
     comment: '',
     adultTickets: 1,
-    childTickets: 0
+    childTickets: 0,
   });
   const [loading, setLoading] = useState(false);
   const [registrationSuccess, setRegistrationSuccess] = useState(false);
@@ -97,7 +97,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
       const roundedPairPrice = roundUpToHundred(pairPrice);
 
       details.push(
-        <div key="adult\" className=\"flex justify-between">
+        <div key="adult" className="flex justify-between">
           <span>
             Взрослые ({totalAdult}×)
             {pairs > 0 && (
@@ -176,7 +176,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
         total_amount: Number(total),
         status: true,
         created_at: new Date().toISOString(),
-        payment_link_clicked: false
+        payment_link_clicked: false,
       };
 
       const updatedRegistrationsList = [...currentRegistrations, registrationData];
@@ -188,7 +188,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
         .from('events')
         .update({
           registrations_list: updatedRegistrationsList,
-          current_registration_count: newRegistrationCount
+          current_registration_count: newRegistrationCount,
         })
         .eq('id', event.id);
 
@@ -200,7 +200,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
         email: formData.contact,
         adultTickets: formData.adultTickets,
         childTickets: event.adults_only ? 0 : formData.childTickets,
-        total
+        total,
       });
       
       setRegistrationSuccess(true);
@@ -239,6 +239,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
           <button 
             onClick={onClose} 
             className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full"
+            aria-label="Закрыть модальное окно"
           >
             <X className="h-5 w-5" />
           </button>
@@ -353,7 +354,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
                         value={formData.adultTickets}
                         onChange={(e) => setFormData({ 
                           ...formData, 
-                          adultTickets: Math.max(1, parseInt(e.target.value) || 1) 
+                          adultTickets: Math.max(1, parseInt(e.target.value) || 1), 
                         })}
                         min="1"
                         max="10"
@@ -370,7 +371,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
                           value={formData.childTickets}
                           onChange={(e) => setFormData({ 
                             ...formData, 
-                            childTickets: Math.max(0, parseInt(e.target.value) || 0)
+                            childTickets: Math.max(0, parseInt(e.target.value) || 0),
                           })}
                           min="0"
                           max="10"
