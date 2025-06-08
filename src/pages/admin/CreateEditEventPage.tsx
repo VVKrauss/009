@@ -548,7 +548,7 @@ const CreateEditEventPage = () => {
 const updateTimeSlots = async (eventData: Event, isNewEvent: boolean) => {
   try {
     // Создаем правильные timestamp
-    const startAt = createTimestamp(eventData.date, eventData.start_time);
+    const startAt = createTimestamp(eventData.date, eventData.start_time); 
     const endAt = createTimestamp(eventData.date, eventData.end_time);
 
     // Проверяем валидность дат
