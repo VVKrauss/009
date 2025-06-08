@@ -5,7 +5,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isPast, getDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
 
-import { sendTelegramNotificationWithFeedback } from '../../utils/telegramNotifications';
+import { sendTelegramNotification } from '../../utils/telegramNotifications';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -307,7 +307,7 @@ const BookingForm = () => {
     });
   };
 
-  const sendTelegramNotification = async (bookingDetails: {
+  const sendTelegramNotification2 = async (bookingDetails: {
     date: string;
     startTime: string;
     endTime: string;
@@ -325,8 +325,8 @@ const BookingForm = () => {
         `${bookingDetails.phone ? `📞 Телефон: ${bookingDetails.phone}\n` : ''}` +
         `${bookingDetails.social_contact ? `💬 Соцсети: ${bookingDetails.social_contact}\n` : ''}`;
       
-      
-       await sendTelegramNotificationWithFeedback("import.meta.env.VITE_TELEGRAM_CHAT_ID", message);
+      const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
+      await sendTelegramNotification(chatId, message);
       
     } catch (err) {
       console.error('Ошибка отправки в Telegram:', err);
@@ -375,7 +375,7 @@ const BookingForm = () => {
       
       if (errors.length > 0) throw errors[0].error;
       
-      await sendTelegramNotification({
+      await sendTelegramNotification2({
         date: format(selectedDate!, 'dd.MM.yyyy'),
         startTime: firstSlot.start_time,
         endTime: lastSlot.end_time,
@@ -533,7 +533,7 @@ const BookingForm = () => {
             onClick={prevMonth}
             className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 text-sm sm:text-base"
           >
-            &lt; Назад
+            < Назад
           </button>
           <h2 className="text-lg sm:text-xl font-semibold">
             {format(currentMonth, 'MMMM yyyy', { locale: ru })}
@@ -542,7 +542,7 @@ const BookingForm = () => {
             onClick={nextMonth}
             className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 text-sm sm:text-base"
           >
-            Вперед &gt;
+            Вперед >
           </button>
         </div>
         
