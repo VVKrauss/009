@@ -22,12 +22,12 @@ import {
   TITLE_MAX_LENGTH,
   SHORT_DESC_MAX_LENGTH,
   DESC_MAX_LENGTH
-} from './eventConstants';
+} from './constants';
 import { 
   isValidUrl, 
   isValidTime, 
   formatTimeForDatabase 
-} from './eventUtils';
+} from './utils';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
