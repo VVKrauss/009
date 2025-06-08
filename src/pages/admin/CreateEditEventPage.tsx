@@ -168,15 +168,35 @@ const CreateEditEventPage = () => {
     return timeRegex.test(time);
   };
 
+  // Helper function to format time consistently
+  const formatTimeForDatabase = (time: string) => {
+    if (!time) return null;
+    
+    // If time is already in HH:MM format, append :00
+    if (time.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+      return `${time}:00`;
+    }
+    
+    // If time is already in HH:MM:SS format, return as is
+    if (time.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/)) {
+      return time;
+    }
+    
+    return null;
+  };
+
   const updateTimeSlots = async (eventData: Event) => {
     try {
-      // Validate time values before proceeding
-      if (!isValidTime(eventData.start_time) || !isValidTime(eventData.end_time)) {
+      // Format times consistently
+      const formattedStartTime = formatTimeForDatabase(eventData.start_time);
+      const formattedEndTime = formatTimeForDatabase(eventData.end_time);
+
+      if (!formattedStartTime || !formattedEndTime) {
         throw new Error('Invalid time format');
       }
 
-      const startDateTime = new Date(`${eventData.date}T${eventData.start_time}:00`);
-      const endDateTime = new Date(`${eventData.date}T${eventData.end_time}:00`);
+      const startDateTime = new Date(`${eventData.date}T${formattedStartTime}`);
+      const endDateTime = new Date(`${eventData.date}T${formattedEndTime}`);
 
       // Check if dates are valid
       if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
@@ -197,8 +217,8 @@ const CreateEditEventPage = () => {
 
       const slotData = {
         date: eventData.date,
-        start_time: startDateTime.toTimeString().slice(0, 8),
-        end_time: endDateTime.toTimeString().slice(0, 8),
+        start_time: formattedStartTime,
+        end_time: formattedEndTime,
         slot_details: {
           event_id: eventData.id,
           event_title: eventData.title,
@@ -490,13 +510,17 @@ const CreateEditEventPage = () => {
     setLoading(true);
 
     try {
-      // Validate and create date objects
-      if (!isValidTime(formData.start_time) || !isValidTime(formData.end_time)) {
+      // Format times consistently for database storage
+      const formattedStartTime = formatTimeForDatabase(formData.start_time);
+      const formattedEndTime = formatTimeForDatabase(formData.end_time);
+
+      if (!formattedStartTime || !formattedEndTime) {
         throw new Error('Invalid time format');
       }
 
-      const startDateTime = new Date(`${formData.date}T${formData.start_time}:00`);
-      const endDateTime = new Date(`${formData.date}T${formData.end_time}:00`);
+      // Create proper datetime strings for database storage
+      const startDateTime = new Date(`${formData.date}T${formattedStartTime}`);
+      const endDateTime = new Date(`${formData.date}T${formattedEndTime}`);
 
       // Check if dates are valid
       if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
