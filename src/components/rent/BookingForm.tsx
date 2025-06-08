@@ -327,7 +327,7 @@ const BookingForm = () => {
       
        await sendTelegramNotificationWithFeedback("import.meta.env.VITE_TELEGRAM_CHAT_ID", message);
       
-      );
+
     } catch (err) {
       console.error('Ошибка отправки в Telegram:', err);
     }
