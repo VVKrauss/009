@@ -7,7 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import imageCompression from 'browser-image-compression';
 import Cropper from 'react-cropper';
 import 'cropperjs/dist/cropper.css';
-import { sendTelegramNotificationWithFeedback } from '../../utils/telegramNotifications';
+import { sendTelegramNotification } from '../../utils/telegramNotifications';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
