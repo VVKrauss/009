@@ -4,14 +4,12 @@ import { X, Calendar, Clock, MapPin, CreditCard, CheckCircle } from 'lucide-reac
 import { toast } from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { sendTelegramNotification } from '../../utils/telegramNotifications';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
-
-const TELEGRAM_BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID;
 
 type RegistrationModalProps = {
   isOpen: boolean;
@@ -58,40 +56,6 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
   const isFreeOrDonation = event.payment_type === 'free' || event.payment_type === 'donation';
   
   const roundUpToHundred = (num: number) => Math.ceil(num / 100) * 100;
-
-const sendTelegramNotification = async (message: string) => {
-  try {
-    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
-    console.log('Sending Telegram notification to URL:', url);
-    console.log('Message payload:', {
-      chat_id: TELEGRAM_CHAT_ID,
-      text: message,
-      parse_mode: 'HTML'
-    });
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        chat_id: TELEGRAM_CHAT_ID,
-        text: message,
-        parse_mode: 'HTML'
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Telegram notification failed with status:', response.status, 'Error text:', errorText);
-      throw new Error(`Telegram API error: ${response.status} - ${errorText}`);
-    } else {
-      console.log('Telegram notification sent successfully!');
-    }
-  } catch (error) {
-    console.error('Error sending Telegram notification:', error);
-  }
-};
-
 
   const calculateTotal = () => {
     if (isFreeOrDonation) return 0;

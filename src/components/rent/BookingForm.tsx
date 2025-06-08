@@ -4,14 +4,12 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isPast, getDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
+import { sendTelegramNotification } from '../../utils/telegramNotifications';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
-
-const TELEGRAM_BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID;
 
 interface TimeSlot {
   id: string;
@@ -308,40 +306,6 @@ const BookingForm = () => {
     });
   };
 
-  const sendTelegramNotification = async (bookingDetails: {
-    date: string;
-    startTime: string;
-    endTime: string;
-    name: string;
-    email: string;
-    phone?: string;
-    social_contact?: string;
-  }) => {
-    try {
-      const text = `📅 Новая бронь пространства:\n\n` +
-        `📌 Дата: ${bookingDetails.date}\n` +
-        `⏰ Время: ${bookingDetails.startTime}-${bookingDetails.endTime}\n` +
-        `👤 Имя: ${bookingDetails.name}\n` +
-        `📧 Email: ${bookingDetails.email}\n` +
-        `${bookingDetails.phone ? `📞 Телефон: ${bookingDetails.phone}\n` : ''}` +
-        `${bookingDetails.social_contact ? `💬 Соцсети: ${bookingDetails.social_contact}\n` : ''}`;
-      
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: text,
-          parse_mode: 'Markdown'
-        })
-      });
-    } catch (err) {
-      console.error('Ошибка отправки в Telegram:', err);
-    }
-  };
-
   const handleSubmitBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -384,16 +348,15 @@ const BookingForm = () => {
       
       if (errors.length > 0) throw errors[0].error;
       
-      await sendTelegramNotification({
-        date: format(selectedDate!, 'dd.MM.yyyy'),
-        startTime: firstSlot.start_time,
-        endTime: lastSlot.end_time,
-        name: bookingData.name,
-        email: bookingData.email,
-        phone: bookingData.phone,
-        social_contact: bookingData.social_contact
-      });
+      const message = `📅 Новая бронь пространства:\n\n` +
+        `📌 Дата: ${format(selectedDate!, 'dd.MM.yyyy')}\n` +
+        `⏰ Время: ${firstSlot.start_time}-${lastSlot.end_time}\n` +
+        `👤 Имя: ${bookingData.name}\n` +
+        `📧 Email: ${bookingData.email}\n` +
+        `${bookingData.phone ? `📞 Телефон: ${bookingData.phone}\n` : ''}` +
+        `${bookingData.social_contact ? `💬 Соцсети: ${bookingData.social_contact}\n` : ''}`;
       
+      await sendTelegramNotification(message);
       await fetchTimeSlots();
       
       showSuccessToast(
@@ -542,7 +505,7 @@ const BookingForm = () => {
             onClick={prevMonth}
             className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 text-sm sm:text-base"
           >
-            &lt; Назад
+            < Назад
           </button>
           <h2 className="text-lg sm:text-xl font-semibold">
             {format(currentMonth, 'MMMM yyyy', { locale: ru })}
@@ -551,7 +514,7 @@ const BookingForm = () => {
             onClick={nextMonth}
             className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-600 text-sm sm:text-base"
           >
-            Вперед &gt;
+            Вперед >
           </button>
         </div>
         
