@@ -433,6 +433,14 @@ const handleSubmit = async (e: React.FormEvent) => {
   try {
     setLoading(true);
 
+    // Функция для конвертации timestampz в HH:MM
+    const formatTimeFromTimestamp = (timestamp: string) => {
+      const date = new Date(timestamp);
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    };
+
     // Prepare event data
     const eventData = {
       ...formData,
@@ -463,7 +471,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       const message = `🎉 Добавлено новое мероприятие\n\n` +
         `Название: <b>${eventData.title}</b>\n` +
         `Дата: ${eventData.date}\n` +
-        `Время: ${eventData.start_time} - ${eventData.end_time}\n` +
+        `Время: ${formatTimeFromTimestamp(eventData.start_time)} - ${formatTimeFromTimestamp(eventData.end_time)}\n` +
         `Место: ${eventData.location}\n` +
         `Тип: ${eventData.event_type}\n` +
         `Ссылка: ${window.location.origin}/events/${eventData.id}`;
@@ -491,7 +499,7 @@ const handleSubmit = async (e: React.FormEvent) => {
       const message = `🔄 Обновлено мероприятие\n\n` +
         `Название: <b>${eventData.title}</b>\n` +
         `Дата: ${eventData.date}\n` +
-        `Время: ${eventData.start_time} - ${eventData.end_time}\n` +
+        `Время: ${formatTimeFromTimestamp(eventData.start_time)} - ${formatTimeFromTimestamp(eventData.end_time)}\n` +
         `Место: ${eventData.location}\n` +
         `Тип: ${eventData.event_type}\n` +
         `Ссылка: ${window.location.origin}/events/${eventData.id}`;
@@ -519,6 +527,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     setLoading(false);
   }
 };
+
   
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
