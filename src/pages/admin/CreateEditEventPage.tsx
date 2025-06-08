@@ -543,6 +543,8 @@ const CreateEditEventPage = () => {
 
     return true;
   };
+
+  
 const updateTimeSlots = async (eventData: Event, isNewEvent: boolean) => {
   try {
     // Создаем правильные timestamp
