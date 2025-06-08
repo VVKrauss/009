@@ -206,11 +206,11 @@ const CreateEditEventPage = () => {
 
   const updateTimeSlots = async (eventData: Event, isNewEvent: boolean) => {
     try {
-      // Create proper timestamps
-      const startAt = createTimestamp(eventData.date, eventData.start_time);
+      // Создаем правильные timestamp
+      const startAt = createTimestamp(eventData.date, eventData.start_time); 
       const endAt = createTimestamp(eventData.date, eventData.end_time);
 
-      // Check if dates are valid
+      // Проверяем валидность дат
       if (isNaN(new Date(startAt).getTime())) {
         throw new Error('Invalid start time');
       }
@@ -218,7 +218,7 @@ const CreateEditEventPage = () => {
         throw new Error('Invalid end time');
       }
 
-      // Check if slot already exists
+      // Проверяем, существует ли уже слот для этого мероприятия
       const { data: existingSlots, error: slotError } = await supabase
         .from('time_slots_table')
         .select('*')
@@ -544,78 +544,93 @@ const CreateEditEventPage = () => {
     return true;
   };
 
-  
-const updateTimeSlots = async (eventData: Event, isNewEvent: boolean) => {
-  try {
-    // Создаем правильные timestamp
-    const startAt = createTimestamp(eventData.date, eventData.start_time); 
-    const endAt = createTimestamp(eventData.date, eventData.end_time);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
 
-    // Проверяем валидность дат
-    if (isNaN(new Date(startAt).getTime())) {
-      throw new Error('Invalid start time');
-    }
-    if (isNaN(new Date(endAt).getTime())) {
-      throw new Error('Invalid end time');
-    }
+    const toastId = toast.loading('Сохранение мероприятия...');
+    
+    try {
+      setLoading(true);
 
-    // Проверяем, существует ли уже слот для этого мероприятия
-    const { data: existingSlots, error: slotError } = await supabase
-      .from('time_slots_table')
-      .select('*')
-      .eq('slot_details->>event_id', eventData.id);
+      // Prepare event data
+      const eventData = {
+        ...formData,
+        speakers: selectedSpeakers,
+        widget_chooser: usePaymentWidget,
+        start_time: createTimestamp(formData.date, formData.start_time),
+        end_time: createTimestamp(formData.date, formData.end_time)
+      };
 
-    if (slotError) {
-      throw slotError;
-    }
+      const isNewEvent = id === 'new';
 
-    // Если слот уже существует, просто выходим из функции
-    if (existingSlots && existingSlots.length > 0) {
-      return;
-    }
+      if (isNewEvent) {
+        // Create new event
+        const { error } = await supabase
+          .from('events')
+          .insert(eventData);
 
-    // Создаем данные для нового слота
-    const slotData = {
-      start_at: startAt,
-      end_at: endAt,
-      slot_details: {
-        event_id: eventData.id,
-        event_title: eventData.title,
-        event_type: eventData.event_type,
-        location: eventData.location,
-        max_registrations: eventData.max_registrations,
-        current_registrations: 0,
-        speakers: eventData.speakers || []
+        if (error) throw error;
+
+        toast.update(toastId, { 
+          render: 'Мероприятие создано', 
+          type: 'info', 
+          isLoading: false, 
+          autoClose: 3000 
+        });
+
+        // Update time slots for new event
+        await updateTimeSlots(eventData, true);
+
+        toast.update(toastId, { 
+          render: 'Мероприятие успешно создано', 
+          type: 'success', 
+          isLoading: false, 
+          autoClose: 3000 
+        });
+
+        navigate('/admin/events');
+      } else {
+        // Update existing event
+        const { error } = await supabase
+          .from('events')
+          .update(eventData)
+          .eq('id', id);
+
+        if (error) throw error;
+
+        toast.update(toastId, { 
+          render: 'Мероприятие обновлено', 
+          type: 'info', 
+          isLoading: false, 
+          autoClose: 3000 
+        });
+
+        // Update time slots for existing event
+        await updateTimeSlots(eventData, false);
+
+        toast.update(toastId, { 
+          render: 'Мероприятие успешно обновлено', 
+          type: 'success', 
+          isLoading: false, 
+          autoClose: 3000 
+        });
+
+        navigate('/admin/events');
       }
-    };
-
-    // Создаем новый слот только если это новое мероприятие
-    if (isNewEvent) {
-      const { error: insertError } = await supabase
-        .from('time_slots_table')
-        .insert(slotData);
-
-      if (insertError) throw insertError;
-
-      // Отправляем уведомление для нового мероприятия
-      const message = `🎉 Добавлено новое мероприятие\n\n` +
-        `Название: <b>${eventData.title}</b>\n` +
-        `Время: ${new Date(startAt).toLocaleString()} - ${new Date(endAt).toLocaleString()}\n` +
-        `Место: ${eventData.location}\n` +
-        `Тип: ${eventData.event_type}\n` +
-        `Ссылка: ${window.location.origin}/event/${eventData.id}`;
-      
-      await sendTelegramNotification(message);
-
-      toast.info('Создан новый временной слот');
+    } catch (error) {
+      console.error('Error saving event:', error);
+      toast.update(toastId, { 
+        render: 'Ошибка при сохранении мероприятия', 
+        type: 'error', 
+        isLoading: false, 
+        autoClose: 3000 
+      });
+    } finally {
+      setLoading(false);
     }
-  } catch (error) {
-    console.error('Error updating time slots:', error);
-    toast.error('Ошибка при обновлении временных слотов');
-    throw error;
-  }
-};
-
+  };
   
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
