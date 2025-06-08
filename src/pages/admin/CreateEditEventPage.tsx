@@ -13,33 +13,6 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY 
 );
 
-// Добавляем функцию для отправки в Telegram
-const sendTelegramNotification = async (message: string) => {
-  const botToken = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-  const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
-  
-  if (!botToken || !chatId) {
-    console.warn('Telegram bot token or chat ID not configured');
-    return;
-  }
-
-  try {
-    await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: message,
-        parse_mode: 'HTML'
-      })
-    });
-  } catch (error) {
-    console.error('Error sending Telegram notification:', error);
-  }
-};
-
 interface Speaker {
   id: string;
   name: string;
@@ -127,7 +100,6 @@ const CreateEditEventPage = () => {
   const [speakersError, setSpeakersError] = useState<string | null>(null);
   const [speakerSearchQuery, setSpeakerSearchQuery] = useState('');
   const [usePaymentWidget, setUsePaymentWidget] = useState(false);
-  const [originalEventData, setOriginalEventData] = useState<Event | null>(null);
 
   // Festival program states
   const [editingProgramIndex, setEditingProgramIndex] = useState<number | null>(null);
@@ -196,29 +168,42 @@ const CreateEditEventPage = () => {
     return timeRegex.test(time);
   };
 
-  // Helper function to create proper timestamptz
-  const createTimestamp = (dateStr: string, timeStr: string) => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const date = new Date(dateStr);
-    date.setHours(hours, minutes, 0, 0);
-    return date.toISOString();
+  // Helper function to format time consistently
+  const formatTimeForDatabase = (time: string) => {
+    if (!time) return null;
+    
+    // If time is already in HH:MM format, append :00
+    if (time.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+      return `${time}:00`;
+    }
+    
+    // If time is already in HH:MM:SS format, return as is
+    if (time.match(/^([01]?[0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$/)) {
+      return time;
+    }
+    
+    return null;
   };
 
-  const updateTimeSlots = async (eventData: Event, isNewEvent: boolean) => {
+  const updateTimeSlots = async (eventData: Event) => {
     try {
-      // Create proper timestamps
-      const startAt = createTimestamp(eventData.date, eventData.start_time);
-      const endAt = createTimestamp(eventData.date, eventData.end_time);
+      // Format times consistently
+      const formattedStartTime = formatTimeForDatabase(eventData.start_time);
+      const formattedEndTime = formatTimeForDatabase(eventData.end_time);
+
+      if (!formattedStartTime || !formattedEndTime) {
+        throw new Error('Invalid time format');
+      }
+
+      const startDateTime = new Date(`${eventData.date}T${formattedStartTime}`);
+      const endDateTime = new Date(`${eventData.date}T${formattedEndTime}`);
 
       // Check if dates are valid
-      if (isNaN(new Date(startAt).getTime()) {
-        throw new Error('Invalid start time');
-      }
-      if (isNaN(new Date(endAt).getTime())) {
-        throw new Error('Invalid end time');
+      if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+        throw new Error('Invalid date/time values');
       }
 
-      // Check if slot already exists
+      // Check if slot already exists - use select() instead of single()
       const { data: existingSlots, error: slotError } = await supabase
         .from('time_slots_table')
         .select('*')
@@ -231,8 +216,9 @@ const CreateEditEventPage = () => {
       const existingSlot = existingSlots && existingSlots.length > 0 ? existingSlots[0] : null;
 
       const slotData = {
-        start_at: startAt,
-        end_at: endAt,
+        date: eventData.date,
+        start_time: formattedStartTime,
+        end_time: formattedEndTime,
         slot_details: {
           event_id: eventData.id,
           event_title: eventData.title,
@@ -245,11 +231,6 @@ const CreateEditEventPage = () => {
       };
 
       if (existingSlot) {
-        // Check if time has changed
-        const timeChanged = 
-          existingSlot.start_at !== startAt || 
-          existingSlot.end_at !== endAt;
-
         // Update existing slot
         const { error: updateError } = await supabase
           .from('time_slots_table')
@@ -257,18 +238,6 @@ const CreateEditEventPage = () => {
           .eq('id', existingSlot.id);
 
         if (updateError) throw updateError;
-
-        // Send notification if time changed
-        if (timeChanged && !isNewEvent) {
-          const message = `⏰ Время мероприятия изменено\n\n` +
-            `Мероприятие: <b>${eventData.title}</b>\n` +
-            `Новое время: ${new Date(startAt).toLocaleString()} - ${new Date(endAt).toLocaleString()}\n` +
-            `Место: ${eventData.location}\n` +
-            `Ссылка: ${window.location.origin}/event/${eventData.id}`;
-          
-          await sendTelegramNotification(message);
-        }
-
         toast.info('Временной слот обновлен');
       } else {
         // Create new slot
@@ -277,19 +246,6 @@ const CreateEditEventPage = () => {
           .insert(slotData);
 
         if (insertError) throw insertError;
-
-        // Send notification for new event
-        if (!isNewEvent) {
-          const message = `🎉 Добавлено новое мероприятие\n\n` +
-            `Название: <b>${eventData.title}</b>\n` +
-            `Время: ${new Date(startAt).toLocaleString()} - ${new Date(endAt).toLocaleString()}\n` +
-            `Место: ${eventData.location}\n` +
-            `Тип: ${eventData.event_type}\n` +
-            `Ссылка: ${window.location.origin}/event/${eventData.id}`;
-          
-          await sendTelegramNotification(message);
-        }
-
         toast.info('Создан новый временной слот');
       }
     } catch (error) {
@@ -321,10 +277,10 @@ const CreateEditEventPage = () => {
       if (error) throw error;
       
       if (data) {
-        // Parse timestamps from the database
         let startTime = '10:00';
         let endTime = '12:00';
 
+        // Safely parse start_time
         if (data.start_time) {
           try {
             const startDate = new Date(data.start_time);
@@ -336,6 +292,7 @@ const CreateEditEventPage = () => {
           }
         }
 
+        // Safely parse end_time
         if (data.end_time) {
           try {
             const endDate = new Date(data.end_time);
@@ -347,7 +304,7 @@ const CreateEditEventPage = () => {
           }
         }
 
-        const eventData = {
+        setFormData({
           ...data,
           short_description: data.short_description || '',
           start_time: startTime,
@@ -355,10 +312,8 @@ const CreateEditEventPage = () => {
           festival_program: data.festival_program || [],
           payment_widget_id: data.payment_widget_id || '',
           widget_chooser: data.widget_chooser || false
-        };
+        });
         
-        setFormData(eventData);
-        setOriginalEventData(eventData);
         setSelectedSpeakers(data.speakers || []);
         setUsePaymentWidget(data.widget_chooser || false);
         
@@ -372,10 +327,6 @@ const CreateEditEventPage = () => {
       navigate('/admin/events');
     }
   };
-
-
-
-  
 
   const fetchSpeakers = async () => {
     try {
@@ -392,7 +343,7 @@ const CreateEditEventPage = () => {
       setSpeakersError('Failed to load speakers');
       toast.error('Ошибка при загрузке спикеров');
     } finally {
-      setSpeakersLoading(false);
+      setSpeakersLoading(false); 
     }
   };
 
