@@ -12,6 +12,14 @@ import {
 import { format, subDays, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
+import { 
+  ResponsiveContainer, 
+  PieChart, 
+  Pie, 
+  Cell, 
+  Tooltip, 
+  Legend 
+} from 'recharts';
 
 // Import analytics utilities and components
 import { 
@@ -38,6 +46,9 @@ import AnalyticsEventTable from '../../components/admin/AnalyticsEventTable';
 import AnalyticsRevenueForecast from '../../components/admin/AnalyticsRevenueForecast';
 import AnalyticsCapacityChart from '../../components/admin/AnalyticsCapacityChart';
 import AnalyticsConversionFunnel from '../../components/admin/AnalyticsConversionFunnel';
+
+// Colors for pie chart
+const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
 // Main component
 const AdminAnalytics = () => {
