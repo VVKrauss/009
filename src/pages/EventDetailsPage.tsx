@@ -74,6 +74,62 @@ const isPastEvent = (eventDate: string) => {
   }
 };
 
+const renderDescriptionWithLinks = (description: string) => {
+  if (!description) {
+    return <p className="text-gray-500 dark:text-gray-400">Описание отсутствует</p>;
+  }
+
+  const withLinks = description.replace(
+    /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1(?:[^>]*?)>(.*?)<\/a>/g,
+    (match, quote, url, text) => {
+      return `@@@LINK_START@@@${url}@@@TEXT_START@@@${text}@@@LINK_END@@@`;
+    }
+  );
+
+  const parts = withLinks.split(/@@@LINK_START@@@|@@@TEXT_START@@@|@@@LINK_END@@@/);
+  
+  return (
+    <div className="text-dark-600 dark:text-dark-300">
+      {parts.map((part, index) => {
+        if (index % 4 === 0) {
+          return <span key={index}>{part}</span>;
+        } else if (index % 4 === 1) {
+          const url = part;
+          const text = parts[index + 1];
+          return (
+            <a
+              key={index}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary-600 dark:text-primary-400 hover:opacity-80 underline"
+            >
+              {text}
+            </a>
+          );
+        }
+        return null;
+      })}
+    </div>
+  );
+};
+
+const renderEventDescription = (text: string) => {
+  if (!text) return null;
+  
+  const paragraphs = text.split(/\n\s*\n/);
+  
+  return (
+    <div className="prose dark:prose-invert max-w-none">
+      {paragraphs.map((paragraph, i) => (
+        <p key={i} className="mb-4">
+          {renderDescriptionWithLinks(paragraph)}
+        </p>
+      ))}
+    </div>
+  );
+};
+
 const EventDetailsPage = () => {
   const { id } = useParams<{ id: string }>();
   const [event, setEvent] = useState<Event | null>(null);
@@ -159,18 +215,6 @@ const EventDetailsPage = () => {
     } else {
       setShowPaymentOptions(true);
     }
-  };
-
-  const formatDescription = (text: string) => {
-    if (!text) return '';
-    
-    return text
-      .replace(/\r\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .replace(/\n/g, '<br/>')
-      .replace(/<br\/>\s*<br\/>/g, '</p><p>')
-      .replace(/<p><\/p>/g, '')
-      .replace(/<p>(.*?)<\/p>/g, '<p class="mb-4">$1</p>');
   };
 
   if (loading) {
@@ -265,10 +309,7 @@ const EventDetailsPage = () => {
             <div className="lg:col-span-2 space-y-8">
               <div className="card p-6">
                 <h2 className="text-2xl font-semibold mb-4">О мероприятии</h2>
-                <div 
-                  className="prose dark:prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: formatDescription(event.description) }}
-                />
+                {renderEventDescription(event.description)}
               </div>
 
               {event.event_type === 'Festival' && event.festival_program && event.festival_program.length > 0 && (
@@ -308,10 +349,9 @@ const EventDetailsPage = () => {
                                   </span>
                                 </div>
                                 <h3 className="text-xl font-semibold mb-2">{item.title}</h3>
-                                <div 
-                                  className="prose dark:prose-invert max-w-none mb-4"
-                                  dangerouslySetInnerHTML={{ __html: formatDescription(item.description) }}
-                                />
+                                <div className="prose dark:prose-invert max-w-none mb-4">
+                                  {renderDescriptionWithLinks(item.description)}
+                                </div>
                                 
                                 {speaker && (
                                   <div className="mt-4 flex items-center gap-3">
@@ -368,9 +408,7 @@ const EventDetailsPage = () => {
                           <p className="text-sm text-primary-600 dark:text-primary-400 mb-2">
                             {speaker.field_of_expertise}
                           </p>
-                          <p className="text-dark-600 dark:text-dark-300">
-                            {speaker.description}
-                          </p>
+                          {renderDescriptionWithLinks(speaker.description)}
                         </div>
                       </div>
                     </div>
