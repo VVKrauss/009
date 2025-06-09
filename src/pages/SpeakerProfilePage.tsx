@@ -312,7 +312,8 @@ const SpeakerProfilePage = () => {
                   } else {
                     img.style.display = 'none';
                   }
-                }}}
+                }}
+              />}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-white via-white/95 to-white/80 dark:from-dark-900 dark:via-dark-900/95 dark:to-dark-900/80"></div>
             </>
