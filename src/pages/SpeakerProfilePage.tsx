@@ -283,8 +283,7 @@ const renderDescription = (description: string) => {
     }
     return 'Описание мероприятия отсутствует';
   };
-
-  const renderEventCard = (event: Event) => {
+const renderEventCard = (event: Event) => {
     const eventDate = new Date(event.date);
     const isPast = event.status === 'past' || eventDate < new Date();
     
@@ -293,12 +292,16 @@ const renderDescription = (description: string) => {
         key={event.id}
         className="relative border border-gray-200 dark:border-dark-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow min-h-[200px]"
       >
+        {/* Фоновое изображение мероприятия */}
         {event.bg_image && (
           <div className="absolute inset-0 z-0">
             <img
               src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/events/${event.bg_image}`}
               alt={event.title}
               className="w-full h-full object-cover opacity-20 dark:opacity-10"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-white/90 to-white/70 dark:from-dark-900/90 dark:to-dark-900/70"></div>
           </div>
@@ -354,7 +357,6 @@ const renderDescription = (description: string) => {
       </div>
     );
   };
-
   const renderGallery = () => {
     if (!speaker || speaker.photos.length === 0) {
       return (
