@@ -45,6 +45,7 @@ interface Event {
   languages: string[];
   speakers: { id: string; name: string }[];
   bg_image: string | null;
+  original_bg_image?: string | null;
   status: 'active' | 'draft' | 'past';
 }
 
@@ -111,6 +112,7 @@ const SpeakerProfilePage = () => {
             languages,
             speakers,
             bg_image,
+            original_bg_image,
             status
           `)
           .or(`speakers.cs.["${speaker.id}"],speakers.cs.{"id":"${speaker.id}"}`);
@@ -194,7 +196,7 @@ const SpeakerProfilePage = () => {
     }
   };
 
-const renderDescription = (description: string) => {
+  const renderDescription = (description: string) => {
     if (!description) {
       return <p className="text-gray-500 dark:text-gray-400">Описание спикера отсутствует</p>;
     }
@@ -283,80 +285,105 @@ const renderDescription = (description: string) => {
     }
     return 'Описание мероприятия отсутствует';
   };
-const renderEventCard = (event: Event) => {
+
+  const renderEventCard = (event: Event) => {
     const eventDate = new Date(event.date);
     const isPast = event.status === 'past' || eventDate < new Date();
     
     return (
       <div 
         key={event.id}
-        className="relative border border-gray-200 dark:border-dark-700 rounded-lg overflow-hidden hover:shadow-md transition-shadow min-h-[200px]"
+        className="relative border border-gray-200 dark:border-dark-700 rounded-lg overflow-hidden hover:shadow-lg transition-all duration-300 min-h-[250px] group"
       >
         {/* Фоновое изображение мероприятия */}
-        {event.bg_image && (
-          <div className="absolute inset-0 z-0">
-            <img
-              src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/events/${event.bg_image}`}
-              alt={event.title}
-              className="w-full h-full object-cover opacity-20 dark:opacity-10"
-              onError={(e) => {
-                (e.target as HTMLImageElement).style.display = 'none';
-              }}
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-white/90 to-white/70 dark:from-dark-900/90 dark:to-dark-900/70"></div>
-          </div>
-        )}
+        <div className="absolute inset-0 z-0">
+          {event.bg_image ? (
+            <>
+              <img
+                src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/events/${event.bg_image}`}
+                alt={event.title}
+                className="w-full h-full object-cover opacity-40 dark:opacity-30 group-hover:opacity-50 dark:group-hover:opacity-40 transition-opacity duration-300"
+                onError={(e) => {
+                  // Fallback на оригинальное изображение если есть
+                  const img = e.target as HTMLImageElement;
+                  if (event.original_bg_image && !img.dataset.triedOriginal) {
+                    img.dataset.triedOriginal = 'true';
+                    img.src = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/events/${event.original_bg_image}`;
+                  } else {
+                    img.style.display = 'none';
+                  }
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-white via-white/95 to-white/80 dark:from-dark-900 dark:via-dark-900/95 dark:to-dark-900/80"></div>
+            </>
+          ) : (
+            // Градиентный фон для карточек без изображения
+            <div className="absolute inset-0 bg-gradient-to-br from-primary-50 to-primary-100 dark:from-dark-800 dark:to-dark-700 opacity-50"></div>
+          )}
+        </div>
         
-        <div className="relative z-10 p-4 h-full flex flex-col">
-          <div className="flex justify-between items-start mb-2">
-            <h3 className="text-lg font-semibold text-dark-800 dark:text-white">
+        <div className="relative z-10 p-5 h-full flex flex-col">
+          {/* Заголовок и статус */}
+          <div className="flex justify-between items-start mb-3">
+            <h3 className="text-xl font-bold text-dark-800 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
               {event.title}
             </h3>
             {isPast && (
-              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-dark-700 text-gray-800 dark:text-gray-300">
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100/90 dark:bg-dark-700/90 text-gray-700 dark:text-gray-300 backdrop-blur-sm">
                 Прошедшее
               </span>
             )}
           </div>
           
-          <p className="text-dark-600 dark:text-dark-300 mb-3 flex-grow">
+          {/* Описание */}
+          <p className="text-dark-600 dark:text-dark-300 mb-4 flex-grow line-clamp-3">
             {getEventDescription(event)}
           </p>
           
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="flex items-center text-dark-500 dark:text-dark-400">
-              <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
-              {formatDate(event.date)}
+          {/* Информация о мероприятии */}
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center text-dark-600 dark:text-dark-400">
+              <Calendar className="h-4 w-4 mr-2 flex-shrink-0 text-primary-500" />
+              <span className="font-medium">{formatDate(event.date)}</span>
             </div>
-            <div className="flex items-center text-dark-500 dark:text-dark-400">
-              <Clock className="h-4 w-4 mr-2 flex-shrink-0" />
-              {formatTime(event.start_time)} - {formatTime(event.end_time)}
+            
+            <div className="flex items-center text-dark-600 dark:text-dark-400">
+              <Clock className="h-4 w-4 mr-2 flex-shrink-0 text-primary-500" />
+              <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
             </div>
+            
             {event.location && (
-              <div className="flex items-center text-dark-500 dark:text-dark-400">
-                <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
-                {event.location}
+              <div className="flex items-center text-dark-600 dark:text-dark-400">
+                <MapPin className="h-4 w-4 mr-2 flex-shrink-0 text-primary-500" />
+                <span className="truncate">{event.location}</span>
               </div>
             )}
+            
             {event.languages && event.languages.length > 0 && (
-              <div className="flex items-center text-dark-500 dark:text-dark-400">
-                <Globe2 className="h-4 w-4 mr-2 flex-shrink-0" />
-                {event.languages.join(', ')}
+              <div className="flex items-center text-dark-600 dark:text-dark-400">
+                <Globe2 className="h-4 w-4 mr-2 flex-shrink-0 text-primary-500" />
+                <span>{event.languages.join(', ')}</span>
               </div>
             )}
           </div>
-          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-dark-700 flex justify-end">
+          
+          {/* Кнопка подробнее */}
+          <div className="mt-4 pt-4 border-t border-gray-200/80 dark:border-dark-700/80">
             <a
               href={`/events/${event.id}`}
-              className="text-primary-600 dark:text-primary-400 hover:underline font-medium"
+              className="inline-flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-semibold group/link"
             >
-              Подробнее →
+              <span>Подробнее</span>
+              <svg className="w-4 h-4 ml-1 group-hover/link:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              </svg>
             </a>
           </div>
         </div>
       </div>
     );
   };
+
   const renderGallery = () => {
     if (!speaker || speaker.photos.length === 0) {
       return (
