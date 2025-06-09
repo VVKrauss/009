@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronUp, ExternalLink, Settings, Eye, EyeOff } from 'lucide-react';
-import { Link } from 'react-router-dom';
+// import { Link } from 'react-router-dom'; // Замените на ваш роутер
 
 interface EventRegistration {
   eventId: string;
@@ -52,6 +52,61 @@ const AnalyticsEventTable = ({
   const [showColumnSettings, setShowColumnSettings] = useState(false);
   const [currentSortField, setCurrentSortField] = useState<keyof EventRegistration | null>(sortField || null);
   const [currentSortDirection, setCurrentSortDirection] = useState<'asc' | 'desc'>(sortDirection);
+
+  // Сортировка данных
+  const sortedEvents = useMemo(() => {
+    if (!currentSortField) return events;
+
+    return [...events].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      // Специальная обработка для заполненности
+      if (currentSortField === 'maxCapacity' && columns.find(c => c.key === 'fillRate' && c.visible)) {
+        aValue = (a.totalRegistrations / a.maxCapacity) * 100;
+        bValue = (b.totalRegistrations / b.maxCapacity) * 100;
+      } else {
+        aValue = a[currentSortField];
+        bValue = b[currentSortField];
+      }
+
+      // Сортировка строк (алфавитный порядок)
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+        
+        if (currentSortDirection === 'asc') {
+          return aValue.localeCompare(bValue, 'ru');
+        } else {
+          return bValue.localeCompare(aValue, 'ru');
+        }
+      }
+
+      // Сортировка чисел
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        if (currentSortDirection === 'asc') {
+          return aValue - bValue;
+        } else {
+          return bValue - aValue;
+        }
+      }
+
+      // Обработка undefined/null значений
+      if (aValue == null && bValue == null) return 0;
+      if (aValue == null) return currentSortDirection === 'asc' ? -1 : 1;
+      if (bValue == null) return currentSortDirection === 'asc' ? 1 : -1;
+
+      // Преобразование в строки как fallback
+      const aStr = String(aValue).toLowerCase();
+      const bStr = String(bValue).toLowerCase();
+      
+      if (currentSortDirection === 'asc') {
+        return aStr.localeCompare(bStr, 'ru');
+      } else {
+        return bStr.localeCompare(aStr, 'ru');
+      }
+    });
+  }, [events, currentSortField, currentSortDirection, columns]);
 
   // Обработка сортировки
   const handleSort = (field: keyof EventRegistration) => {
@@ -186,7 +241,7 @@ const AnalyticsEventTable = ({
       {/* Панель управления */}
       <div className="flex justify-between items-center">
         <div className="text-sm text-gray-500 dark:text-gray-400">
-          Показано {events.length} мероприятий
+          Показано {sortedEvents.length} мероприятий
           {currentSortField && (
             <span className="ml-2">
               • Сортировка по "{columns.find(c => c.key === currentSortField || (c.key === 'fillRate' && currentSortField === 'maxCapacity'))?.label}" 
@@ -206,7 +261,7 @@ const AnalyticsEventTable = ({
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-dark-800 divide-y divide-gray-200 dark:divide-dark-700">
-            {events.map((event, index) => (
+            {sortedEvents.map((event, index) => (
               <tr key={index} className="hover:bg-gray-50 dark:hover:bg-dark-700/50 transition-colors">
                 {visibleColumns.map((column) => {
                   switch (column.key) {
@@ -288,13 +343,13 @@ const AnalyticsEventTable = ({
                     case 'actions':
                       return (
                         <td key={column.key} className="px-6 py-4 whitespace-nowrap text-sm text-right">
-                          <Link
-                            to={`/admin/events/${event.eventId}/edit`}
+                          <a
+                            href={`/admin/events/${event.eventId}/edit`}
                             className="text-primary-600 hover:text-primary-900 dark:text-primary-400 dark:hover:text-primary-300 transition-colors"
                             title="Редактировать мероприятие"
                           >
                             <ExternalLink className="h-4 w-4" />
-                          </Link>
+                          </a>
                         </td>
                       );
                     
@@ -309,7 +364,7 @@ const AnalyticsEventTable = ({
       </div>
 
       {/* Сообщение, если нет данных */}
-      {events.length === 0 && (
+      {sortedEvents.length === 0 && (
         <div className="text-center py-8 text-gray-500 dark:text-gray-400">
           <p>Нет данных для отображения</p>
         </div>
