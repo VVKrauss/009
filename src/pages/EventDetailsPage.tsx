@@ -79,57 +79,12 @@ const renderDescriptionWithLinks = (description: string) => {
     return <p className="text-gray-500 dark:text-gray-400">Описание отсутствует</p>;
   }
 
-  const withLinks = description.replace(
-    /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1(?:[^>]*?)>(.*?)<\/a>/g,
-    (match, quote, url, text) => {
-      return `@@@LINK_START@@@${url}@@@TEXT_START@@@${text}@@@LINK_END@@@`;
-    }
-  );
-
-  const parts = withLinks.split(/@@@LINK_START@@@|@@@TEXT_START@@@|@@@LINK_END@@@/);
-  
-  return (
-    <div className="text-dark-600 dark:text-dark-300">
-      {parts.map((part, index) => {
-        if (index % 4 === 0) {
-          return <span key={index}>{part}</span>;
-        } else if (index % 4 === 1) {
-          const url = part;
-          const text = parts[index + 1];
-          return (
-            <a
-              key={index}
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary-600 dark:text-primary-400 hover:opacity-80 underline"
-            >
-              {text}
-            </a>
-          );
-        }
-        return null;
-      })}
-    </div>
-  );
-};
-
-const renderDescriptionWithLinks = (description: string) => {
-  if (!description) {
-    return <p className="text-gray-500 dark:text-gray-400">Описание отсутствует</p>;
-  }
-
-  // Разбиваем текст на части: обычный текст и ссылки
   const parts = [];
   let lastIndex = 0;
   let match;
-
-  // Регулярное выражение для поиска ссылок
   const linkRegex = /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1(?:[^>]*?)>(.*?)<\/a>/g;
 
-  // Обрабатываем все совпадения ссылок
   while ((match = linkRegex.exec(description)) !== null) {
-    // Текст перед ссылкой
     if (match.index > lastIndex) {
       parts.push({
         type: 'text',
@@ -137,7 +92,6 @@ const renderDescriptionWithLinks = (description: string) => {
       });
     }
 
-    // Сама ссылка
     parts.push({
       type: 'link',
       url: match[2],
@@ -147,7 +101,6 @@ const renderDescriptionWithLinks = (description: string) => {
     lastIndex = linkRegex.lastIndex;
   }
 
-  // Текст после последней ссылки
   if (lastIndex < description.length) {
     parts.push({
       type: 'text',
@@ -155,7 +108,6 @@ const renderDescriptionWithLinks = (description: string) => {
     });
   }
 
-  // Если не было найдено ссылок, возвращаем весь текст как есть
   if (parts.length === 0) {
     return <span>{description}</span>;
   }
@@ -181,6 +133,22 @@ const renderDescriptionWithLinks = (description: string) => {
         return null;
       })}
     </>
+  );
+};
+
+const renderEventDescription = (text: string) => {
+  if (!text) return null;
+  
+  const paragraphs = text.split(/\n\s*\n/);
+  
+  return (
+    <div className="prose dark:prose-invert max-w-none">
+      {paragraphs.map((paragraph, i) => (
+        <p key={i} className="mb-4">
+          {renderDescriptionWithLinks(paragraph)}
+        </p>
+      ))}
+    </div>
   );
 };
 
