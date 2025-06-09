@@ -42,39 +42,209 @@ export type DateRange = '7days' | '30days' | '90days' | 'custom';
 export type ExportFormat = 'csv' | 'xlsx';
 export type ExportType = 'all' | 'visitors' | 'registrations';
 
+// Track page view
+export const trackPageView = async (path: string, isAdmin: boolean = false) => {
+  try {
+    const sessionId = getOrCreateSessionId();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    // Use the Edge Function to track page view
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/track-page-view`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+      },
+      body: JSON.stringify({
+        path,
+        user_id: user?.id || null,
+        session_id: sessionId,
+        referrer: document.referrer,
+        user_agent: navigator.userAgent,
+        is_admin: isAdmin
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error tracking page view: ${response.statusText}`);
+    }
+    
+    console.log('Page view tracked:', path);
+  } catch (error) {
+    console.error('Error tracking page view:', error);
+  }
+};
+
+// Update time spent on page
+export const updateTimeSpent = async (sessionId: string, path: string, timeSpent: number) => {
+  try {
+    // Use the Edge Function to update time spent
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-time-spent`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+      },
+      body: JSON.stringify({
+        session_id: sessionId,
+        path,
+        time_spent: timeSpent
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error(`Error updating time spent: ${response.statusText}`);
+    }
+  } catch (error) {
+    console.error('Error updating time spent:', error);
+  }
+};
+
+// Get or create session ID
+export const getOrCreateSessionId = () => {
+  let sessionId = localStorage.getItem('analytics_session_id');
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    localStorage.setItem('analytics_session_id', sessionId);
+  }
+  return sessionId;
+};
+
 // Fetch visitor data from Supabase
 export const fetchVisitorData = async (startDate: string, endDate: string): Promise<VisitorData[]> => {
   try {
-    // In a real implementation, this would fetch data from Supabase
-    // For now, we'll return mock data
-    return generateMockVisitorData(startDate, endDate);
+    const { data, error } = await supabase.rpc(
+      'get_page_view_stats',
+      {
+        start_date: new Date(startDate).toISOString(),
+        end_date: new Date(endDate).toISOString(),
+        exclude_admin: true
+      }
+    );
+    
+    if (error) throw error;
+    
+    return data || [];
   } catch (error) {
     console.error('Error fetching visitor data:', error);
-    throw error;
+    return [];
+  }
+};
+
+// Fetch page popularity data
+export const fetchPagePopularity = async (startDate: string, endDate: string): Promise<PageVisit[]> => {
+  try {
+    const { data, error } = await supabase.rpc(
+      'get_page_popularity',
+      {
+        start_date: new Date(startDate).toISOString(),
+        end_date: new Date(endDate).toISOString(),
+        exclude_admin: true
+      }
+    );
+    
+    if (error) throw error;
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching page popularity:', error);
+    return [];
   }
 };
 
 // Fetch registration data from Supabase
 export const fetchRegistrationData = async (startDate: string, endDate: string): Promise<RegistrationData[]> => {
   try {
-    // In a real implementation, this would fetch data from Supabase
-    // For now, we'll return mock data
-    return generateMockRegistrationData(startDate, endDate);
+    // Get all events with registrations
+    const { data: events, error: eventsError } = await supabase
+      .from('events')
+      .select('id, registrations_list, date, price, currency')
+      .gte('date', startDate)
+      .lte('date', endDate);
+    
+    if (eventsError) throw eventsError;
+    
+    // Process registration data by date
+    const registrationsByDate = new Map<string, { registrations: number; revenue: number }>();
+    
+    events?.forEach(event => {
+      const date = event.date;
+      const registrations = event.registrations_list || [];
+      
+      registrations.forEach((reg: any) => {
+        if (reg.status) {
+          const regDate = reg.created_at ? reg.created_at.split('T')[0] : date;
+          const totalTickets = (reg.adult_tickets || 0) + (reg.child_tickets || 0);
+          const revenue = reg.total_amount || 0;
+          
+          if (!registrationsByDate.has(regDate)) {
+            registrationsByDate.set(regDate, { registrations: 0, revenue: 0 });
+          }
+          
+          const current = registrationsByDate.get(regDate)!;
+          registrationsByDate.set(regDate, {
+            registrations: current.registrations + totalTickets,
+            revenue: current.revenue + revenue
+          });
+        }
+      });
+    });
+    
+    // Convert to array and sort by date
+    const result: RegistrationData[] = Array.from(registrationsByDate.entries())
+      .map(([date, data]) => ({
+        date,
+        registrations: data.registrations,
+        revenue: data.revenue
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    
+    return result;
   } catch (error) {
     console.error('Error fetching registration data:', error);
-    throw error;
+    return [];
   }
 };
 
 // Fetch event registrations from Supabase
 export const fetchEventRegistrations = async (): Promise<EventRegistration[]> => {
   try {
-    // In a real implementation, this would fetch data from Supabase
-    // For now, we'll return mock data
-    return generateMockEventRegistrations();
+    const { data: events, error } = await supabase
+      .from('events')
+      .select('id, title, registrations_list, max_registrations, payment_link_clicks, price, currency')
+      .order('date', { ascending: false });
+    
+    if (error) throw error;
+    
+    return (events || []).map(event => {
+      const registrations = event.registrations_list || [];
+      const adultRegistrations = registrations.reduce((sum: number, reg: any) => 
+        sum + (reg.status ? (reg.adult_tickets || 0) : 0), 0);
+      const childRegistrations = registrations.reduce((sum: number, reg: any) => 
+        sum + (reg.status ? (reg.child_tickets || 0) : 0), 0);
+      const totalRegistrations = adultRegistrations + childRegistrations;
+      const revenue = registrations.reduce((sum: number, reg: any) => 
+        sum + (reg.status ? (reg.total_amount || 0) : 0), 0);
+      const paymentLinkClicks = event.payment_link_clicks || 0;
+      const conversionRate = paymentLinkClicks > 0 
+        ? (totalRegistrations / paymentLinkClicks) * 100 
+        : 0;
+      
+      return {
+        eventId: event.id,
+        eventTitle: event.title,
+        adultRegistrations,
+        childRegistrations,
+        totalRegistrations,
+        maxCapacity: event.max_registrations || 100,
+        paymentLinkClicks,
+        conversionRate,
+        revenue
+      };
+    });
   } catch (error) {
     console.error('Error fetching event registrations:', error);
-    throw error;
+    return [];
   }
 };
 
@@ -91,6 +261,7 @@ export const exportAnalyticsData = async (
     
     if (type === 'all' || type === 'visitors') {
       data.visitors = await fetchVisitorData(startDate, endDate);
+      data.pageVisits = await fetchPagePopularity(startDate, endDate);
     }
     
     if (type === 'all' || type === 'registrations') {
@@ -123,6 +294,15 @@ const generateCSV = (data: any, type: ExportType): Blob => {
     });
     
     csvContent += '\n';
+    
+    csvContent += 'Популярность страниц\n';
+    csvContent += 'Страница,Посещения,Среднее время (сек)\n';
+    
+    data.pageVisits.forEach((page: PageVisit) => {
+      csvContent += `${page.page},${page.visits},${page.avgTimeSpent}\n`;
+    });
+    
+    csvContent += '\n';
   }
   
   if (type === 'all' || type === 'registrations') {
@@ -151,105 +331,4 @@ const generateXLSX = (data: any, type: ExportType): Blob => {
   // In a real implementation, this would use a library like xlsx
   // For now, we'll just return the same CSV data with a different MIME type
   return generateCSV(data, type);
-};
-
-// Mock data generators
-export const generateMockVisitorData = (startDate: string, endDate: string): VisitorData[] => {
-  const data: VisitorData[] = [];
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  
-  let current = new Date(start);
-  while (current <= end) {
-    const baseVisitors = Math.floor(Math.random() * 100) + 50;
-    data.push({
-      date: format(current, 'yyyy-MM-dd'),
-      visitors: baseVisitors,
-      uniqueVisitors: Math.floor(baseVisitors * 0.7)
-    });
-    
-    current.setDate(current.getDate() + 1);
-  }
-  
-  return data;
-};
-
-export const generateMockRegistrationData = (startDate: string, endDate: string): RegistrationData[] => {
-  const data: RegistrationData[] = [];
-  const start = new Date(startDate);
-  const end = new Date(endDate);
-  
-  let current = new Date(start);
-  while (current <= end) {
-    const registrations = Math.floor(Math.random() * 20);
-    data.push({
-      date: format(current, 'yyyy-MM-dd'),
-      registrations,
-      revenue: registrations * (Math.floor(Math.random() * 500) + 500)
-    });
-    
-    current.setDate(current.getDate() + 1);
-  }
-  
-  return data;
-};
-
-export const generateMockEventRegistrations = (): EventRegistration[] => {
-  return [
-    { 
-      eventId: '1', 
-      eventTitle: 'Научный фестиваль', 
-      adultRegistrations: 87, 
-      childRegistrations: 32, 
-      totalRegistrations: 119, 
-      maxCapacity: 150, 
-      paymentLinkClicks: 210, 
-      conversionRate: 56.7,
-      revenue: 59500
-    },
-    { 
-      eventId: '2', 
-      eventTitle: 'Лекция по астрофизике', 
-      adultRegistrations: 45, 
-      childRegistrations: 0, 
-      totalRegistrations: 45, 
-      maxCapacity: 50, 
-      paymentLinkClicks: 78, 
-      conversionRate: 57.7,
-      revenue: 22500
-    },
-    { 
-      eventId: '3', 
-      eventTitle: 'Мастер-класс по робототехнике', 
-      adultRegistrations: 28, 
-      childRegistrations: 15, 
-      totalRegistrations: 43, 
-      maxCapacity: 60, 
-      paymentLinkClicks: 95, 
-      conversionRate: 45.3,
-      revenue: 21500
-    },
-    { 
-      eventId: '4', 
-      eventTitle: 'Дискуссия о климатических изменениях', 
-      adultRegistrations: 32, 
-      childRegistrations: 0, 
-      totalRegistrations: 32, 
-      maxCapacity: 40, 
-      paymentLinkClicks: 67, 
-      conversionRate: 47.8,
-      revenue: 16000
-    },
-    { 
-      eventId: '5', 
-      eventTitle: 'Научный квиз', 
-      adultRegistrations: 56, 
-      childRegistrations: 12, 
-      totalRegistrations: 68, 
-      maxCapacity: 80, 
-      paymentLinkClicks: 112, 
-      conversionRate: 60.7,
-      revenue: 34000
-    }
-  ];
 };
