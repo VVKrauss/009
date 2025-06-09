@@ -302,7 +302,7 @@ const SpeakerProfilePage = () => {
               <img
                 src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.bg_image}`}
                 alt={event.title}
-                className="w-full h-full object-cover opacity-20 dark:opacity-40 group-hover:opacity-70 dark:group-hover:opacity-60 transition-opacity duration-300"
+                className="w-full h-full object-cover opacity-60 dark:opacity-50 group-hover:opacity-70 dark:group-hover:opacity-60 transition-opacity duration-300"
                 onError={(e) => {
                   // Fallback на оригинальное изображение если есть
                   const img = e.target as HTMLImageElement;
@@ -314,7 +314,7 @@ const SpeakerProfilePage = () => {
                   }
                 }}
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-white via-white/95 to-white/80 dark:from-dark-900 dark:via-dark-900/95 dark:to-dark-900/80"></div>
+              <div className="absolute inset-0 bg-gradient-to-t from-white/90 via-white/70 to-white/50 dark:from-dark-900/90 dark:via-dark-900/70 dark:to-dark-900/50"></div>
             </>
           ) : (
             // Градиентный фон для карточек без изображения
