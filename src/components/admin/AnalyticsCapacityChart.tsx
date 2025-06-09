@@ -1,5 +1,4 @@
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell } from 'recharts';
-import { useTheme } from '@mui/material/styles';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell, LabelList } from 'recharts';
 
 interface EventRegistration {
   eventId: string;
@@ -19,8 +18,13 @@ interface AnalyticsCapacityChartProps {
 }
 
 const AnalyticsCapacityChart = ({ events, height = 400 }: AnalyticsCapacityChartProps) => {
-  const theme = useTheme();
-  
+  // Цвета для графика
+  const COLORS = {
+    registered: '#4CAF50', // Зеленый для зарегистрированных
+    available: '#E0E0E0', // Серый для свободных мест
+    text: '#333333'       // Цвет текста
+  };
+
   const data = events.map(event => ({
     name: event.eventTitle.length > 15 ? `${event.eventTitle.substring(0, 15)}...` : event.eventTitle,
     fullName: event.eventTitle,
@@ -30,25 +34,56 @@ const AnalyticsCapacityChart = ({ events, height = 400 }: AnalyticsCapacityChart
     maxCapacity: event.maxCapacity
   }));
 
+  // Кастомный тултип
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload;
       return (
         <div style={{
-          backgroundColor: theme.palette.background.paper,
+          backgroundColor: 'white',
           padding: '10px',
-          border: `1px solid ${theme.palette.divider}`,
+          border: '1px solid #ddd',
           borderRadius: '4px',
-          boxShadow: theme.shadows[1]
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
         }}>
           <p><strong>{data.fullName}</strong></p>
-          <p>Зарегистрировано: {data.current} / {data.maxCapacity}</p>
+          <p style={{ color: COLORS.registered }}>Зарегистрировано: {data.current}</p>
+          <p style={{ color: COLORS.available }}>Свободно: {data.remaining}</p>
+          <p>Всего мест: {data.maxCapacity}</p>
           <p>Заполнено: {data.percentage}%</p>
-          <p>Свободных мест: {data.remaining}</p>
         </div>
       );
     }
     return null;
+  };
+
+  // Кастомная легенда
+  const renderLegend = (props: any) => {
+    const { payload } = props;
+    return (
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        padding: '10px 0',
+        gap: '20px'
+      }}>
+        {payload.map((entry: any, index: number) => (
+          <div key={`legend-${index}`} style={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            color: COLORS.text
+          }}>
+            <div style={{
+              width: '14px',
+              height: '14px',
+              backgroundColor: entry.color,
+              marginRight: '5px'
+            }} />
+            <span>{entry.value === 'current' ? 'Зарегистрировано' : 'Свободно'}</span>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
@@ -57,13 +92,12 @@ const AnalyticsCapacityChart = ({ events, height = 400 }: AnalyticsCapacityChart
         <BarChart
           data={data}
           layout="horizontal"
-          margin={{ top: 20, right: 30, left: 20, bottom: 60 }} // Увеличил bottom margin для длинных названий
+          margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
           barGap={0}
           barCategoryGap="20%"
         >
           <CartesianGrid strokeDasharray="3 3" vertical={false} />
           <XAxis 
-            type="category" 
             dataKey="name" 
             angle={-45} 
             textAnchor="end" 
@@ -71,51 +105,47 @@ const AnalyticsCapacityChart = ({ events, height = 400 }: AnalyticsCapacityChart
             tick={{ fontSize: 12 }}
           />
           <YAxis 
-            type="number" 
-            domain={[0, (dataMax: number) => Math.max(dataMax * 1.1, 10)]} // Добавляем 10% сверху
             tickFormatter={(value) => `${value}`}
             label={{ 
               value: 'Количество участников', 
               angle: -90, 
               position: 'insideLeft',
-              style: { textAnchor: 'middle' }
+              style: { textAnchor: 'middle', fill: COLORS.text }
             }}
           />
           <Tooltip content={<CustomTooltip />} />
-          <Legend 
-            verticalAlign="top" 
-            height={36}
-            formatter={(value) => (
-              <span style={{ color: theme.palette.text.primary }}>
-                {value === 'current' ? 'Зарегистрировано' : 'Свободно'}
-              </span>
-            )}
-          />
+          <Legend content={renderLegend} />
+          
           <Bar 
             name="current" 
             dataKey="current" 
-            stackId="a" 
-            label={{ position: 'top', formatter: (value) => `${value}` }}
+            stackId="a"
           >
             {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={theme.palette.success.main} />
+              <Cell key={`cell-${index}`} fill={COLORS.registered} />
             ))}
+            <LabelList 
+              dataKey="current" 
+              position="top" 
+              formatter={(value: number) => value}
+              style={{ fill: COLORS.text, fontSize: 12 }}
+            />
           </Bar>
+          
           <Bar 
             name="remaining" 
             dataKey="remaining" 
-            stackId="a" 
-            label={{ 
-              position: 'top', 
-              formatter: (value, name, props) => {
-                const { payload } = props;
-                return `${Math.round((payload.current / payload.maxCapacity) * 100)}%`;
-              }
-            }}
+            stackId="a"
           >
             {data.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={theme.palette.grey[300]} />
+              <Cell key={`cell-${index}`} fill={COLORS.available} />
             ))}
+            <LabelList 
+              dataKey="percentage" 
+              position="center" 
+              formatter={(value: number) => `${value}%`}
+              style={{ fill: COLORS.text, fontSize: 12, fontWeight: 'bold' }}
+            />
           </Bar>
         </BarChart>
       </ResponsiveContainer>
