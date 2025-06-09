@@ -1,12 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { ArrowRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from '../../lib/supabase';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 type HeaderStyle = 'centered' | 'slideshow';
 type Slide = {
@@ -23,6 +19,7 @@ type HeaderData = {
     subtitle: string;
     logoLight: string;
     logoDark: string;
+    logoSize?: number;
   };
   slideshow: {
     slides: Slide[];
@@ -39,7 +36,8 @@ const defaultHeaderData: HeaderData = {
     title: 'ScienceHub',
     subtitle: 'Место для научного сообщества',
     logoLight: 'https://jfvinriqydjtwsmayxix.supabase.co/storage/v1/object/public/images/logo/logo_science_hub%20no_title.png',
-    logoDark: 'https://jfvinriqydjtwsmayxix.supabase.co/storage/v1/object/public/images/logo/logo_white_science_hub%20no_title.png'
+    logoDark: 'https://jfvinriqydjtwsmayxix.supabase.co/storage/v1/object/public/images/logo/logo_white_science_hub%20no_title.png',
+    logoSize: 150
   },
   slideshow: {
     slides: [],
@@ -63,7 +61,7 @@ const HeroSection = ({ height = 400 }: HeroSectionProps) => {
   const intervalRef = useRef<NodeJS.Timeout>();
 
   const sectionHeight = typeof height === 'number' ? `${height}px` : height;
-  const logoHeight = typeof height === 'number' ? `${height * 0.4}px` : `40vh`;
+  const logoHeight = headerData.centered.logoSize ? `${headerData.centered.logoSize}px` : '150px';
 
   // Автопрокрутка слайдов
   useEffect(() => {
@@ -127,6 +125,10 @@ const HeroSection = ({ height = 400 }: HeroSectionProps) => {
                 ...defaultHeaderData.slideshow.settings,
                 ...data.header_settings.slideshow?.settings
               }
+            },
+            centered: {
+              ...defaultHeaderData.centered,
+              ...data.header_settings.centered
             }
           });
         }
@@ -144,12 +146,6 @@ const HeroSection = ({ height = 400 }: HeroSectionProps) => {
       isMounted = false;
     };
   }, []);
-
-  const getImageUrl = (image: string) => {
-    if (!image) return 'https://via.placeholder.com/1920x600?text=No+image';
-    if (image.startsWith('http')) return image;
-    return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${image}`;
-  };
 
   if (isLoading) {
     return (
@@ -191,7 +187,7 @@ const HeroSection = ({ height = 400 }: HeroSectionProps) => {
               >
                 <div className="absolute inset-0 overflow-hidden">
                   <img
-                    src={getImageUrl(slide.image)}
+                    src={getSupabaseImageUrl(slide.image)}
                     alt=""
                     className="w-full h-full object-cover"
                     loading="lazy"

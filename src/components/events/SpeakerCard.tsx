@@ -1,4 +1,5 @@
 import { User, Link2 } from 'lucide-react';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 type SpeakerCardProps = {
   speaker: {
@@ -50,7 +51,7 @@ const SpeakerCard = ({ speaker }: SpeakerCardProps) => {
           }}>
             {mainPhoto?.url ? (
               <img
-                src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${mainPhoto.url}`}
+                src={getSupabaseImageUrl(mainPhoto.url)}
                 alt={speaker.name}
                 className="w-full h-full object-cover"
                 onError={(e) => {

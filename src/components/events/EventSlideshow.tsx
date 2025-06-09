@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { format, parseISO } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { Calendar, ArrowRight } from 'lucide-react';
 import Slider from 'react-slick';
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
+import { formatRussianDate, formatTimeRange } from '../../utils/dateTimeUtils';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 type Event = {
   id: string;
   title: string;
-  short_description: string; // Changed from description to short_description
+  short_description: string;
   date: string;
   start_time: string;
   end_time: string;
@@ -20,49 +20,21 @@ type Event = {
 
 type EventSlideshowProps = {
   events: Event[];
+  titleStyle?: React.CSSProperties;
+  descriptionStyle?: React.CSSProperties;
+  desktopTitleStyle?: React.CSSProperties;
+  desktopDescriptionStyle?: React.CSSProperties;
+  formatTimeRange?: (start: string, end: string) => string;
 };
 
-const formatEventTime = (timeValue: string): string => {
-  if (!timeValue) return '--:--';
-
-  if (/^\d{2}:\d{2}$/.test(timeValue)) {
-    return timeValue;
-  }
-
-  if (/^\d{2}:\d{2}:\d{2}$/.test(timeValue)) {
-    return timeValue.substring(0, 5);
-  }
-
-  try {
-    const date = new Date(timeValue);
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleTimeString('ru-RU', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false
-      });
-    }
-  } catch (e) {
-    console.error('Error parsing timestamp:', timeValue, e);
-  }
-
-  const timeMatch = timeValue.match(/(\d{1,2}):(\d{2})/);
-  if (timeMatch) {
-    const hours = timeMatch[1].padStart(2, '0');
-    const minutes = timeMatch[2];
-    return `${hours}:${minutes}`;
-  }
-
-  return timeValue;
-};
-
-const formatTimeRange = (startTime: string, endTime: string): string => {
-  const start = formatEventTime(startTime);
-  const end = formatEventTime(endTime);
-  return start && end ? `${start} - ${end}` : start || end || '';
-};
-
-const EventSlideshow = ({ events }: EventSlideshowProps) => {
+const EventSlideshow = ({ 
+  events,
+  titleStyle = {},
+  descriptionStyle = {},
+  desktopTitleStyle = {},
+  desktopDescriptionStyle = {},
+  formatTimeRange: customFormatTimeRange
+}: EventSlideshowProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
 
   const settings = {
@@ -93,12 +65,6 @@ const EventSlideshow = ({ events }: EventSlideshowProps) => {
     ]
   };
 
-  const getImageUrl = (event: Event) => {
-    if (!event.bg_image) return 'https://via.placeholder.com/1920x600?text=No+image';
-    if (event.bg_image.startsWith('http')) return event.bg_image;
-    return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.bg_image}`;
-  };
-
   if (events.length === 0) {
     return null;
   }
@@ -112,7 +78,7 @@ const EventSlideshow = ({ events }: EventSlideshowProps) => {
             <div 
               className="absolute inset-0 bg-cover bg-center"
               style={{ 
-                backgroundImage: `url(${getImageUrl(event)})`,
+                backgroundImage: `url(${getSupabaseImageUrl(event.bg_image)})`,
                 backgroundPosition: 'center 30%'
               }}
             >
@@ -124,10 +90,10 @@ const EventSlideshow = ({ events }: EventSlideshowProps) => {
               <div className="container px-4 sm:px-6">
                 {/* Десктопная версия (вся информация) */}
                 <div className="hidden md:block max-w-2xl text-white">
-                  <h2 className="text-3xl md:text-4xl font-bold mb-4">
+                  <h2 className="text-3xl md:text-4xl font-bold mb-4" style={desktopTitleStyle}>
                     {event.title}
                   </h2>
-                  <p className="text-base md:text-lg mb-6 line-clamp-2">
+                  <p className="text-base md:text-lg mb-6 line-clamp-2" style={desktopDescriptionStyle}>
                     {event.short_description}
                   </p>
                   <div className="flex flex-row flex-wrap gap-6 mb-8 text-white/90">
@@ -142,9 +108,11 @@ const EventSlideshow = ({ events }: EventSlideshowProps) => {
                   <div className="flex items-center gap-2 text-base">
                     <Calendar className="h-5 w-5" />
                     <span>
-                      {format(parseISO(event.date), 'd MMMM', { locale: ru })}
+                      {formatRussianDate(event.date, 'd MMMM')}
                       {' • '}
-                      {formatTimeRange(event.start_time, event.end_time)}
+                      {customFormatTimeRange 
+                        ? customFormatTimeRange(event.start_time, event.end_time)
+                        : formatTimeRange(event.start_time, event.end_time)}
                     </span>
                   </div>
                 </div>
@@ -155,9 +123,11 @@ const EventSlideshow = ({ events }: EventSlideshowProps) => {
                     <div className="flex items-center gap-2 text-sm sm:text-base">
                       <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                       <span>
-                        {format(parseISO(event.date), 'd MMMM', { locale: ru })}
+                        {formatRussianDate(event.date, 'd MMMM')}
                         {' • '}
-                        {formatTimeRange(event.start_time, event.end_time)}
+                        {customFormatTimeRange 
+                          ? customFormatTimeRange(event.start_time, event.end_time)
+                          : formatTimeRange(event.start_time, event.end_time)}
                       </span>
                     </div>
                     <Link 
@@ -182,10 +152,10 @@ const EventSlideshow = ({ events }: EventSlideshowProps) => {
             key={event.id} 
             className={`${index === currentSlide ? 'block' : 'hidden'}`}
           >
-            <h2 className="text-xl font-bold mb-2">
+            <h2 className="text-xl font-bold mb-2" style={titleStyle}>
               {event.title}
             </h2>
-            <p className="text-sm line-clamp-2">
+            <p className="text-sm line-clamp-2" style={descriptionStyle}>
               {event.short_description}
             </p>
           </div>

@@ -1,12 +1,8 @@
 import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from '../../lib/supabase';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 type CoworkingSectionData = {
   title: string;
@@ -72,7 +68,7 @@ const CoworkingSection = () => {
         </div>
         <div className="image-content mt-8 md:mt-0">
           <img 
-            src={data.image} 
+            src={getSupabaseImageUrl(data.image)} 
             alt={data.title} 
             className="w-full h-auto rounded-lg shadow-md"
           />

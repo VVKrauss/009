@@ -1,7 +1,8 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Calendar, Users, Globe, Tag, Clock, MapPin } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { formatTimeFromTimestamp, formatTimeRange } from '../../utils/dateTimeUtils';
+import { formatRussianDate } from '../../utils/dateTimeUtils';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 export type Event = {
   id: number;
@@ -46,51 +47,6 @@ const EVENT_TYPE_MAP: Record<string, string> = {
 }; 
 
 /**
- * Форматирует время события в единый формат HH:mm
- */
-const formatEventTime = (timeString?: string): string => {
-  if (!timeString) return '--:--';
-
-  // Если время уже в правильном формате
-  if (/^\d{2}:\d{2}$/.test(timeString)) {
-    return timeString;
-  }
-
-  // Если время с секундами (HH:MM:SS)
-  if (/^\d{2}:\d{2}:\d{2}$/.test(timeString)) {
-    return timeString.slice(0, 5);
-  }
-
-  // Для ISO строк (timestamp)
-  try {
-    const date = new Date(timeString);
-    if (!isNaN(date.getTime())) {
-      return format(date, 'HH:mm');
-    }
-  } catch (e) {
-    console.error('Error formatting time:', e);
-  }
-
-  // Для других форматов - пытаемся извлечь часы и минуты
-  const timeParts = timeString.match(/\d{1,2}:\d{2}/);
-  return timeParts ? timeParts[0] : timeString;
-};
-
-/**
- * Форматирует временной диапазон
- */
-const formatTimeRange = (start?: string, end?: string): string => {
-  const startTime = formatEventTime(start);
-  const endTime = formatEventTime(end);
-  
-  if (!startTime && !endTime) return '';
-  if (startTime && !endTime) return startTime;
-  if (!startTime && endTime) return endTime;
-  
-  return `${startTime} - ${endTime}`;
-};
-
-/**
  * Форматирует цену мероприятия
  */
 const formatPrice = (event: Event): string => {
@@ -130,12 +86,6 @@ const EventsList = ({
     );
   }
 
-  const getImageUrl = (event: Event) => {
-    if (!event.bg_image) return 'https://via.placeholder.com/800x400?text=No+image';
-    if (event.bg_image.startsWith('http')) return event.bg_image;
-    return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.bg_image}`;
-  };
-
   const getTranslatedEventType = (type: string) => {
     const normalizedType = type.toLowerCase().replace(/-/g, '_');
     return EVENT_TYPE_MAP[normalizedType] || EVENT_TYPE_MAP['default'];
@@ -149,7 +99,7 @@ const EventsList = ({
             <div key={event.id} className="card hover:shadow-md transition-shadow flex flex-col md:flex-row">
               <div 
                 className="md:w-1/3 h-48 md:h-auto bg-cover bg-center relative"
-                style={{ backgroundImage: `url(${getImageUrl(event)})` }}
+                style={{ backgroundImage: `url(${getSupabaseImageUrl(event.bg_image)})` }}
               >
                 <div className="absolute bottom-3 left-3 flex flex-wrap gap-1">
                   <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
@@ -179,7 +129,7 @@ const EventsList = ({
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
                     <div className="flex items-center">
                       <Calendar className="h-4 w-4 mr-1" />
-                      <span>{format(parseISO(event.date), 'd MMMM yyyy', { locale: ru })}</span>
+                      <span>{formatRussianDate(event.date)}</span>
                     </div>
                     <div className="flex items-center">
                       <Clock className="h-4 w-4 mr-1" />
@@ -230,7 +180,7 @@ const EventsList = ({
               <div className="relative aspect-video bg-gray-100 dark:bg-gray-800">
                 <div 
                   className="absolute inset-0 bg-cover bg-center transition-transform duration-300 group-hover:scale-105"
-                  style={{ backgroundImage: `url(${getImageUrl(event)})` }}
+                  style={{ backgroundImage: `url(${getSupabaseImageUrl(event.bg_image)})` }}
                 />
                 <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                   <span className="text-white font-medium flex items-center">
@@ -263,7 +213,7 @@ const EventsList = ({
                 <div className="flex flex-col gap-1 text-sm text-gray-500 dark:text-gray-400">
                   <div className="flex items-center">
                     <Calendar className="h-4 w-4 mr-1 flex-shrink-0" />
-                    <span>{format(parseISO(event.date), 'd MMMM yyyy', { locale: ru })}</span>
+                    <span>{formatRussianDate(event.date)}</span>
                   </div>
                   <div className="flex items-center">
                     <Clock className="h-4 w-4 mr-1 flex-shrink-0" />

@@ -1,14 +1,9 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { createClient } from '@supabase/supabase-js';
-import { format, parseISO } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { Calendar, Globe, Users, ArrowRight, Clock } from 'lucide-react';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from '../../lib/supabase';
+import { formatTimeFromTimestamp } from '../../utils/dateTimeUtils';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 type Event = {
   id: string;
@@ -36,37 +31,6 @@ type HomepageSettings = {
   show_image: boolean;
   show_price: boolean;
 };
-
-const formatTime = (timeString: string) => {
-  if (!timeString) return '';
-  
-  try {
-    // Если время уже в формате HH:MM
-    if (/^\d{2}:\d{2}$/.test(timeString)) {
-      return timeString;
-    }
-    
-    // Если это timestamp или строка даты
-    const date = new Date(timeString);
-    
-    // Проверяем, что дата валидна
-    if (isNaN(date.getTime())) {
-      // Попробуем разобрать как время без даты (например, "14:30:00")
-      const timeParts = timeString.split(':');
-      if (timeParts.length >= 2) {
-        return `${timeParts[0].padStart(2, '0')}:${timeParts[1].padStart(2, '0')}`;
-      }
-      return timeString; // fallback
-    }
-    
-    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  } catch (e) {
-    console.error('Error formatting time:', e);
-    return timeString; // возвращаем как есть в случае ошибки
-  }
-};
-
-
 
 const EventsSection = () => {
   const [events, setEvents] = useState<Event[]>([]);
@@ -109,12 +73,6 @@ const EventsSection = () => {
 
     fetchData();
   }, []);
-
-  const getImageUrl = (event: Event) => {
-    if (!event.bg_image) return 'https://via.placeholder.com/800x400?text=No+image';
-    if (event.bg_image.startsWith('http')) return event.bg_image;
-    return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.bg_image}`;
-  };
 
   if (loading) {
     return (
@@ -185,7 +143,7 @@ const EventsSection = () => {
                 <div className="relative h-48">
                   <div 
                     className="absolute inset-0 bg-cover bg-center"
-                    style={{ backgroundImage: `url(${getImageUrl(event)})` }}
+                    style={{ backgroundImage: `url(${getSupabaseImageUrl(event.bg_image)})` }}
                   >
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors" />
                   </div>
@@ -213,7 +171,7 @@ const EventsSection = () => {
                 {show_date && (
                   <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-3">
                     <Calendar className="h-4 w-4 flex-shrink-0" />
-                    <span>{format(parseISO(event.date), 'd MMMM', { locale: ru })}</span>
+                    <span>{formatRussianDate(event.date, 'd MMMM')}</span>
                   </div>
                 )}
                 
@@ -221,7 +179,7 @@ const EventsSection = () => {
                   {show_time && (
                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <Clock className="h-4 w-4 flex-shrink-0" />
-                      <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
+                      <span>{formatTimeFromTimestamp(event.start_time)} - {formatTimeFromTimestamp(event.end_time)}</span>
                     </div>
                   )}
                   
