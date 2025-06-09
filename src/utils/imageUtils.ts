@@ -36,7 +36,7 @@ export const compressImage = async (
     // Default options
     const defaultOptions = {
       maxWidthOrHeight: 5000,
-      maxSizeMB: 3,
+      maxSizeMB: 5,
       useWebWorker: true,
       fileType: 'image/jpeg'
     };
