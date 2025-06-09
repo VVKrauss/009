@@ -302,7 +302,7 @@ const SpeakerProfilePage = () => {
               <img
                 src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.bg_image}`}
                 alt={event.title}
-                className="w-full h-full object-cover opacity-40 dark:opacity-30 group-hover:opacity-50 dark:group-hover:opacity-40 transition-opacity duration-300"
+                className="w-full h-full object-cover opacity-60 dark:opacity-50 group-hover:opacity-70 dark:group-hover:opacity-60 transition-opacity duration-300"
                 onError={(e) => {
                   // Fallback на оригинальное изображение если есть
                   const img = e.target as HTMLImageElement;
