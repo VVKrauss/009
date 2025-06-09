@@ -114,19 +114,73 @@ const renderDescriptionWithLinks = (description: string) => {
   );
 };
 
-const renderEventDescription = (text: string) => {
-  if (!text) return null;
-  
-  const paragraphs = text.split(/\n\s*\n/);
-  
+const renderDescriptionWithLinks = (description: string) => {
+  if (!description) {
+    return <p className="text-gray-500 dark:text-gray-400">Описание отсутствует</p>;
+  }
+
+  // Разбиваем текст на части: обычный текст и ссылки
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+
+  // Регулярное выражение для поиска ссылок
+  const linkRegex = /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1(?:[^>]*?)>(.*?)<\/a>/g;
+
+  // Обрабатываем все совпадения ссылок
+  while ((match = linkRegex.exec(description)) !== null) {
+    // Текст перед ссылкой
+    if (match.index > lastIndex) {
+      parts.push({
+        type: 'text',
+        content: description.substring(lastIndex, match.index)
+      });
+    }
+
+    // Сама ссылка
+    parts.push({
+      type: 'link',
+      url: match[2],
+      text: match[3]
+    });
+
+    lastIndex = linkRegex.lastIndex;
+  }
+
+  // Текст после последней ссылки
+  if (lastIndex < description.length) {
+    parts.push({
+      type: 'text',
+      content: description.substring(lastIndex)
+    });
+  }
+
+  // Если не было найдено ссылок, возвращаем весь текст как есть
+  if (parts.length === 0) {
+    return <span>{description}</span>;
+  }
+
   return (
-    <div className="prose dark:prose-invert max-w-none">
-      {paragraphs.map((paragraph, i) => (
-        <p key={i} className="mb-4">
-          {renderDescriptionWithLinks(paragraph)}
-        </p>
-      ))}
-    </div>
+    <>
+      {parts.map((part, index) => {
+        if (part.type === 'text') {
+          return <span key={index}>{part.content}</span>;
+        } else if (part.type === 'link') {
+          return (
+            <a
+              key={index}
+              href={part.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary-600 dark:text-primary-400 hover:opacity-80 underline"
+            >
+              {part.text}
+            </a>
+          );
+        }
+        return null;
+      })}
+    </>
   );
 };
 
