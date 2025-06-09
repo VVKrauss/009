@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
-import { ArrowLeft, Mail, Globe, MapPin, Link2, Calendar, Clock, Globe2 } from 'lucide-react';
+import { ArrowLeft, Mail, Globe, MapPin, Link2, Calendar, Clock, Globe2, X } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import { toast } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -56,6 +57,7 @@ const SpeakerProfilePage = () => {
   const [pastEvents, setPastEvents] = useState<Event[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const photoRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -160,6 +162,25 @@ const SpeakerProfilePage = () => {
       prev === 0 ? speaker.photos.length - 1 : prev - 1
     );
   };
+
+  const handleKeyDown = (e: KeyboardEvent) => {
+    if (isFullscreen) {
+      if (e.key === 'Escape') {
+        setIsFullscreen(false);
+      } else if (e.key === 'ArrowRight') {
+        nextSlide();
+      } else if (e.key === 'ArrowLeft') {
+        prevSlide();
+      }
+    }
+  };
+
+  useEffect(() => {
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isFullscreen, currentSlide]);
 
   const parseBlogs = (blogs: string | Array<{ url: string; platform: string }>) => {
     try {
@@ -310,6 +331,172 @@ const SpeakerProfilePage = () => {
     );
   };
 
+  const renderGallery = () => {
+    if (!speaker || speaker.photos.length === 0) {
+      return (
+        <div className="w-full h-64 bg-gray-100 dark:bg-dark-700 rounded-lg flex items-center justify-center">
+          <span className="text-gray-400">Нет фото</span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-4">
+        {/* Основное изображение */}
+        <div 
+          className="relative w-full h-64 md:h-80 lg:h-96 rounded-lg overflow-hidden bg-gray-100 dark:bg-dark-700 cursor-pointer"
+          onClick={() => setIsFullscreen(true)}
+        >
+          <AnimatePresence mode="wait">
+            <motion.img
+              key={currentSlide}
+              src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos[currentSlide].url}`}
+              alt={speaker.name}
+              className="w-full h-full object-cover"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            />
+          </AnimatePresence>
+
+          {speaker.photos.length > 1 && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  prevSlide();
+                }}
+                className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full z-10 transition-all"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  nextSlide();
+                }}
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-2 rounded-full z-10 transition-all"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                </svg>
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Миниатюры */}
+        {speaker.photos.length > 1 && (
+          <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+            {speaker.photos.map((photo, index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentSlide(index)}
+                className={`aspect-square overflow-hidden rounded-md transition-all ${
+                  index === currentSlide 
+                    ? 'ring-2 ring-primary-500' 
+                    : 'opacity-80 hover:opacity-100 hover:ring-1 hover:ring-gray-300'
+                }`}
+              >
+                <img
+                  src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${photo.url}`}
+                  alt={`Фото ${index + 1}`}
+                  className="w-full h-full object-cover"
+                />
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Полноэкранный просмотр */}
+        <AnimatePresence>
+          {isFullscreen && (
+            <motion.div
+              className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsFullscreen(false)}
+            >
+              <button 
+                className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsFullscreen(false);
+                }}
+              >
+                <X className="h-8 w-8" />
+              </button>
+
+              <div className="relative w-full max-w-6xl h-full max-h-screen">
+                <AnimatePresence mode="wait">
+                  <motion.img
+                    key={currentSlide}
+                    src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos[currentSlide].url}`}
+                    alt={speaker.name}
+                    className="w-full h-full object-contain"
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.9 }}
+                    transition={{ duration: 0.3 }}
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </AnimatePresence>
+
+                {speaker.photos.length > 1 && (
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        prevSlide();
+                      }}
+                      className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full z-10 transition-all"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        nextSlide();
+                      }}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full z-10 transition-all"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  </>
+                )}
+
+                <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-2">
+                  {speaker.photos.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentSlide(index);
+                      }}
+                      className={`h-2 rounded-full transition-all ${
+                        index === currentSlide 
+                          ? 'w-6 bg-primary-500' 
+                          : 'w-2 bg-white/50 hover:bg-white/80'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    );
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -352,63 +539,7 @@ const SpeakerProfilePage = () => {
                 tabIndex={-1}
                 className="w-full md:w-1/3 lg:w-1/4 p-6 outline-none"
               >
-                <div className="relative aspect-square rounded-lg overflow-hidden bg-gray-100 dark:bg-dark-700 shadow-md">
-                  {speaker.photos.length > 0 ? (
-                    <>
-                      <img
-                        src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos[currentSlide].url}`}
-                        alt={speaker.name}
-                        className="w-full h-full object-cover transition-opacity duration-300"
-                      />
-                      {speaker.photos.length > 1 && (
-                        <>
-                          <button
-                            onClick={prevSlide}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-1 rounded-full z-10 transition-all"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                          <button
-                            onClick={nextSlide}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-1 rounded-full z-10 transition-all"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                              <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                            </svg>
-                          </button>
-                        </>
-                      )}
-                    </>
-                  ) : (
-                    <div className="h-full flex items-center justify-center text-gray-400">
-                      <span>Нет фото</span>
-                    </div>
-                  )}
-                </div>
-
-                {speaker.photos.length > 1 && (
-                  <div className="mt-4 grid grid-cols-4 gap-2">
-                    {speaker.photos.map((photo, index) => (
-                      <button
-                        key={index}
-                        onClick={() => setCurrentSlide(index)}
-                        className={`aspect-square overflow-hidden rounded-md transition-all ${
-                          index === currentSlide 
-                            ? 'ring-2 ring-primary-500' 
-                            : 'opacity-80 hover:opacity-100 hover:ring-1 hover:ring-gray-300'
-                        }`}
-                      >
-                        <img
-                          src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${photo.url}`}
-                          alt={`Фото ${index + 1}`}
-                          className="w-full h-full object-cover"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {renderGallery()}
               </div>
 
               <div className="w-full md:w-2/3 lg:w-3/4 p-6 md:p-8 flex flex-col justify-center">
