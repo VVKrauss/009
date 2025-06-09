@@ -300,7 +300,7 @@ const SpeakerProfilePage = () => {
           {event.bg_image ? (
             <>
               <img
-                src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/events/${event.bg_image}`}
+                src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.bg_image}`}
                 alt={event.title}
                 className="w-full h-full object-cover opacity-40 dark:opacity-30 group-hover:opacity-50 dark:group-hover:opacity-40 transition-opacity duration-300"
                 onError={(e) => {
@@ -308,11 +308,11 @@ const SpeakerProfilePage = () => {
                   const img = e.target as HTMLImageElement;
                   if (event.original_bg_image && !img.dataset.triedOriginal) {
                     img.dataset.triedOriginal = 'true';
-                    img.src = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/events/${event.original_bg_image}`;
+                    img.src = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.original_bg_image}`;
                   } else {
                     img.style.display = 'none';
                   }
-                }}
+                }}}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-white via-white/95 to-white/80 dark:from-dark-900 dark:via-dark-900/95 dark:to-dark-900/80"></div>
             </>
