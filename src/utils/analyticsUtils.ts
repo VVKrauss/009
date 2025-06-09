@@ -145,7 +145,12 @@ export const fetchPagePopularity = async (startDate: string, endDate: string): P
     
     if (error) throw error;
     
-    return data || [];
+    // Convert bigint values to numbers to match the PageVisit interface
+    return (data || []).map((item: any) => ({
+      page: item.page,
+      visits: Number(item.visits),
+      avgTimeSpent: Number(item.avg_time_spent || 0)
+    }));
   } catch (error) {
     console.error('Error fetching page popularity:', error);
     return [];
