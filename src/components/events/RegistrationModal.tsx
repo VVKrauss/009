@@ -17,7 +17,7 @@ type RegistrationModalProps = {
   event: {
     id: string;
     title: string;
-    date: string;
+    start_time: string;
     location: string;
     price: number;
     currency: string;
@@ -158,9 +158,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
 
       if (fetchError) throw fetchError;
 
-      const currentRegistrations = Array.isArray(eventData.registrations_list) 
-        ? eventData.registrations_list 
-        : [];
+      const currentRegistrations = eventData.registrations_list || [];
 
       const total = calculateTotal();
       const registrationId = crypto.randomUUID();
@@ -179,16 +177,13 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
         payment_link_clicked: false,
       };
 
-      const updatedRegistrationsList = [...currentRegistrations, registrationData];
-
-      const totalTickets = registrationData.adult_tickets + registrationData.child_tickets;
-      const newRegistrationCount = (eventData.current_registration_count || 0) + totalTickets;
+      const totalPeople = registrationData.adult_tickets + registrationData.child_tickets;
 
       const { error: updateError } = await supabase
         .from('events')
         .update({
-          registrations_list: updatedRegistrationsList,
-          current_registration_count: newRegistrationCount,
+          registrations_list: [...currentRegistrations, registrationData],
+          current_registration_count: (eventData.current_registration_count || 0) + totalPeople,
         })
         .eq('id', event.id);
 
@@ -208,7 +203,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
 
       const message = `🎟 <b>Новая регистрация</b>\n\n` +
         `Мероприятие: ${event.title}\n` +
-        `Дата: ${format(parseISO(event.date), 'dd.MM.yyyy HH:mm', { locale: ru })}\n` +
+        `Дата: ${format(parseISO(event.start_time), 'dd.MM.yyyy HH:mm', { locale: ru })}\n` +
         `Участник: ${formData.name}\n` +
         `Email: ${formData.contact}\n` +
         `Телефон: ${formData.phone}\n` +
@@ -292,11 +287,11 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
               <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                 <div className="flex items-center gap-1">
                   <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                  <span>{format(parseISO(event.date), 'dd.MM.yy', { locale: ru })}</span>
+                  <span>{format(parseISO(event.start_time), 'dd.MM.yyyy', { locale: ru })}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <Clock className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                  <span>{format(parseISO(event.date), 'HH:mm', { locale: ru })}</span>
+                  <span>{format(parseISO(event.start_time), 'HH:mm', { locale: ru })}</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <MapPin className="h-4 w-4 text-gray-500 dark:text-gray-400" />
