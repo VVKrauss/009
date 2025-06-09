@@ -194,37 +194,61 @@ const SpeakerProfilePage = () => {
     }
   };
 
-  const renderDescription = (description: string) => {
+const renderDescription = (description: string) => {
     if (!description) {
       return <p className="text-gray-500 dark:text-gray-400">Описание спикера отсутствует</p>;
     }
 
-    const withLinks = description.replace(
-      /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1(?:[^>]*?)>(.*?)<\/a>/g,
-      (match, quote, url, text) => {
-        return `@@@LINK_START@@@${url}@@@TEXT_START@@@${text}@@@LINK_END@@@`;
-      }
-    );
+    // Разбиваем текст на части, сохраняя ссылки и обычный текст
+    const parts = [];
+    let lastIndex = 0;
+    let match;
 
-    const parts = withLinks.split(/@@@LINK_START@@@|@@@TEXT_START@@@|@@@LINK_END@@@/);
-    
+    // Регулярное выражение для поиска ссылок
+    const linkRegex = /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1(?:[^>]*?)>(.*?)<\/a>/g;
+
+    while ((match = linkRegex.exec(description)) !== null) {
+      // Текст до ссылки
+      if (match.index > lastIndex) {
+        parts.push({
+          type: 'text',
+          content: description.substring(lastIndex, match.index)
+        });
+      }
+
+      // Сама ссылка
+      parts.push({
+        type: 'link',
+        url: match[2],
+        text: match[3]
+      });
+
+      lastIndex = match.index + match[0].length;
+    }
+
+    // Текст после последней ссылки
+    if (lastIndex < description.length) {
+      parts.push({
+        type: 'text',
+        content: description.substring(lastIndex)
+      });
+    }
+
     return (
       <div className="text-dark-600 dark:text-dark-300">
         {parts.map((part, index) => {
-          if (index % 4 === 0) {
-            return <span key={index}>{part}</span>;
-          } else if (index % 4 === 1) {
-            const url = part;
-            const text = parts[index + 1];
+          if (part.type === 'text') {
+            return <span key={index}>{part.content}</span>;
+          } else if (part.type === 'link') {
             return (
               <a
                 key={index}
-                href={url}
+                href={part.url}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-primary-600 dark:text-primary-400 hover:opacity-80 underline"
               >
-                {text}
+                {part.text}
               </a>
             );
           }
@@ -233,7 +257,7 @@ const SpeakerProfilePage = () => {
       </div>
     );
   };
-
+  
   const formatDate = (dateString: string) => {
     const options: Intl.DateTimeFormatOptions = { 
       day: 'numeric', 
