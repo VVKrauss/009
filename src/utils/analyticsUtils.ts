@@ -24,12 +24,38 @@ export interface PageVisit {
 export interface EventRegistration {
   eventId: string;
   eventTitle: string;
+  eventDate: string;
+  eventTime: string;
+  eventLocation: string;
   adultRegistrations: number;
   childRegistrations: number;
   totalRegistrations: number;
   maxCapacity: number;
   paymentLinkClicks: number;
   conversionRate: number;
+  revenue: number;
+  registrationDetails: Array<{
+    id: string;
+    fullName: string;
+    email: string;
+    phone: string;
+    adultTickets: number;
+    childTickets: number;
+    totalAmount: number;
+    status: boolean;
+    createdAt: string;
+  }>;
+}
+
+export interface RentalBooking {
+  id: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  clientName: string;
+  clientEmail: string;
+  clientPhone?: string;
+  durationHours: number;
   revenue: number;
 }
 
@@ -40,7 +66,7 @@ export interface PagePopularity {
 
 export type DateRange = '7days' | '30days' | '90days' | 'custom';
 export type ExportFormat = 'csv' | 'xlsx';
-export type ExportType = 'all' | 'visitors' | 'registrations';
+export type ExportType = 'all' | 'visitors' | 'registrations' | 'rental';
 
 // Track page view
 export const trackPageView = async (path: string, isAdmin: boolean = false) => {
@@ -216,7 +242,7 @@ export const fetchEventRegistrations = async (): Promise<EventRegistration[]> =>
   try {
     const { data: events, error } = await supabase
       .from('events')
-      .select('id, title, registrations_list, max_registrations, payment_link_clicks, price, currency')
+      .select('id, title, date, start_time, end_time, location, registrations_list, max_registrations, payment_link_clicks, price, currency')
       .order('date', { ascending: false });
     
     if (error) throw error;
@@ -235,20 +261,81 @@ export const fetchEventRegistrations = async (): Promise<EventRegistration[]> =>
         ? (totalRegistrations / paymentLinkClicks) * 100 
         : 0;
       
+      // Format registration details
+      const registrationDetails = registrations.map((reg: any) => ({
+        id: reg.id,
+        fullName: reg.full_name,
+        email: reg.email,
+        phone: reg.phone || '',
+        adultTickets: reg.adult_tickets || 0,
+        childTickets: reg.child_tickets || 0,
+        totalAmount: reg.total_amount || 0,
+        status: reg.status,
+        createdAt: reg.created_at || event.date
+      }));
+      
       return {
         eventId: event.id,
         eventTitle: event.title,
+        eventDate: event.date,
+        eventTime: `${formatTimeFromTimestamp(event.start_time)} - ${formatTimeFromTimestamp(event.end_time)}`,
+        eventLocation: event.location,
         adultRegistrations,
         childRegistrations,
         totalRegistrations,
         maxCapacity: event.max_registrations || 100,
         paymentLinkClicks,
         conversionRate,
-        revenue
+        revenue,
+        registrationDetails
       };
     });
   } catch (error) {
     console.error('Error fetching event registrations:', error);
+    return [];
+  }
+};
+
+// Fetch rental bookings from Supabase
+export const fetchRentalBookings = async (startDate: string, endDate: string): Promise<RentalBooking[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('time_slots_table')
+      .select('*')
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .eq('slot_details->>type', 'booking')
+      .order('date', { ascending: false });
+    
+    if (error) throw error;
+    
+    return (data || []).map(slot => {
+      const startTime = slot.start_time.substring(0, 5);
+      const endTime = slot.end_time.substring(0, 5);
+      
+      // Calculate duration in hours
+      const [startHour, startMinute] = startTime.split(':').map(Number);
+      const [endHour, endMinute] = endTime.split(':').map(Number);
+      const durationHours = (endHour - startHour) + (endMinute - startMinute) / 60;
+      
+      // Calculate revenue (mock data for now)
+      const hourlyRate = 1000; // 1000 RUB per hour
+      const revenue = durationHours * hourlyRate;
+      
+      return {
+        id: slot.id,
+        date: slot.date,
+        startTime,
+        endTime,
+        clientName: slot.slot_details.user_name || 'Неизвестно',
+        clientEmail: slot.slot_details.email || 'Неизвестно',
+        clientPhone: slot.slot_details.phone,
+        durationHours,
+        revenue
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching rental bookings:', error);
     return [];
   }
 };
@@ -272,6 +359,10 @@ export const exportAnalyticsData = async (
     if (type === 'all' || type === 'registrations') {
       data.registrations = await fetchRegistrationData(startDate, endDate);
       data.events = await fetchEventRegistrations();
+    }
+    
+    if (type === 'all' || type === 'rental') {
+      data.rentalBookings = await fetchRentalBookings(startDate, endDate);
     }
     
     // Convert to CSV or XLSX
@@ -328,6 +419,15 @@ const generateCSV = (data: any, type: ExportType): Blob => {
     });
   }
   
+  if (type === 'all' || type === 'rental') {
+    csvContent += 'Данные о бронированиях помещений\n';
+    csvContent += 'Дата,Время начала,Время окончания,Клиент,Email,Телефон,Длительность (ч),Выручка\n';
+    
+    data.rentalBookings.forEach((booking: RentalBooking) => {
+      csvContent += `${booking.date},${booking.startTime},${booking.endTime},"${booking.clientName}",${booking.clientEmail},${booking.clientPhone || ''},${booking.durationHours.toFixed(1)},${booking.revenue}\n`;
+    });
+  }
+  
   return new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
 };
 
@@ -336,4 +436,25 @@ const generateXLSX = (data: any, type: ExportType): Blob => {
   // In a real implementation, this would use a library like xlsx
   // For now, we'll just return the same CSV data with a different MIME type
   return generateCSV(data, type);
+};
+
+// Helper function to format time from timestamp
+const formatTimeFromTimestamp = (timestamp: string): string => {
+  if (!timestamp) return '';
+  
+  try {
+    if (timestamp.includes('T')) {
+      return format(parseISO(timestamp), 'HH:mm');
+    }
+    
+    // If it's already in HH:MM format
+    if (/^\d{2}:\d{2}(:\d{2})?$/.test(timestamp)) {
+      return timestamp.substring(0, 5);
+    }
+    
+    return timestamp;
+  } catch (error) {
+    console.error('Error formatting time:', error);
+    return timestamp;
+  }
 };
