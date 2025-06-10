@@ -16,6 +16,28 @@ export interface FestivalProgramItem {
   lecturer_id: string;
 }
 
+export interface Registration {
+  id: string;
+  full_name: string;
+  email: string;
+  phone?: string;
+  comment?: string;
+  adult_tickets: number;
+  child_tickets: number;
+  total_amount: number;
+  status: boolean;
+  created_at: string;
+  payment_link_clicked?: boolean;
+}
+
+export interface EventRegistrations {
+  max_regs: number | null;
+  current: number;
+  current_adults: number;
+  current_children: number;
+  reg_list: Registration[];
+}
+
 export type Event = {
   id: string;
   title: string;
@@ -32,7 +54,6 @@ export type Event = {
   price: number | null;
   currency: string;
   status: string;
-  max_registrations: number | null;
   payment_type: string;
   languages: string[];
   speakers: string[];
@@ -45,6 +66,11 @@ export type Event = {
   video_url?: string;
   photo_gallery?: string;
   festival_program?: FestivalProgramItem[];
+  registrations?: EventRegistrations;
+  // Legacy fields - will be removed after migration
+  max_registrations?: number | null;
+  current_registration_count?: number;
+  registrations_list?: Registration[];
 };
 
 export const eventTypes = [

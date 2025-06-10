@@ -6,32 +6,12 @@ import { format, parseISO, isBefore } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { useNavigate, Link } from 'react-router-dom';
 import EventDetailsModal from '../../components/admin/EventDetailsModal';
+import { Event, EventRegistrations } from './constants';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
-
-type Event = {
-  id: string;
-  title: string;
-  description: string;
-  event_type: string;
-  bg_image: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  location: string;
-  age_category: string;
-  price: number;
-  currency: string;
-  status: string;
-  max_registrations: number;
-  current_registration_count: number;
-  payment_type: string;
-  languages: string[];
-  speakers: string[];
-};
 
 type SortOption = 'date-asc' | 'date-desc' | 'title-asc' | 'title-desc' | 'chronological';
 type FilterStatus = 'active' | 'draft' | 'past';
@@ -210,6 +190,22 @@ const AdminEvents = () => {
     return matchesSearch;
   });
 
+  // Helper function to get current registration count from either new or legacy structure
+  const getCurrentRegistrationCount = (event: Event): number => {
+    if (event.registrations?.current !== undefined) {
+      return event.registrations.current;
+    }
+    return event.current_registration_count || 0;
+  };
+
+  // Helper function to get max registrations from either new or legacy structure
+  const getMaxRegistrations = (event: Event): number | null => {
+    if (event.registrations?.max_regs !== undefined) {
+      return event.registrations.max_regs;
+    }
+    return event.max_registrations || null;
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -335,6 +331,8 @@ const AdminEvents = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           {filteredEvents.map(event => {
             const { line1, line2 } = formatEventTitle(event.title);
+            const maxRegistrations = getMaxRegistrations(event);
+            const currentRegistrationCount = getCurrentRegistrationCount(event);
             
             return (
               <div 
@@ -414,7 +412,7 @@ const AdminEvents = () => {
                       </div>
                     )}
                     
-                    {event.max_registrations > 0 && (
+                    {maxRegistrations && maxRegistrations > 0 && (
                       <div className="space-y-1">
                         <div className="flex items-center justify-between text-xs">
                           <div className="flex items-center text-dark-600 dark:text-dark-300">
@@ -422,14 +420,14 @@ const AdminEvents = () => {
                             <span>Регистрации</span>
                           </div>
                           <span className="font-medium">
-                            {event.current_registration_count}/{event.max_registrations}
+                            {currentRegistrationCount}/{maxRegistrations}
                           </span>
                         </div>
                         <div className="h-1.5 bg-gray-200 dark:bg-dark-700 rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-primary-600 rounded-full transition-all"
                             style={{ 
-                              width: `${(event.current_registration_count / event.max_registrations) * 100}%` 
+                              width: `${(currentRegistrationCount / maxRegistrations) * 100}%` 
                             }}
                           ></div>
                         </div>

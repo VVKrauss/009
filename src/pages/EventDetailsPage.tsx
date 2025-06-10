@@ -8,6 +8,7 @@ import Layout from '../components/layout/Layout';
 import RegistrationModal from '../components/events/RegistrationModal';
 import PaymentOptionsModal from '../components/events/PaymentOptionsModal';
 import { toast } from 'react-hot-toast';
+import { EventRegistrations } from './admin/constants';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -45,13 +46,16 @@ interface Event {
   price: number;
   currency: string;
   status: string;
-  max_registrations: number;
   payment_type: string;
   payment_link?: string;
   payment_widget_id?: string;
   languages: string[];
   speakers: string[];
   festival_program?: FestivalProgramItem[];
+  registrations?: EventRegistrations;
+  // Legacy fields - will be removed after migration
+  max_registrations?: number;
+  current_registration_count?: number;
 }
 
 const formatTimeFromTimestamp = (timestamp: string) => {
@@ -239,6 +243,22 @@ const EventDetailsPage = () => {
     }
   };
 
+  // Helper function to get max registrations from either new or legacy structure
+  const getMaxRegistrations = (): number | null => {
+    if (event?.registrations?.max_regs !== undefined) {
+      return event.registrations.max_regs;
+    }
+    return event?.max_registrations || null;
+  };
+
+  // Helper function to get current registration count from either new or legacy structure
+  const getCurrentRegistrationCount = (): number => {
+    if (event?.registrations?.current !== undefined) {
+      return event.registrations.current;
+    }
+    return event?.current_registration_count || 0;
+  };
+
   if (loading) {
     return (
       <Layout>
@@ -258,6 +278,9 @@ const EventDetailsPage = () => {
       </Layout>
     );
   }
+
+  const maxRegistrations = getMaxRegistrations();
+  const currentRegistrationCount = getCurrentRegistrationCount();
 
   return (
     <Layout>

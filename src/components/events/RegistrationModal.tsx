@@ -6,6 +6,7 @@ import { ru } from 'date-fns/locale';
 import { supabase } from '../../lib/supabase';
 import { sendTelegramNotification } from '../../utils/telegramNotifications';
 import Modal from '../ui/Modal';
+import { EventRegistrations } from '../../pages/admin/constants';
 
 type RegistrationModalProps = {
   isOpen: boolean;
@@ -23,9 +24,12 @@ type RegistrationModalProps = {
     widget_chooser?: boolean;
     couple_discount?: number;
     child_half_price?: boolean;
-    max_registrations: number;
-    current_registration_count: number;
     adults_only?: boolean;
+    registrations?: EventRegistrations;
+    // Legacy fields - will be removed after migration
+    max_registrations?: number;
+    current_registration_count?: number;
+    registrations_list?: any[];
   };
 };
 
@@ -146,15 +150,14 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
     setLoading(true);
     
     try {
+      // Fetch current event data to get the latest registrations
       const { data: eventData, error: fetchError } = await supabase
         .from('events')
-        .select('registrations_list, current_registration_count')
+        .select('registrations, registrations_list, max_registrations, current_registration_count')
         .eq('id', event.id)
         .single();
 
       if (fetchError) throw fetchError;
-
-      const currentRegistrations = eventData.registrations_list || [];
 
       const total = calculateTotal();
       const registrationId = crypto.randomUUID();
@@ -173,14 +176,35 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
         payment_link_clicked: false,
       };
 
-      const totalPeople = registrationData.adult_tickets + registrationData.child_tickets;
+      // Determine if we're using the new or legacy structure
+      let updateData: any = {};
+      
+      if (eventData.registrations) {
+        // New structure
+        const updatedRegistrations = {
+          ...eventData.registrations,
+          reg_list: [...(eventData.registrations.reg_list || []), registrationData]
+        };
+        
+        updateData.registrations = updatedRegistrations;
+      } else {
+        // Legacy structure - create new structure
+        const currentRegistrations = eventData.registrations_list || [];
+        
+        const newRegistrations = {
+          max_regs: eventData.max_registrations,
+          current: 0, // Will be calculated by trigger
+          current_adults: 0, // Will be calculated by trigger
+          current_children: 0, // Will be calculated by trigger
+          reg_list: [...currentRegistrations, registrationData]
+        };
+        
+        updateData.registrations = newRegistrations;
+      }
 
       const { error: updateError } = await supabase
         .from('events')
-        .update({
-          registrations_list: [...currentRegistrations, registrationData],
-          current_registration_count: (eventData.current_registration_count || 0) + totalPeople,
-        })
+        .update(updateData)
         .eq('id', event.id);
 
       if (updateError) throw updateError;

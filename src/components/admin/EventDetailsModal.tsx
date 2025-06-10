@@ -6,17 +6,7 @@ import { ru } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import Modal from '../ui/Modal';
-
-type Registration = {
-  id: string;
-  full_name: string;
-  email: string;
-  adult_tickets: number;
-  child_tickets: number;
-  total_amount: number;
-  status: boolean;
-  created_at: string;
-};
+import { Registration, EventRegistrations } from '../../pages/admin/constants';
 
 type EventDetailsModalProps = {
   isOpen: boolean;
@@ -29,13 +19,15 @@ type EventDetailsModalProps = {
     start_time: string;
     end_time: string;
     location: string;
-    max_registrations: number;
-    current_registration_count: number;
-    registrations_list: Registration[];
     languages: string[];
     event_type: string;
     payment_link?: string;
     payment_link_clicks?: number;
+    registrations?: EventRegistrations;
+    // Legacy fields - will be removed after migration
+    max_registrations?: number;
+    current_registration_count?: number;
+    registrations_list?: Registration[];
   };
 };
 
@@ -49,6 +41,30 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
     setLocalEvent(event);
   }, [event]);
 
+  // Helper function to get registrations list from either new or legacy structure
+  const getRegistrationsList = (): Registration[] => {
+    if (localEvent.registrations?.reg_list) {
+      return localEvent.registrations.reg_list;
+    }
+    return localEvent.registrations_list || [];
+  };
+
+  // Helper function to get max registrations from either new or legacy structure
+  const getMaxRegistrations = (): number | null => {
+    if (localEvent.registrations?.max_regs !== undefined) {
+      return localEvent.registrations.max_regs;
+    }
+    return localEvent.max_registrations || null;
+  };
+
+  // Helper function to get current registration count from either new or legacy structure
+  const getCurrentRegistrationCount = (): number => {
+    if (localEvent.registrations?.current !== undefined) {
+      return localEvent.registrations.current;
+    }
+    return localEvent.current_registration_count || 0;
+  };
+
   const handleEditRegistration = (registration: Registration) => {
     setEditingRegistration(registration.id);
     setEditForm(registration);
@@ -61,28 +77,59 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
         return;
       }
 
-      const updatedRegistrations = localEvent.registrations_list.map((reg: Registration) =>
-        reg.id === registrationId ? { ...reg, ...editForm } : reg
-      );
+      // Get current registrations data
+      const { data: currentEvent, error: fetchError } = await supabase
+        .from('events')
+        .select('registrations, registrations_list')
+        .eq('id', event.id)
+        .single();
 
-      const newCount = updatedRegistrations.reduce((acc: number, reg: Registration) =>
-        acc + (reg.status ? (reg.adult_tickets + reg.child_tickets) : 0), 0
-      );
+      if (fetchError) throw fetchError;
 
+      let updatedRegistrations: EventRegistrations;
+      
+      // Handle both new and legacy data structures
+      if (currentEvent.registrations) {
+        // New structure
+        const regList = [...currentEvent.registrations.reg_list];
+        const updatedRegList = regList.map(reg =>
+          reg.id === registrationId ? { ...reg, ...editForm } : reg
+        );
+        
+        updatedRegistrations = {
+          ...currentEvent.registrations,
+          reg_list: updatedRegList
+        };
+      } else {
+        // Legacy structure - convert to new structure
+        const regList = currentEvent.registrations_list || [];
+        const updatedRegList = regList.map(reg =>
+          reg.id === registrationId ? { ...reg, ...editForm } : reg
+        );
+        
+        updatedRegistrations = {
+          max_regs: localEvent.max_registrations || null,
+          current: 0, // Will be calculated by trigger
+          current_adults: 0, // Will be calculated by trigger
+          current_children: 0, // Will be calculated by trigger
+          reg_list: updatedRegList
+        };
+      }
+
+      // Update the event with new registrations data
       const { error: updateError } = await supabase
         .from('events')
         .update({
-          registrations_list: updatedRegistrations,
-          current_registration_count: newCount
+          registrations: updatedRegistrations
         })
         .eq('id', event.id);
 
       if (updateError) throw updateError;
 
+      // Update local state
       setLocalEvent(prev => ({
         ...prev,
-        registrations_list: updatedRegistrations,
-        current_registration_count: newCount
+        registrations: updatedRegistrations
       }));
 
       setEditingRegistration(null);
@@ -101,36 +148,55 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
     }
 
     try {
+      // Get current registrations data
       const { data: currentEvent, error: fetchError } = await supabase
         .from('events')
-        .select('registrations_list, current_registration_count')
+        .select('registrations, registrations_list')
         .eq('id', event.id)
         .single();
 
       if (fetchError) throw fetchError;
 
-      const updatedRegistrations = currentEvent.registrations_list.filter(
-        (reg: Registration) => reg.id !== registrationId
-      );
+      let updatedRegistrations: EventRegistrations;
+      
+      // Handle both new and legacy data structures
+      if (currentEvent.registrations) {
+        // New structure
+        const regList = [...currentEvent.registrations.reg_list];
+        const updatedRegList = regList.filter(reg => reg.id !== registrationId);
+        
+        updatedRegistrations = {
+          ...currentEvent.registrations,
+          reg_list: updatedRegList
+        };
+      } else {
+        // Legacy structure - convert to new structure
+        const regList = currentEvent.registrations_list || [];
+        const updatedRegList = regList.filter(reg => reg.id !== registrationId);
+        
+        updatedRegistrations = {
+          max_regs: localEvent.max_registrations || null,
+          current: 0, // Will be calculated by trigger
+          current_adults: 0, // Will be calculated by trigger
+          current_children: 0, // Will be calculated by trigger
+          reg_list: updatedRegList
+        };
+      }
 
-      const newCount = updatedRegistrations.reduce((acc: number, reg: Registration) => 
-        acc + (reg.status ? (reg.adult_tickets + reg.child_tickets) : 0), 0
-      );
-
+      // Update the event with new registrations data
       const { error: updateError } = await supabase
         .from('events')
         .update({
-          registrations_list: updatedRegistrations,
-          current_registration_count: newCount
+          registrations: updatedRegistrations
         })
         .eq('id', event.id);
 
       if (updateError) throw updateError;
 
+      // Update local state
       setLocalEvent(prev => ({
         ...prev,
-        registrations_list: updatedRegistrations,
-        current_registration_count: newCount
+        registrations: updatedRegistrations
       }));
 
       toast.success('Регистрация удалена');
@@ -139,6 +205,10 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
       toast.error('Ошибка при удалении регистрации');
     }
   };
+
+  const registrationsList = getRegistrationsList();
+  const maxRegistrations = getMaxRegistrations();
+  const currentRegistrationCount = getCurrentRegistrationCount();
 
   return (
     <Modal
@@ -172,11 +242,11 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-dark-600 dark:text-dark-300">Всего мест:</span>
-                <span className="font-medium">{event.max_registrations || 'Не ограничено'}</span>
+                <span className="font-medium">{maxRegistrations || 'Не ограничено'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-dark-600 dark:text-dark-300">Зарегистрировано:</span>
-                <span className="font-medium">{event.current_registration_count}</span>
+                <span className="font-medium">{currentRegistrationCount}</span>
               </div>
               {event.payment_link && (
                 <div className="flex items-center justify-between">
@@ -184,12 +254,12 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
                   <span className="font-medium">{event.payment_link_clicks || 0}</span>
                 </div>
               )}
-              {event.max_registrations > 0 && (
+              {maxRegistrations && maxRegistrations > 0 && (
                 <div className="h-2 bg-gray-200 dark:bg-dark-700 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-primary-600 rounded-full transition-all"
                     style={{
-                      width: `${(event.current_registration_count / event.max_registrations) * 100}%`
+                      width: `${(currentRegistrationCount / maxRegistrations) * 100}%`
                     }}
                   ></div>
                 </div>
@@ -200,7 +270,7 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
 
         <div>
           <h3 className="font-medium mb-4">Управление регистрациями</h3>
-          {localEvent.registrations_list?.length > 0 ? (
+          {registrationsList?.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
@@ -215,7 +285,7 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
                   </tr>
                 </thead>
                 <tbody>
-                  {localEvent.registrations_list.map((registration) => (
+                  {registrationsList.map((registration) => (
                     <tr
                       key={registration.id}
                       className="border-t border-gray-200 dark:border-dark-700"

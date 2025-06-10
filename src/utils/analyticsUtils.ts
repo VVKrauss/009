@@ -1,4 +1,4 @@
-import { format, subDays, parseISO } from 'date-fns';
+import { format, subDays, parseISO, addDays, isAfter, isBefore } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { supabase } from '../lib/supabase';
 
@@ -189,7 +189,7 @@ export const fetchRegistrationData = async (startDate: string, endDate: string):
     // Get all events with registrations
     const { data: events, error: eventsError } = await supabase
       .from('events')
-      .select('id, registrations_list, date, price, currency')
+      .select('id, registrations, registrations_list, date, price, currency')
       .gte('date', startDate)
       .lte('date', endDate);
     
@@ -200,7 +200,9 @@ export const fetchRegistrationData = async (startDate: string, endDate: string):
     
     events?.forEach(event => {
       const date = event.date;
-      const registrations = event.registrations_list || [];
+      
+      // Get registrations from either new or legacy structure
+      const registrations = event.registrations?.reg_list || event.registrations_list || [];
       
       registrations.forEach((reg: any) => {
         if (reg.status) {
@@ -242,20 +244,42 @@ export const fetchEventRegistrations = async (): Promise<EventRegistration[]> =>
   try {
     const { data: events, error } = await supabase
       .from('events')
-      .select('id, title, date, start_time, end_time, location, registrations_list, max_registrations, payment_link_clicks, price, currency')
+      .select('id, title, date, start_time, end_time, location, registrations, registrations_list, max_registrations, current_registration_count, payment_link_clicks, price, currency')
       .order('date', { ascending: false });
     
     if (error) throw error;
     
     return (events || []).map(event => {
-      const registrations = event.registrations_list || [];
-      const adultRegistrations = registrations.reduce((sum: number, reg: any) => 
-        sum + (reg.status ? (reg.adult_tickets || 0) : 0), 0);
-      const childRegistrations = registrations.reduce((sum: number, reg: any) => 
-        sum + (reg.status ? (reg.child_tickets || 0) : 0), 0);
-      const totalRegistrations = adultRegistrations + childRegistrations;
+      // Determine if we're using new or legacy structure
+      const useNewStructure = !!event.registrations;
+      
+      // Get registrations list
+      const registrations = useNewStructure 
+        ? event.registrations.reg_list || []
+        : event.registrations_list || [];
+      
+      // Get counts
+      const adultRegistrations = useNewStructure
+        ? event.registrations.current_adults || 0
+        : registrations.reduce((sum: number, reg: any) => 
+            sum + (reg.status ? (reg.adult_tickets || 0) : 0), 0);
+            
+      const childRegistrations = useNewStructure
+        ? event.registrations.current_children || 0
+        : registrations.reduce((sum: number, reg: any) => 
+            sum + (reg.status ? (reg.child_tickets || 0) : 0), 0);
+            
+      const totalRegistrations = useNewStructure
+        ? event.registrations.current || 0
+        : event.current_registration_count || 0;
+        
+      const maxCapacity = useNewStructure
+        ? event.registrations.max_regs || 100
+        : event.max_registrations || 100;
+        
       const revenue = registrations.reduce((sum: number, reg: any) => 
         sum + (reg.status ? (reg.total_amount || 0) : 0), 0);
+        
       const paymentLinkClicks = event.payment_link_clicks || 0;
       const conversionRate = paymentLinkClicks > 0 
         ? (totalRegistrations / paymentLinkClicks) * 100 
@@ -283,7 +307,7 @@ export const fetchEventRegistrations = async (): Promise<EventRegistration[]> =>
         adultRegistrations,
         childRegistrations,
         totalRegistrations,
-        maxCapacity: event.max_registrations || 100,
+        maxCapacity,
         paymentLinkClicks,
         conversionRate,
         revenue,
