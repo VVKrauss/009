@@ -26,10 +26,6 @@ type RegistrationModalProps = {
     child_half_price?: boolean;
     adults_only?: boolean;
     registrations?: EventRegistrations;
-    // Legacy fields - will be removed after migration
-    max_registrations?: number;
-    current_registration_count?: number;
-    registrations_list?: any[];
   };
 };
 
@@ -97,7 +93,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
       const roundedPairPrice = roundUpToHundred(pairPrice);
 
       details.push(
-        <div key="adult\" className="flex justify-between">
+        <div key="adult" className="flex justify-between">
           <span>
             Взрослые ({totalAdult}×)
             {pairs > 0 && (
@@ -153,7 +149,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
       // Fetch current event data to get the latest registrations
       const { data: eventData, error: fetchError } = await supabase
         .from('events')
-        .select('registrations, registrations_list, max_registrations, current_registration_count')
+        .select('registrations')
         .eq('id', event.id)
         .single();
 
@@ -176,35 +172,23 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
         payment_link_clicked: false,
       };
 
-      // Determine if we're using the new or legacy structure
-      let updateData: any = {};
-      
-      if (eventData.registrations) {
-        // New structure
-        const updatedRegistrations = {
-          ...eventData.registrations,
-          reg_list: [...(eventData.registrations.reg_list || []), registrationData]
-        };
-        
-        updateData.registrations = updatedRegistrations;
-      } else {
-        // Legacy structure - create new structure
-        const currentRegistrations = eventData.registrations_list || [];
-        
-        const newRegistrations = {
-          max_regs: eventData.max_registrations,
-          current: 0, // Will be calculated by trigger
-          current_adults: 0, // Will be calculated by trigger
-          current_children: 0, // Will be calculated by trigger
-          reg_list: [...currentRegistrations, registrationData]
-        };
-        
-        updateData.registrations = newRegistrations;
-      }
+      // Always use new registrations structure
+      const currentRegistrations = eventData.registrations || {
+        current: 0,
+        max_regs: 40, // Default value, should be configurable
+        reg_list: [],
+        current_adults: 0,
+        current_children: 0
+      };
+
+      const updatedRegistrations = {
+        ...currentRegistrations,
+        reg_list: [...(currentRegistrations.reg_list || []), registrationData]
+      };
 
       const { error: updateError } = await supabase
         .from('events')
-        .update(updateData)
+        .update({ registrations: updatedRegistrations })
         .eq('id', event.id);
 
       if (updateError) throw updateError;
