@@ -2,9 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-import React, { useState, useEffect } from 'react';
-import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
 
 const EventCard = ({ event, isPast = false }) => {
   // Проверяем что event существует
