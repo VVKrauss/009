@@ -26,9 +26,6 @@ type RegistrationModalProps = {
     child_half_price?: boolean;
     adults_only?: boolean;
     registrations?: EventRegistrations;
-    // Legacy fields - will be removed after migration
-    max_registrations?: number;
-    current_registration_count?: number;
   };
 };
 
@@ -96,7 +93,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
       const roundedPairPrice = roundUpToHundred(pairPrice);
 
       details.push(
-        <div key="adult\" className="flex justify-between">
+        <div key="adult" className="flex justify-between">
           <span>
             Взрослые ({totalAdult}×)
             {pairs > 0 && (
@@ -149,14 +146,21 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
     setLoading(true);
     
     try {
+      console.log('🔍 Начинаем регистрацию для события:', event.id);
+      
       // Fetch current event data to get the latest registrations
       const { data: eventData, error: fetchError } = await supabase
         .from('events')
-        .select('registrations, registrations_list, max_registrations')
+        .select('registrations')
         .eq('id', event.id)
         .single();
 
-      if (fetchError) throw fetchError;
+      console.log('📊 Данные события получены:', { eventData, fetchError });
+
+      if (fetchError) {
+        console.error('❌ Ошибка получения данных события:', fetchError);
+        throw fetchError;
+      }
 
       const total = calculateTotal();
       const registrationId = crypto.randomUUID();
@@ -175,54 +179,52 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
         payment_link_clicked: false,
       };
 
-      // Determine if we're using the new or legacy structure
-      const useNewStructure = !!eventData.registrations;
+      console.log('📝 Данные регистрации подготовлены:', registrationData);
+
+      // Always use new registrations structure
+      const currentRegistrations = eventData.registrations || {
+        current: 0,
+        max_regs: 40, // Default value, should be configurable
+        reg_list: [],
+        current_adults: 0,
+        current_children: 0
+      };
+
+      console.log('📋 Текущие регистрации:', currentRegistrations);
+
+      // Добавляем новую регистрацию к списку
+      const newRegList = [...(currentRegistrations.reg_list || []), registrationData];
       
-      console.log('Current event data:', eventData);
-      console.log('New registration data:', registrationData);
+      // Пересчитываем общие значения
+      const totalAdults = newRegList.reduce((sum, reg) => sum + (reg.adult_tickets || 0), 0);
+      const totalChildren = newRegList.reduce((sum, reg) => sum + (reg.child_tickets || 0), 0);
+      const totalRegistrations = totalAdults + totalChildren;
 
-      if (useNewStructure) {
-        // Use new structure
-        const updatedRegistrations = {
-          ...eventData.registrations,
-          reg_list: [...(eventData.registrations.reg_list || []), registrationData]
-        };
-        
-        console.log('Updated registrations (new structure):', updatedRegistrations);
+      const updatedRegistrations = {
+        ...currentRegistrations,
+        reg_list: newRegList,
+        current: totalRegistrations,
+        current_adults: totalAdults,
+        current_children: totalChildren
+      };
 
-        const { error: updateError } = await supabase
-          .from('events')
-          .update({ registrations: updatedRegistrations })
-          .eq('id', event.id);
+      console.log('🔄 Обновленные регистрации:', updatedRegistrations);
+      console.log('📊 Количество регистраций в списке:', updatedRegistrations.reg_list.length);
 
-        if (updateError) throw updateError;
-      } else {
-        // Use legacy structure but also initialize new structure
-        const totalPeople = registrationData.adult_tickets + registrationData.child_tickets;
-        const currentRegistrations = eventData.registrations_list || [];
-        
-        // Create new registrations structure
-        const newRegistrations = {
-          max_regs: eventData.max_registrations || null,
-          current: (eventData.current_registration_count || 0) + totalPeople,
-          current_adults: registrationData.adult_tickets,
-          current_children: registrationData.child_tickets,
-          reg_list: [...currentRegistrations, registrationData]
-        };
-        
-        console.log('New registrations structure:', newRegistrations);
+      const { data: updateResult, error: updateError } = await supabase
+        .from('events')
+        .update({ registrations: updatedRegistrations })
+        .eq('id', event.id)
+        .select();
 
-        const { error: updateError } = await supabase
-          .from('events')
-          .update({
-            registrations: newRegistrations,
-            registrations_list: [...currentRegistrations, registrationData],
-            current_registration_count: (eventData.current_registration_count || 0) + totalPeople,
-          })
-          .eq('id', event.id);
+      console.log('💾 Результат обновления:', { updateResult, updateError });
 
-        if (updateError) throw updateError;
+      if (updateError) {
+        console.error('❌ Ошибка обновления:', updateError);
+        throw updateError;
       }
+
+      console.log('✅ Успешно сохранено в БД');
 
       setRegistrationDetails({
         id: registrationId,
@@ -257,22 +259,6 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
     } finally {
       setLoading(false);
     }
-  };
-
-  // Helper function to get max registrations from either new or legacy structure
-  const getMaxRegistrations = (): number | null => {
-    if (event.registrations?.max_regs !== undefined) {
-      return event.registrations.max_regs;
-    }
-    return event.max_registrations || null;
-  };
-
-  // Helper function to get current registration count from either new or legacy structure
-  const getCurrentRegistrationCount = (): number => {
-    if (event.registrations?.current !== undefined) {
-      return event.registrations.current;
-    }
-    return event.current_registration_count || 0;
   };
 
   return (
