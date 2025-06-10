@@ -1,21 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
+import { createClient } from '@supabase/supabase-js';
+
+// Подключение к Supabase
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
+const supabaseServiceKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY || '';
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const EventCard = ({ event, isPast = false }) => {
+  // Проверяем что event существует
+  if (!event) {
+    return null;
+  }
+
   const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
+    if (!dateStr) return 'Дата не указана';
+    try {
+      return new Date(dateStr).toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return 'Некорректная дата';
+    }
   };
 
   const formatTime = (timeStr) => {
-    return new Date(timeStr).toLocaleTimeString('ru-RU', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    if (!timeStr) return '--:--';
+    try {
+      return new Date(timeStr).toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return '--:--';
+    }
   };
 
   const getEventTypeLabel = (type) => {
@@ -40,7 +60,7 @@ const EventCard = ({ event, isPast = false }) => {
   };
 
   const registrations = event.registrations || {};
-  const currentRegs = parseInt(registrations.current || '0');
+  const currentRegs = parseInt(registrations.current || '0') || 0;
   const maxRegs = registrations.max_regs || 0;
   const fillPercentage = maxRegs > 0 ? (currentRegs / maxRegs) * 100 : 0;
 
@@ -65,17 +85,17 @@ const EventCard = ({ event, isPast = false }) => {
               </span>
             </div>
             <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 font-heading group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
-              {event.title}
+              {event.title || 'Без названия'}
             </h3>
           </div>
           <div className="text-right ml-4">
-            {event.price > 0 ? (
+            {(event.price || 0) > 0 ? (
               <div className="text-right">
                 <span className="text-2xl font-bold text-primary-600 dark:text-primary-400 font-heading">
-                  {event.price?.toLocaleString()}
+                  {(event.price || 0).toLocaleString()}
                 </span>
                 <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">
-                  {event.currency}
+                  {event.currency || 'RUB'}
                 </span>
               </div>
             ) : (
@@ -99,7 +119,7 @@ const EventCard = ({ event, isPast = false }) => {
             <div className="flex items-center justify-center w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3">
               <Calendar className="w-4 h-4 text-primary-600 dark:text-primary-400" />
             </div>
-            <span className="font-medium">{formatDate(event.date)}</span>
+            <span className="font-medium">{formatDate(event.date || event.start_time)}</span>
           </div>
 
           <div className="flex items-center text-gray-700 dark:text-gray-300">
@@ -140,7 +160,7 @@ const EventCard = ({ event, isPast = false }) => {
           )}
         </div>
 
-        {event.speakers && event.speakers.length > 0 && (
+        {event.speakers && Array.isArray(event.speakers) && event.speakers.length > 0 && (
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
             <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 font-heading">Спикеры:</p>
             <div className="flex flex-wrap gap-2">
@@ -150,7 +170,7 @@ const EventCard = ({ event, isPast = false }) => {
                   className="inline-flex items-center bg-gradient-to-r from-secondary-50 to-secondary-100 dark:from-secondary-900/20 dark:to-secondary-800/20 text-secondary-700 dark:text-secondary-300 px-3 py-1 rounded-full text-sm font-medium"
                 >
                   <Star className="w-3 h-3 mr-1" />
-                  {speaker.name}
+                  {speaker.name || speaker}
                 </span>
               ))}
             </div>
@@ -237,15 +257,19 @@ const EventsStatistics = () => {
 
       if (error) {
         console.error('Supabase error:', error);
-        return { data: [], hasMore: false };
+        throw error;
       }
 
+      // Фильтруем null значения и валидируем данные
+      const validData = (data || []).filter(event => event && event.id);
+
       return {
-        data: data || [],
-        hasMore: data && data.length === limit
+        data: validData,
+        hasMore: validData.length === limit
       };
     } catch (error) {
       console.error('Error loading events:', error);
+      // Возвращаем пустой массив вместо ошибки, чтобы UI не ломался
       return { data: [], hasMore: false };
     }
   };
