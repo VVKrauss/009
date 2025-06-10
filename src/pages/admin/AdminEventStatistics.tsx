@@ -517,7 +517,7 @@ const EventsStatistics = () => {
               )}
             </div>
           )}
-        </div>
+        </div> 
       </div>
     </div>
   );
