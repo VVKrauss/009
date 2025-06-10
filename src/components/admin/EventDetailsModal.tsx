@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Calendar, MapPin, Users, CreditCard, Edit, Check, Trash2 } from 'lucide-react';
+import { X, Calendar, MapPin, Users, CreditCard, Edit, Check, Trash2, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
@@ -36,6 +36,8 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
   const [editingRegistration, setEditingRegistration] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<Registration>>({});
   const [localEvent, setLocalEvent] = useState(event);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
  
   useEffect(() => {
     setLocalEvent(event);
@@ -72,6 +74,8 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
 
   const handleSaveRegistration = async (registrationId: string) => {
     try {
+      setIsSaving(true);
+      
       if (!editForm.full_name || !editForm.email) {
         toast.error('Имя и email обязательны для заполнения');
         return;
@@ -139,6 +143,8 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
     } catch (error) {
       console.error('Error updating registration:', error);
       toast.error('Ошибка при обновлении регистрации');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -148,6 +154,8 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
     }
 
     try {
+      setIsDeleting(true);
+      
       // Get current registrations data
       const { data: currentEvent, error: fetchError } = await supabase
         .from('events')
@@ -203,6 +211,8 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
     } catch (error) {
       console.error('Error deleting registration:', error);
       toast.error('Ошибка при удалении регистрации');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -349,9 +359,14 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
                             <div className="flex justify-center gap-2">
                               <button
                                 onClick={() => handleSaveRegistration(registration.id)}
+                                disabled={isSaving}
                                 className="p-1 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded"
                               >
-                                <Check className="h-4 w-4" />
+                                {isSaving ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Check className="h-4 w-4" />
+                                )}
                               </button>
                               <button
                                 onClick={() => setEditingRegistration(null)}
@@ -388,9 +403,14 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
                               </button>
                               <button
                                 onClick={() => handleDeleteRegistration(registration.id)}
+                                disabled={isDeleting}
                                 className="p-1 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                {isDeleting ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-4 w-4" />
+                                )}
                               </button>
                             </div>
                           </td>
