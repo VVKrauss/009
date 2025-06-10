@@ -3,22 +3,10 @@ import { ru } from 'date-fns/locale';
 import { supabase } from '../lib/supabase';
 
 // Types
-export interface VisitorData {
-  date: string;
-  visitors: number;
-  uniqueVisitors: number;
-}
-
 export interface RegistrationData {
   date: string;
   registrations: number;
   revenue: number;
-}
-
-export interface PageVisit {
-  page: string;
-  visits: number;
-  avgTimeSpent: number;
 }
 
 export interface EventRegistration {
@@ -59,129 +47,9 @@ export interface RentalBooking {
   revenue: number;
 }
 
-export interface PagePopularity {
-  name: string;
-  value: number;
-}
-
 export type DateRange = '7days' | '30days' | '90days' | 'custom';
 export type ExportFormat = 'csv' | 'xlsx';
-export type ExportType = 'all' | 'visitors' | 'registrations' | 'rental';
-
-// Track page view
-export const trackPageView = async (path: string, isAdmin: boolean = false) => {
-  try {
-    const sessionId = getOrCreateSessionId();
-    const { data: { user } } = await supabase.auth.getUser();
-
-    // Use the Edge Function to track page view
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/track-page-view`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-      },
-      body: JSON.stringify({
-        path,
-        user_id: user?.id || null,
-        session_id: sessionId,
-        referrer: document.referrer,
-        user_agent: navigator.userAgent,
-        is_admin: isAdmin
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error tracking page view: ${response.statusText}`);
-    }
-    
-    console.log('Page view tracked:', path);
-  } catch (error) {
-    console.error('Error tracking page view:', error);
-  }
-};
-
-// Update time spent on page
-export const updateTimeSpent = async (sessionId: string, path: string, timeSpent: number) => {
-  try {
-    // Use the Edge Function to update time spent
-    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-time-spent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-      },
-      body: JSON.stringify({
-        session_id: sessionId,
-        path,
-        time_spent: timeSpent
-      })
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error updating time spent: ${response.statusText}`);
-    }
-  } catch (error) {
-    console.error('Error updating time spent:', error);
-  }
-};
-
-// Get or create session ID
-export const getOrCreateSessionId = () => {
-  let sessionId = localStorage.getItem('analytics_session_id');
-  if (!sessionId) {
-    sessionId = crypto.randomUUID();
-    localStorage.setItem('analytics_session_id', sessionId);
-  }
-  return sessionId;
-};
-
-// Fetch visitor data from Supabase
-export const fetchVisitorData = async (startDate: string, endDate: string): Promise<VisitorData[]> => {
-  try {
-    const { data, error } = await supabase.rpc(
-      'get_page_view_stats',
-      {
-        start_date: new Date(startDate).toISOString(),
-        end_date: new Date(endDate).toISOString(),
-        exclude_admin: true
-      }
-    );
-    
-    if (error) throw error;
-    
-    return data || [];
-  } catch (error) {
-    console.error('Error fetching visitor data:', error);
-    return [];
-  }
-};
-
-// Fetch page popularity data
-export const fetchPagePopularity = async (startDate: string, endDate: string): Promise<PageVisit[]> => {
-  try {
-    const { data, error } = await supabase.rpc(
-      'get_page_popularity',
-      {
-        start_date: new Date(startDate).toISOString(),
-        end_date: new Date(endDate).toISOString(),
-        exclude_admin: true
-      }
-    );
-    
-    if (error) throw error;
-    
-    // Convert bigint values to numbers to match the PageVisit interface
-    return (data || []).map((item: any) => ({
-      page: item.page,
-      visits: Number(item.visits),
-      avgTimeSpent: Number(item.avg_time_spent || 0)
-    }));
-  } catch (error) {
-    console.error('Error fetching page popularity:', error);
-    return [];
-  }
-};
+export type ExportType = 'all' | 'registrations' | 'rental';
 
 // Fetch registration data from Supabase
 export const fetchRegistrationData = async (startDate: string, endDate: string): Promise<RegistrationData[]> => {
@@ -250,24 +118,13 @@ export const fetchEventRegistrations = async (): Promise<EventRegistration[]> =>
     if (error) throw error;
     
     return (events || []).map(event => {
-      console.log('Processing event:', event.id, event.title);
-      console.log('Raw registrations data:', event.registrations);
-      console.log('Legacy registrations data:', {
-        max_registrations: event.max_registrations,
-        current_registration_count: event.current_registration_count,
-        registrations_list: event.registrations_list
-      });
-      
       // Determine if we're using new or legacy structure
       const useNewStructure = !!event.registrations;
-      console.log('Using new structure:', useNewStructure);
       
       // Get registrations list
       const registrations = useNewStructure 
         ? event.registrations?.reg_list || []
         : event.registrations_list || [];
-      
-      console.log('Registrations list length:', registrations.length);
       
       // Get counts
       const adultRegistrations = useNewStructure
@@ -287,13 +144,6 @@ export const fetchEventRegistrations = async (): Promise<EventRegistration[]> =>
       const maxCapacity = useNewStructure
         ? event.registrations?.max_regs || 100
         : event.max_registrations || 100;
-      
-      console.log('Calculated values:', {
-        adultRegistrations,
-        childRegistrations,
-        totalRegistrations,
-        maxCapacity
-      });
         
       const revenue = registrations.reduce((sum: number, reg: any) => 
         sum + (reg.status ? (reg.total_amount || 0) : 0), 0);
@@ -393,11 +243,6 @@ export const exportAnalyticsData = async (
     // Fetch data based on type
     let data: any = {};
     
-    if (type === 'all' || type === 'visitors') {
-      data.visitors = await fetchVisitorData(startDate, endDate);
-      data.pageVisits = await fetchPagePopularity(startDate, endDate);
-    }
-    
     if (type === 'all' || type === 'registrations') {
       data.registrations = await fetchRegistrationData(startDate, endDate);
       data.events = await fetchEventRegistrations();
@@ -422,26 +267,6 @@ export const exportAnalyticsData = async (
 // Generate CSV file
 const generateCSV = (data: any, type: ExportType): Blob => {
   let csvContent = '';
-  
-  if (type === 'all' || type === 'visitors') {
-    csvContent += 'Данные о посещениях\n';
-    csvContent += 'Дата,Посещения,Уникальные посетители\n';
-    
-    data.visitors.forEach((visit: VisitorData) => {
-      csvContent += `${visit.date},${visit.visitors},${visit.uniqueVisitors}\n`;
-    });
-    
-    csvContent += '\n';
-    
-    csvContent += 'Популярность страниц\n';
-    csvContent += 'Страница,Посещения,Среднее время (сек)\n';
-    
-    data.pageVisits.forEach((page: PageVisit) => {
-      csvContent += `${page.page},${page.visits},${page.avgTimeSpent}\n`;
-    });
-    
-    csvContent += '\n';
-  }
   
   if (type === 'all' || type === 'registrations') {
     csvContent += 'Данные о регистрациях\n';
