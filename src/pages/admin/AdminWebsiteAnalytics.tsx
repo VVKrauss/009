@@ -48,15 +48,6 @@ interface PageVisit {
   lastVisit: string;
 }
 
-interface PageVisitRaw {
-  page: string;
-  visits: number;
-  unique_visitors: number;
-  avg_time_spent: number;
-  bounce_rate: number;
-  last_visit: string;
-}
-
 interface TrafficByHour {
   hour: number;
   visits: number;
@@ -211,7 +202,23 @@ const AdminWebsiteAnalytics = () => {
       
       if (hourlyError) throw hourlyError;
       
-      setTrafficByHour(hourlyData || []);
+      // Initialize hours array with all 24 hours
+      const allHours: TrafficByHour[] = Array.from({ length: 24 }, (_, i) => ({
+        hour: i,
+        visits: 0
+      }));
+      
+      // Fill in actual data
+      if (hourlyData) {
+        hourlyData.forEach((item: TrafficByHour) => {
+          const index = allHours.findIndex(h => h.hour === item.hour);
+          if (index !== -1) {
+            allHours[index].visits = item.visits;
+          }
+        });
+      }
+      
+      setTrafficByHour(allHours);
       
       // Fetch traffic by day of week
       const { data: dayData, error: dayError } = await supabase.rpc(
@@ -225,7 +232,26 @@ const AdminWebsiteAnalytics = () => {
       
       if (dayError) throw dayError;
       
-      setTrafficByDay(dayData || []);
+      // Define days of week in correct order
+      const daysOfWeek = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+      
+      // Initialize days array with all 7 days
+      const allDays: TrafficByDay[] = daysOfWeek.map(day => ({
+        day,
+        visits: 0
+      }));
+      
+      // Fill in actual data
+      if (dayData) {
+        dayData.forEach((item: TrafficByDay) => {
+          const index = allDays.findIndex(d => d.day === item.day);
+          if (index !== -1) {
+            allDays[index].visits = item.visits;
+          }
+        });
+      }
+      
+      setTrafficByDay(allDays);
       
       setLastUpdated(new Date());
     } catch (error) {
@@ -237,7 +263,7 @@ const AdminWebsiteAnalytics = () => {
   };
   
   // Process page visits data
-  const processPageVisits = async (rawData: PageVisitRaw[]): Promise<PageVisit[]> => {
+  const processPageVisits = async (rawData: any[]): Promise<PageVisit[]> => {
     // Get event titles for event pages
     const eventPaths = rawData
       .filter(item => item.page.startsWith('/events/'))
@@ -296,10 +322,10 @@ const AdminWebsiteAnalytics = () => {
       return {
         page: item.page,
         title,
-        visits: item.visits,
-        uniqueVisitors: item.unique_visitors,
-        avgTimeSpent: item.avg_time_spent,
-        bounceRate: item.bounce_rate || 0,
+        visits: parseInt(item.visits) || 0,
+        uniqueVisitors: parseInt(item.unique_visitors) || 0,
+        avgTimeSpent: parseFloat(item.avg_time_spent) || 0,
+        bounceRate: parseFloat(item.bounce_rate) || 0,
         lastVisit: item.last_visit || new Date().toISOString()
       };
     });
@@ -564,7 +590,7 @@ const AdminWebsiteAnalytics = () => {
                           <div 
                             className="w-full bg-primary-500 hover:bg-primary-600 rounded-t transition-all duration-300"
                             style={{ 
-                              height: `${Math.max(5, (hour.visits / Math.max(...trafficByHour.map(h => h.visits))) * 200)}px` 
+                              height: `${Math.max(5, (hour.visits / Math.max(...trafficByHour.map(h => h.visits) || 1)) * 200)}px` 
                             }}
                           ></div>
                         </div>
@@ -593,7 +619,7 @@ const AdminWebsiteAnalytics = () => {
                           <div 
                             className="w-full bg-blue-500 hover:bg-blue-600 rounded-t transition-all duration-300"
                             style={{ 
-                              height: `${Math.max(5, (day.visits / Math.max(...trafficByDay.map(d => d.visits))) * 200)}px` 
+                              height: `${Math.max(5, (day.visits / Math.max(...trafficByDay.map(d => d.visits) || 1)) * 200)}px` 
                             }}
                           ></div>
                         </div>
@@ -813,39 +839,49 @@ const AdminWebsiteAnalytics = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white dark:bg-dark-800 divide-y divide-gray-200 dark:divide-dark-700">
-                    {paginatedPageVisits.map((page, index) => (
-                      <tr key={index} className="hover:bg-gray-50 dark:hover:bg-dark-700/50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex flex-col">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">{page.title}</div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400">{page.page}</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                          {page.visits.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                          {page.uniqueVisitors.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                          {formatTime(page.avgTimeSpent)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            page.bounceRate > 70 
-                              ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                              : page.bounceRate > 40
-                              ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
-                              : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
-                          }`}>
-                            {page.bounceRate}%
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                          {formatDate(page.lastVisit)}
+                    {paginatedPageVisits.length > 0 ? (
+                      paginatedPageVisits.map((page, index) => (
+                        <tr key={index} className="hover:bg-gray-50 dark:hover:bg-dark-700/50">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex flex-col">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white">{page.title}</div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400">{page.page}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {page.visits.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {page.uniqueVisitors.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                            {formatTime(page.avgTimeSpent)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              page.bounceRate > 70 
+                                ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                                : page.bounceRate > 40
+                                ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                                : 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            }`}>
+                              {page.bounceRate}%
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {formatDate(page.lastVisit)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-400">
+                          {searchQuery || pageTypeFilter !== 'all' 
+                            ? 'Нет данных, соответствующих критериям поиска' 
+                            : 'Нет данных о посещениях страниц'}
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
