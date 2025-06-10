@@ -1,12 +1,93 @@
-import { useState, useEffect } from 'react';
+// Временные типы для демонстрации
+interface Event {
+  id: string;
+  title: string;
+  description?: string;
+  location?: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  price?: number;
+  currency?: string;
+  payment_type?: 'free' | 'donation' | 'cost';
+  status: 'active' | 'draft' | 'past';
+  bg_image?: string;
+  registrations?: {
+    current: number;
+    max_regs: number;
+  };
+  current_registration_count?: number;
+  max_registrations?: number;
+}
+
+// Временные компоненты для демонстрации
+const EventDetailsModal = ({ isOpen, onClose, event }: any) => null;
+const Link = ({ to, children, className, onClick, title }: any) => (
+  <a href={to} classNameimport { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Plus, Search, Edit, Eye, Calendar, Users, MapPin, Trash2 } from 'lucide-react';
+import { Plus, Search, Edit, Eye, Calendar, Users, MapPin, Trash2, Filter, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { format, parseISO, isBefore } from 'date-fns';
-import { ru } from 'date-fns/locale';
-import { useNavigate, Link } from 'react-router-dom';
-import EventDetailsModal from '../../components/admin/EventDetailsModal';
-import { Event, EventRegistrations } from './constants';
+// Временные типы для демонстрации
+interface Event {
+  id: string;
+  title: string;
+  description?: string;
+  location?: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  price?: number;
+  currency?: string;
+  payment_type?: 'free' | 'donation' | 'cost';
+  status: 'active' | 'draft' | 'past';
+  bg_image?: string;
+  registrations?: {
+    current: number;
+    max_regs: number;
+  };
+  current_registration_count?: number;
+  max_registrations?: number;
+}
+
+// Временные компоненты для демонстрации
+const EventDetailsModal = ({ isOpen, onClose, event }: any) => null;
+const Link = ({ to, children, className, onClick, title }: any) => (
+  <a href={to} className={className} onClick={onClick} title={title}>{children}</a>
+);
+
+// Утилиты для работы с датами
+const formatTimeFromTimestamp = (timestamp: string) => {
+  try {
+    const date = new Date(timestamp);
+    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  } catch {
+    return '--:--';
+  }
+};
+
+const formatDateWithTime = (date: string, startTime: string, endTime: string) => {
+  try {
+    const dateObj = new Date(date);
+    const dateStr = dateObj.toLocaleDateString('ru-RU', { 
+      day: 'numeric', 
+      month: 'long', 
+      year: 'numeric' 
+    });
+    const startStr = formatTimeFromTimestamp(startTime);
+    const endStr = formatTimeFromTimestamp(endTime);
+    return `${dateStr} • ${startStr} - ${endStr}`;
+  } catch {
+    return 'Дата не указана';
+  }
+};
+
+const isBefore = (date1: string, date2: Date) => {
+  try {
+    return new Date(date1) < date2;
+  } catch {
+    return false;
+  }
+};
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -17,9 +98,9 @@ type SortOption = 'date-asc' | 'date-desc' | 'title-asc' | 'title-desc' | 'chron
 type FilterStatus = 'active' | 'draft' | 'past';
 
 const statusColors = {
-  active: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-  draft: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
-  past: 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-400'
+  active: 'bg-gradient-to-r from-green-100 to-green-200 text-green-800 dark:from-green-900/30 dark:to-green-800/30 dark:text-green-400',
+  draft: 'bg-gradient-to-r from-yellow-100 to-yellow-200 text-yellow-800 dark:from-yellow-900/30 dark:to-yellow-800/30 dark:text-yellow-400',
+  past: 'bg-gradient-to-r from-gray-100 to-gray-200 text-gray-800 dark:from-gray-900/30 dark:to-gray-800/30 dark:text-gray-400'
 };
 
 const formatEventTitle = (title: string) => {
@@ -60,7 +141,6 @@ const formatDateWithTime = (date: string, startTime: string, endTime: string) =>
 };
 
 const AdminEvents = () => {
-  const navigate = useNavigate();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -124,7 +204,7 @@ const AdminEvents = () => {
         const today = new Date();
         filteredData = filteredData.filter(event => 
           event.status === 'past' || 
-          isBefore(parseISO(event.date), today)
+          isBefore(event.date, today)
         );
       }
 
@@ -206,262 +286,330 @@ const AdminEvents = () => {
     return event.max_registrations || null;
   };
 
+  // Helper function to get price display text based on payment type
+  const getPriceDisplay = (event: Event): string => {
+    const paymentType = event.payment_type;
+    const price = event.price;
+
+    if (paymentType === 'free') {
+      return 'Бесплатно';
+    } else if (paymentType === 'donation') {
+      return 'Донат';
+    } else if (paymentType === 'cost' && price !== null && price !== undefined) {
+      return price === 0 ? 'Бесплатно' : `${price} ${event.currency || 'RUB'}`;
+    } else {
+      return 'Бесплатно';
+    }
+  };
+
+  const tabs = [
+    { id: 'active', label: 'Активные', count: events.filter(e => e.status === 'active').length },
+    { id: 'past', label: 'Прошедшие', count: events.filter(e => e.status === 'past').length },
+    { id: 'draft', label: 'Черновики', count: events.filter(e => e.status === 'draft').length }
+  ];
+
   return (
-    <div>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">Управление мероприятиями</h2>
-        <Link 
-          to="/admin/events/new"
-          className="btn-primary flex items-center gap-2"
-        >
-          <Plus className="h-5 w-5" />
-          Создать мероприятие
-        </Link>
-      </div>
-
-      <div className="bg-white dark:bg-dark-800 rounded-lg shadow mb-6">
-        <div className="p-4 border-b border-gray-200 dark:border-dark-700">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-grow">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Поиск мероприятий..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 bg-white dark:bg-dark-700"
-              />
-            </div>
-
-            <div className="flex gap-4">
-              <select
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as SortOption)}
-                className="px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 bg-white dark:bg-dark-700"
-              >
-                <option value="chronological">Хронологически</option>
-                <option value="date-desc">Сначала новые</option>
-                <option value="date-asc">Сначала старые</option>
-                <option value="title-asc">По названию (А-Я)</option>
-                <option value="title-desc">По названию (Я-А)</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        <div className="border-b border-gray-200 dark:border-dark-700">
-          <nav className="flex -mb-px">
-            <button
-              onClick={() => setStatusFilter('active')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${statusFilter === 'active' ? 'border-primary-600 text-primary-600' : 'border-transparent text-dark-500 hover:text-dark-700 hover:border-gray-300'}`}
-            >
-              Активные
-            </button>
-            <button
-              onClick={() => setStatusFilter('past')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${statusFilter === 'past' ? 'border-primary-600 text-primary-600' : 'border-transparent text-dark-500 hover:text-dark-700 hover:border-gray-300'}`}
-            >
-              Прошедшие
-            </button>
-            <button
-              onClick={() => setStatusFilter('draft')}
-              className={`py-4 px-6 text-center border-b-2 font-medium text-sm ${statusFilter === 'draft' ? 'border-primary-600 text-primary-600' : 'border-transparent text-dark-500 hover:text-dark-700 hover:border-gray-300'}`}
-            >
-              Черновики
-            </button>
-          </nav>
-        </div>
-      </div>
-
-      {events.length > 0 && (
-        <div className="mb-6 flex items-center gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={selectedEvents.length > 0 && selectedEvents.length === filteredEvents.length}
-              onChange={toggleAllEvents}
-              onClick={toggleAllEvents}
-              className="form-checkbox h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700 dark:checked:bg-primary-600"
-            />
-            <span>Выбрать все</span>
-          </label>
-          
-          {selectedEvents.length > 0 && (
-            <>
-              <span className="text-dark-500 dark:text-dark-400">
-                Выбрано: {selectedEvents.length}
-              </span>
-              <button
-                onClick={handleDeleteSelected}
-                className="btn-outline text-red-600 border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
-              >
-                <Trash2 className="h-5 w-5" />
-                Удалить выбранные
-              </button>
-            </>
-          )}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-          <p className="mt-4 text-dark-500 dark:text-dark-400">Загрузка мероприятий...</p>
-        </div>
-      ) : filteredEvents.length === 0 ? (
-        <div className="text-center py-12 bg-white dark:bg-dark-800 rounded-lg shadow">
-          <div className="mb-4">
-            <Calendar className="h-12 w-12 text-dark-400 dark:text-dark-500 mx-auto" />
-          </div>
-          <h3 className="text-lg font-medium mb-2">Мероприятия не найдены</h3>
-          <p className="text-dark-500 dark:text-dark-400 mb-6">
-            {searchQuery 
-              ? 'Попробуйте изменить параметры поиска'
-              : 'Создайте первое мероприятие, нажав кнопку "Создать мероприятие"'}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-dark-900 dark:via-dark-900 dark:to-dark-800 py-8 font-sans">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Заголовок */}
+        <div className="mb-12 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary-600 via-primary-500 to-secondary-500 bg-clip-text text-transparent mb-4 font-heading">
+            Управление мероприятиями
+          </h1>
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
+            Создавайте, редактируйте и управляйте своими мероприятиями
           </p>
+        </div>
+
+        {/* Кнопка создания */}
+        <div className="flex justify-center mb-10">
           <Link 
             to="/admin/events/new"
-            className="btn-primary inline-flex items-center gap-2"
+            className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg font-heading"
           >
-            <Plus className="h-5 w-5" />
+            <Plus className="w-5 h-5" />
             Создать мероприятие
           </Link>
         </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {filteredEvents.map(event => {
-            const { line1, line2 } = formatEventTitle(event.title);
-            const maxRegistrations = getMaxRegistrations(event);
-            const currentRegistrationCount = getCurrentRegistrationCount(event);
-            
-            return (
-              <div 
-                key={event.id} 
-                className="card overflow-hidden hover:shadow-lg transition-shadow cursor-pointer relative"
-                onClick={() => {
-                  setSelectedEvent(event);
-                  setShowDetailsModal(true);
-                }}
-              >
-                <div className="absolute top-3 left-3 z-10">
-                  <input
-                    type="checkbox"
-                    checked={selectedEvents.includes(event.id)}
-                    onChange={(e) => e.stopPropagation()}
-                    onClick={(e) => toggleEventSelection(event.id, e)}
-                    className="form-checkbox h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700 dark:checked:bg-primary-600"
-                  />
-                </div>
-                
-                <div 
-                  className="h-40 bg-cover bg-center relative"
-                  style={{ 
-                    backgroundImage: event.bg_image 
-                      ? `url(${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.bg_image})`
-                      : 'url(https://via.placeholder.com/800x400?text=No+image)'
-                  }}
-                >
-                <div className="absolute top-3 right-3 flex gap-2">
-                  <Link
-                    to={`/events/${event.id}`}
-                    className="p-2 bg-white/90 hover:bg-white dark:bg-dark-700/90 dark:hover:bg-dark-600 rounded-full shadow-lg flex items-center justify-center"
-                    title="Просмотреть страницу"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Eye className="h-4 w-4 text-dark-700 dark:text-dark-300" />
-                  </Link>
-                  <Link
-                    to={`/admin/events/${event.id}/edit`}
-                    className="p-2 bg-white/90 hover:bg-white dark:bg-dark-700/90 dark:hover:bg-dark-600 rounded-full shadow-lg flex items-center justify-center"
-                    title="Редактировать"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Edit className="h-4 w-4 text-dark-700 dark:text-dark-300" />
-                  </Link>
-                </div>
-                  <div className="absolute bottom-3 left-3">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[event.status as keyof typeof statusColors]}`}>
-                      {event.status === 'active' ? 'Активно' : event.status === 'draft' ? 'Черновик' : 'Прошло'}
-                    </span>
-                  </div>
-                </div>
 
-                <div className="p-4">
-                  <div className="h-[3rem] mb-3 overflow-hidden">
-                    <div className="line-clamp-2">
-                      <span className="font-semibold text-base">{line1}</span>
-                      {line2 && (
-                        <>
-                          <br />
-                          <span className="font-semibold text-base">{line2}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2 mb-3">
-                    <div className="flex items-center text-dark-600 dark:text-dark-300 text-sm">
-                      <Calendar className="h-4 w-4 mr-2 flex-shrink-0" />
-                      <span className="truncate">{formatDateWithTime(event.date, event.start_time, event.end_time)}</span>
-                    </div>
-                    
-                    {event.location && (
-                      <div className="flex items-center text-dark-600 dark:text-dark-300 text-sm">
-                        <MapPin className="h-4 w-4 mr-2 flex-shrink-0" />
-                        <span className="truncate">{event.location}</span>
-                      </div>
-                    )}
-                    
-                    {maxRegistrations && maxRegistrations > 0 && (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <div className="flex items-center text-dark-600 dark:text-dark-300">
-                            <Users className="h-4 w-4 mr-2" />
-                            <span>Регистрации</span>
-                          </div>
-                          <span className="font-medium">
-                            {currentRegistrationCount}/{maxRegistrations}
-                          </span>
-                        </div>
-                        <div className="h-1.5 bg-gray-200 dark:bg-dark-700 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full bg-primary-600 rounded-full transition-all"
-                            style={{ 
-                              width: `${(currentRegistrationCount / maxRegistrations) * 100}%` 
-                            }}
-                          ></div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+        {/* Поиск и фильтры */}
+        <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg mb-8 border border-gray-100 dark:border-gray-700">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex flex-col lg:flex-row gap-6">
+              <div className="relative flex-grow">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Поиск мероприятий по названию, описанию или месту..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-12 pr-4 py-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                />
+              </div>
 
-                  {event.price !== null && (
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200 dark:border-dark-700 text-sm">
-                      <span className="text-dark-600 dark:text-dark-300">Стоимость:</span>
-                      <span className="font-medium">
-                        {event.price === 0 
-                          ? 'Бесплатно'
-                          : `${event.price} ${event.currency}`
-                        }
-                      </span>
-                    </div>
-                  )}
+              <div className="flex gap-4">
+                <div className="relative">
+                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as SortOption)}
+                    className="pl-10 pr-8 py-4 rounded-xl border-2 border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                  >
+                    <option value="chronological">Хронологически</option>
+                    <option value="date-desc">Сначала новые</option>
+                    <option value="date-asc">Сначала старые</option>
+                    <option value="title-asc">По названию (А-Я)</option>
+                    <option value="title-desc">По названию (Я-А)</option>
+                  </select>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          </div>
+
+          {/* Вкладки статусов */}
+          <div className="border-b border-gray-200 dark:border-gray-700">
+            <div className="flex justify-center">
+              <div className="flex bg-gray-100 dark:bg-gray-700 p-1 rounded-xl mx-6 my-4">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setStatusFilter(tab.id as FilterStatus)}
+                    className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all duration-300 font-heading ${
+                      statusFilter === tab.id
+                        ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg'
+                        : 'text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-white dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {tab.label}
+                    {tab.count > 0 && (
+                      <span className={`px-2 py-1 text-xs rounded-full font-bold ${
+                        statusFilter === tab.id
+                          ? 'bg-white/20 text-white'
+                          : 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
+                      }`}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
-      )}
-      {selectedEvent && (
-        <EventDetailsModal
-          isOpen={showDetailsModal}
-          onClose={() => {
-            setShowDetailsModal(false);
-            setSelectedEvent(null);
-          }}
-          event={selectedEvent}
-        />
-      )}
+
+        {/* Массовые действия */}
+        {events.length > 0 && (
+          <div className="mb-8 flex items-center gap-4 p-4 bg-white dark:bg-dark-800 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={selectedEvents.length > 0 && selectedEvents.length === filteredEvents.length}
+                onChange={toggleAllEvents}
+                onClick={toggleAllEvents}
+                className="form-checkbox h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700 dark:checked:bg-primary-600"
+              />
+              <span className="font-medium text-gray-700 dark:text-gray-300">Выбрать все</span>
+            </label>
+            
+            {selectedEvents.length > 0 && (
+              <>
+                <span className="text-gray-600 dark:text-gray-400 px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-sm">
+                  Выбрано: {selectedEvents.length}
+                </span>
+                <button
+                  onClick={handleDeleteSelected}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Удалить выбранные
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Контент */}
+        {loading ? (
+          <div className="text-center py-16">
+            <div className="relative inline-block">
+              <Loader2 className="w-12 h-12 animate-spin text-primary-500" />
+              <div className="absolute inset-0 w-12 h-12 border-2 border-primary-200 dark:border-primary-800 rounded-full"></div>
+            </div>
+            <p className="mt-4 text-gray-600 dark:text-gray-300 font-medium">Загрузка мероприятий...</p>
+          </div>
+        ) : filteredEvents.length === 0 ? (
+          <div className="text-center py-16">
+            <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Calendar className="w-12 h-12 text-primary-500" />
+            </div>
+            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2 font-heading">
+              Мероприятия не найдены
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
+              {searchQuery 
+                ? 'Попробуйте изменить параметры поиска или создайте новое мероприятие'
+                : 'Создайте первое мероприятие, чтобы начать привлекать участников'}
+            </p>
+            <Link 
+              to="/admin/events/new"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg font-heading"
+            >
+              <Plus className="h-5 w-5" />
+              Создать мероприятие
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredEvents.map(event => {
+              const { line1, line2 } = formatEventTitle(event.title);
+              const maxRegistrations = getMaxRegistrations(event);
+              const currentRegistrationCount = getCurrentRegistrationCount(event);
+              const fillPercentage = maxRegistrations ? (currentRegistrationCount / maxRegistrations) * 100 : 0;
+              
+              return (
+                <div 
+                  key={event.id} 
+                  className="group relative bg-white dark:bg-dark-800 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600 cursor-pointer"
+                  onClick={() => {
+                    setSelectedEvent(event);
+                    setShowDetailsModal(true);
+                  }}
+                >
+                  {/* Чекбокс */}
+                  <div className="absolute top-4 left-4 z-10">
+                    <input
+                      type="checkbox"
+                      checked={selectedEvents.includes(event.id)}
+                      onChange={(e) => e.stopPropagation()}
+                      onClick={(e) => toggleEventSelection(event.id, e)}
+                      className="form-checkbox h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700 dark:checked:bg-primary-600 shadow-lg"
+                    />
+                  </div>
+                  
+                  {/* Изображение мероприятия */}
+                  <div 
+                    className="h-48 bg-cover bg-center relative"
+                    style={{ 
+                      backgroundImage: event.bg_image 
+                        ? `url(${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.bg_image})`
+                        : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                    }}
+                  >
+                    {/* Градиентная полоска сверху */}
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600"></div>
+                    
+                    {/* Кнопки действий */}
+                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      <Link
+                        to={`/events/${event.id}`}
+                        className="p-2 bg-white/90 hover:bg-white dark:bg-dark-700/90 dark:hover:bg-dark-600 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 transform hover:scale-110"
+                        title="Просмотреть страницу"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Eye className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+                      </Link>
+                      <Link
+                        to={`/admin/events/${event.id}/edit`}
+                        className="p-2 bg-white/90 hover:bg-white dark:bg-dark-700/90 dark:hover:bg-dark-600 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 transform hover:scale-110"
+                        title="Редактировать"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Edit className="h-4 w-4 text-gray-700 dark:text-gray-300" />
+                      </Link>
+                    </div>
+                    
+                    {/* Статус мероприятия */}
+                    <div className="absolute bottom-4 left-4">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-lg ${statusColors[event.status as keyof typeof statusColors]}`}>
+                        {event.status === 'active' ? 'Активно' : event.status === 'draft' ? 'Черновик' : 'Прошло'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Контент карточки */}
+                  <div className="p-6">
+                    {/* Заголовок */}
+                    <div className="h-[4rem] mb-4 overflow-hidden">
+                      <h3 className="text-lg font-bold text-gray-900 dark:text-white font-heading group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+                        {line1}
+                        {line2 && (
+                          <>
+                            <br />
+                            {line2}
+                          </>
+                        )}
+                      </h3>
+                    </div>
+                    
+                    {/* Детали мероприятия */}
+                    <div className="space-y-3 mb-4">
+                      <div className="flex items-center text-gray-600 dark:text-gray-300 text-sm">
+                        <div className="flex items-center justify-center w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3">
+                          <Calendar className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                        </div>
+                        <span className="truncate font-medium">{formatDateWithTime(event.date, event.start_time, event.end_time)}</span>
+                      </div>
+                      
+                      {event.location && (
+                        <div className="flex items-center text-gray-600 dark:text-gray-300 text-sm">
+                          <div className="flex items-center justify-center w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3">
+                            <MapPin className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                          </div>
+                          <span className="truncate font-medium">{event.location}</span>
+                        </div>
+                      )}
+                      
+                      {maxRegistrations && maxRegistrations > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-sm">
+                            <div className="flex items-center text-gray-600 dark:text-gray-300">
+                              <div className="flex items-center justify-center w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3">
+                                <Users className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                              </div>
+                              <span className="font-medium">Регистрации</span>
+                            </div>
+                            <span className="font-bold text-gray-900 dark:text-white">
+                              {currentRegistrationCount}/{maxRegistrations}
+                            </span>
+                          </div>
+                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                            <div 
+                              className="h-2 bg-gradient-to-r from-primary-400 to-primary-600 rounded-full transition-all duration-500"
+                              style={{ 
+                                width: `${Math.min(fillPercentage, 100)}%` 
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Цена */}
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <span className="text-sm text-gray-600 dark:text-gray-400 font-medium">Стоимость:</span>
+                      <span className="font-bold text-lg text-primary-600 dark:text-primary-400">
+                        {getPriceDisplay(event)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Модальное окно деталей */}
+        {selectedEvent && (
+          <EventDetailsModal
+            isOpen={showDetailsModal}
+            onClose={() => {
+              setShowDetailsModal(false);
+              setSelectedEvent(null);
+            }}
+            event={selectedEvent}
+          />
+        )}
+      </div>
     </div>
   );
 };
