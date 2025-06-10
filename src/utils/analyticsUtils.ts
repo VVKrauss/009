@@ -250,13 +250,24 @@ export const fetchEventRegistrations = async (): Promise<EventRegistration[]> =>
     if (error) throw error;
     
     return (events || []).map(event => {
+      console.log('Processing event:', event.id, event.title);
+      console.log('Raw registrations data:', event.registrations);
+      console.log('Legacy registrations data:', {
+        max_registrations: event.max_registrations,
+        current_registration_count: event.current_registration_count,
+        registrations_list: event.registrations_list
+      });
+      
       // Determine if we're using new or legacy structure
       const useNewStructure = !!event.registrations;
+      console.log('Using new structure:', useNewStructure);
       
       // Get registrations list
       const registrations = useNewStructure 
         ? event.registrations?.reg_list || []
         : event.registrations_list || [];
+      
+      console.log('Registrations list length:', registrations.length);
       
       // Get counts
       const adultRegistrations = useNewStructure
@@ -276,6 +287,13 @@ export const fetchEventRegistrations = async (): Promise<EventRegistration[]> =>
       const maxCapacity = useNewStructure
         ? event.registrations?.max_regs || 100
         : event.max_registrations || 100;
+      
+      console.log('Calculated values:', {
+        adultRegistrations,
+        childRegistrations,
+        totalRegistrations,
+        maxCapacity
+      });
         
       const revenue = registrations.reduce((sum: number, reg: any) => 
         sum + (reg.status ? (reg.total_amount || 0) : 0), 0);
