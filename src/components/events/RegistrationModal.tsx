@@ -4,7 +4,6 @@ import { toast } from 'react-hot-toast';
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { supabase } from '../../lib/supabase';
-import { sendTelegramNotification } from '../../utils/telegramNotifications';
 import Modal from '../ui/Modal';
 import { EventRegistrations } from '../../pages/admin/constants';
 
@@ -146,22 +145,6 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
     setLoading(true);
     
     try {
-      console.log('🔍 Начинаем регистрацию для события:', event.id);
-      
-      // Fetch current event data to get the latest registrations
-      const { data: eventData, error: fetchError } = await supabase
-        .from('events')
-        .select('registrations')
-        .eq('id', event.id)
-        .single();
-
-      console.log('📊 Данные события получены:', { eventData, fetchError });
-
-      if (fetchError) {
-        console.error('❌ Ошибка получения данных события:', fetchError);
-        throw fetchError;
-      }
-
       const total = calculateTotal();
       const registrationId = crypto.randomUUID();
       
@@ -179,52 +162,28 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
         payment_link_clicked: false,
       };
 
-      console.log('📝 Данные регистрации подготовлены:', registrationData);
+      // Call the Edge Function instead of directly updating the database
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/register-event`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            eventId: event.id,
+            registrationData
+          })
+        }
+      );
 
-      // Always use new registrations structure
-      const currentRegistrations = eventData.registrations || {
-        current: 0,
-        max_regs: 40, // Default value, should be configurable
-        reg_list: [],
-        current_adults: 0,
-        current_children: 0
-      };
-
-      console.log('📋 Текущие регистрации:', currentRegistrations);
-
-      // Добавляем новую регистрацию к списку
-      const newRegList = [...(currentRegistrations.reg_list || []), registrationData];
-      
-      // Пересчитываем общие значения
-      const totalAdults = newRegList.reduce((sum, reg) => sum + (reg.adult_tickets || 0), 0);
-      const totalChildren = newRegList.reduce((sum, reg) => sum + (reg.child_tickets || 0), 0);
-      const totalRegistrations = totalAdults + totalChildren;
-
-      const updatedRegistrations = {
-        ...currentRegistrations,
-        reg_list: newRegList,
-        current: totalRegistrations,
-        current_adults: totalAdults,
-        current_children: totalChildren
-      };
-
-      console.log('🔄 Обновленные регистрации:', updatedRegistrations);
-      console.log('📊 Количество регистраций в списке:', updatedRegistrations.reg_list.length);
-
-      const { data: updateResult, error: updateError } = await supabase
-        .from('events')
-        .update({ registrations: updatedRegistrations })
-        .eq('id', event.id)
-        .select();
-
-      console.log('💾 Результат обновления:', { updateResult, updateError });
-
-      if (updateError) {
-        console.error('❌ Ошибка обновления:', updateError);
-        throw updateError;
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to register for event');
       }
 
-      console.log('✅ Успешно сохранено в БД');
+      const result = await response.json();
 
       setRegistrationDetails({
         id: registrationId,
@@ -237,22 +196,6 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
       
       setRegistrationSuccess(true);
       toast.success('Регистрация успешна!');
-
-      const message = `🎟 <b>Новая регистрация</b>\n\n` +
-        `Мероприятие: ${event.title}\n` +
-        `Дата: ${format(parseISO(event.start_time), 'dd.MM.yyyy HH:mm', { locale: ru })}\n` +
-        `Участник: ${formData.name}\n` +
-        `Email: ${formData.contact}\n` +
-        `Телефон: ${formData.phone}\n` +
-        `Комментарий: ${formData.comment}\n` +
-        `Взрослых: ${formData.adultTickets}\n` +
-        `Детей: ${event.adults_only ? 0 : formData.childTickets}\n` +
-        `Сумма: ${total} ${event.currency}\n` +
-        `ID: ${registrationId}`;
-
-      const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
-      await sendTelegramNotification(chatId, message);
-
     } catch (error) {
       console.error('Registration error:', error);
       toast.error('Ошибка при регистрации');
