@@ -255,26 +255,26 @@ export const fetchEventRegistrations = async (): Promise<EventRegistration[]> =>
       
       // Get registrations list
       const registrations = useNewStructure 
-        ? event.registrations.reg_list || []
+        ? event.registrations?.reg_list || []
         : event.registrations_list || [];
       
       // Get counts
       const adultRegistrations = useNewStructure
-        ? event.registrations.current_adults || 0
+        ? event.registrations?.current_adults || 0
         : registrations.reduce((sum: number, reg: any) => 
             sum + (reg.status ? (reg.adult_tickets || 0) : 0), 0);
             
       const childRegistrations = useNewStructure
-        ? event.registrations.current_children || 0
+        ? event.registrations?.current_children || 0
         : registrations.reduce((sum: number, reg: any) => 
             sum + (reg.status ? (reg.child_tickets || 0) : 0), 0);
             
       const totalRegistrations = useNewStructure
-        ? event.registrations.current || 0
+        ? event.registrations?.current || 0
         : event.current_registration_count || 0;
         
       const maxCapacity = useNewStructure
-        ? event.registrations.max_regs || 100
+        ? event.registrations?.max_regs || 100
         : event.max_registrations || 100;
         
       const revenue = registrations.reduce((sum: number, reg: any) => 
