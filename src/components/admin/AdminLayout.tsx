@@ -102,12 +102,12 @@ const AdminLayout = () => {
           </button>
           
           <img 
-            src="https://wummwcsqsznyyaajcxww.supabase.co/storage/v1/object/public/images/logo/logo_science_hub%20no_title.png"
+            src="https://jfvinriqydjtwsmayxix.supabase.co/storage/v1/object/public/images/logo/logo_science_hub%20no_title.png"
             alt="Logo"
             className="h-6 w-auto dark:hidden"
           />
           <img 
-            src="https://wummwcsqsznyyaajcxww.supabase.co/storage/v1/object/public/images/logo/logo%20science_hub_white_no_title.png"
+            src="https://jfvinriqydjtwsmayxix.supabase.co/storage/v1/object/public/images/logo/logo_white_science_hub%20no_title.png"
             alt="Logo"
             className="h-6 w-auto hidden dark:block"
           />
