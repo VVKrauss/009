@@ -18,7 +18,8 @@ import {
   ExternalLink,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  TrendingUp
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -57,7 +58,8 @@ const AdminLayout = () => {
     { to: '/admin/about', icon: Info, label: 'О нас', shortLabel: 'О нас' },
     { to: '/admin/analytics', icon: BarChart3, label: 'Статистика', shortLabel: 'Стат-ка' },
     { to: '/admin/navigation', icon: Menu, label: 'Навигация', shortLabel: 'Навиг.' },
-    { to: '/admin/calendar', icon: Calendar, label: 'Календарь', shortLabel: 'Календ.' }
+    { to: '/admin/calendar', icon: Calendar, label: 'Календарь', shortLabel: 'Календ.' },
+    { to: '/admin/event-statistics', icon: TrendingUp, label: 'Статистика мероприятий', shortLabel: 'Стат. мер.' }
   ];
 
   const topBarLinks = [

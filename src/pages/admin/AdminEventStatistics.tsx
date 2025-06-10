@@ -3,8 +3,8 @@ import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp,
 import { createClient } from '@supabase/supabase-js';
 
 // Подключение к Supabase
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
-const supabaseServiceKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY || '';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 const EventCard = ({ event, isPast = false }) => {
