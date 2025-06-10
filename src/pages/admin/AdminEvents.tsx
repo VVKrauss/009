@@ -1,29 +1,4 @@
-// Временные типы для демонстрации
-interface Event {
-  id: string;
-  title: string;
-  description?: string;
-  location?: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  price?: number;
-  currency?: string;
-  payment_type?: 'free' | 'donation' | 'cost';
-  status: 'active' | 'draft' | 'past';
-  bg_image?: string;
-  registrations?: {
-    current: number;
-    max_regs: number;
-  };
-  current_registration_count?: number;
-  max_registrations?: number;
-}
 
-// Временные компоненты для демонстрации
-const EventDetailsModal = ({ isOpen, onClose, event }: any) => null;
-const Link = ({ to, children, className, onClick, title }: any) => (
-  <a href={to} classNameimport { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Plus, Search, Edit, Eye, Calendar, Users, MapPin, Trash2, Filter, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
