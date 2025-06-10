@@ -9,9 +9,7 @@ import {
   Eye,
   BarChart3,
   PieChart,
-  Activity
-} from 'lucide-react';
-import { toast } from 'react-hot-toast';,
+  Activity,
   PieChart,
   Activity
 } from 'lucide-react';
