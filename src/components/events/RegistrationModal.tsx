@@ -92,7 +92,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
       const roundedPairPrice = roundUpToHundred(pairPrice);
 
       details.push(
-        <div key="adult" className="flex justify-between">
+        <div key="adult\" className="flex justify-between">
           <span>
             Взрослые ({totalAdult}×)
             {pairs > 0 && (
