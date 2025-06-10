@@ -606,3 +606,130 @@ const AdminAbout = () => {
               </div>
             )}
           </div>
+
+          {/* Contact Info */}
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center mb-6">
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 rounded-xl mr-4">
+                <Mail className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Контактная информация</h2>
+                <p className="text-gray-500 dark:text-gray-400">Способы связи с командой проекта</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <Mail className="w-4 h-4 text-orange-500" />
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={aboutData.contact_info.email}
+                  onChange={(e) => setAboutData(prev => ({
+                    ...prev,
+                    contact_info: { ...prev.contact_info, email: e.target.value }
+                  }))}
+                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-800 transition-all duration-200"
+                  placeholder="contact@example.com"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <Phone className="w-4 h-4 text-orange-500" />
+                  Телефон
+                </label>
+                <input
+                  type="tel"
+                  value={aboutData.contact_info.phone}
+                  onChange={(e) => setAboutData(prev => ({
+                    ...prev,
+                    contact_info: { ...prev.contact_info, phone: e.target.value }
+                  }))}
+                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-800 transition-all duration-200"
+                  placeholder="+7 (XXX) XXX-XX-XX"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <MapPin className="w-4 h-4 text-orange-500" />
+                  Адрес
+                </label>
+                <input
+                  type="text"
+                  value={aboutData.contact_info.address}
+                  onChange={(e) => setAboutData(prev => ({
+                    ...prev,
+                    contact_info: { ...prev.contact_info, address: e.target.value }
+                  }))}
+                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-800 transition-all duration-200"
+                  placeholder="Город, улица, дом"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Статистика */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Участников команды</p>
+                  <p className="text-3xl font-bold text-blue-900 dark:text-blue-100">{aboutData.team_members.length}</p>
+                </div>
+                <div className="p-3 bg-blue-200 dark:bg-blue-800 rounded-xl">
+                  <Users className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-2xl p-6 border border-green-200 dark:border-green-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-600 dark:text-green-400">Контрибьюторов</p>
+                  <p className="text-3xl font-bold text-green-900 dark:text-green-100">{aboutData.contributors.length}</p>
+                </div>
+                <div className="p-3 bg-green-200 dark:bg-green-800 rounded-xl">
+                  <Star className="w-8 h-8 text-green-600 dark:text-green-400" />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-2xl p-6 border border-purple-200 dark:border-purple-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Платформ поддержки</p>
+                  <p className="text-3xl font-bold text-purple-900 dark:text-purple-100">{aboutData.support_platforms.length}</p>
+                </div>
+                <div className="p-3 bg-purple-200 dark:bg-purple-800 rounded-xl">
+                  <Heart className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Плавающая кнопка сохранения для мобильных */}
+        <div className="fixed bottom-6 right-6 md:hidden">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white rounded-full shadow-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+          >
+            {saving ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              <Save className="w-6 h-6" />
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default AdminAbout;
