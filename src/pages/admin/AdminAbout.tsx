@@ -592,3 +592,17 @@ const AdminAbout = () => {
                         className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
                         placeholder="https://..."
                       />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            {aboutData.support_platforms.length === 0 && (
+              <div className="text-center py-12">
+                <Heart className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Нет платформ поддержки</h3>
+                <p className="text-gray-500 dark:text-gray-400">Добавьте способы поддержать ваш проект</p>
+              </div>
+            )}
+          </div>
