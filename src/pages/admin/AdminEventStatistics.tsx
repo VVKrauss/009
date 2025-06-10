@@ -155,22 +155,43 @@ const EventCard = ({ event, isPast = false }) => {
           )}
         </div>
 
-        {event.speakers && Array.isArray(event.speakers) && event.speakers.length > 0 && (
-          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 font-heading">Спикеры:</p>
-            <div className="flex flex-wrap gap-2">
-              {event.speakers.map((speaker, index) => (
-                <span 
-                  key={index}
-                  className="inline-flex items-center bg-gradient-to-r from-secondary-50 to-secondary-100 dark:from-secondary-900/20 dark:to-secondary-800/20 text-secondary-700 dark:text-secondary-300 px-3 py-1 rounded-full text-sm font-medium"
-                >
-                  <Star className="w-3 h-3 mr-1" />
-                  {speaker.name || speaker}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
+        {(() => {
+          try {
+            if (!event.speakers || !Array.isArray(event.speakers) || event.speakers.length === 0) {
+              return null;
+            }
+            
+            const validSpeakers = event.speakers.filter(speaker => 
+              speaker !== null && 
+              speaker !== undefined && 
+              (typeof speaker === 'string' || (typeof speaker === 'object' && speaker.name))
+            );
+
+            if (validSpeakers.length === 0) {
+              return null;
+            }
+
+            return (
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 font-heading">Спикеры:</p>
+                <div className="flex flex-wrap gap-2">
+                  {validSpeakers.map((speaker, index) => (
+                    <span 
+                      key={index}
+                      className="inline-flex items-center bg-gradient-to-r from-secondary-50 to-secondary-100 dark:from-secondary-900/20 dark:to-secondary-800/20 text-secondary-700 dark:text-secondary-300 px-3 py-1 rounded-full text-sm font-medium"
+                    >
+                      <Star className="w-3 h-3 mr-1" />
+                      {typeof speaker === 'object' ? (speaker.name || 'Без имени') : speaker}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            );
+          } catch (error) {
+            console.error('Error rendering speakers:', error);
+            return null;
+          }
+        })()}
 
         {isPast && (
           <div className="mt-4">
@@ -517,7 +538,7 @@ const EventsStatistics = () => {
               )}
             </div>
           )}
-        </div> 
+        </div>
       </div>
     </div>
   );
