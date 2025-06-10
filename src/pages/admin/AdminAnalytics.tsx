@@ -10,8 +10,6 @@ import {
   BarChart3,
   PieChart,
   Activity,
-  PieChart,
-  Activity
 } from 'lucide-react';
 import { format, subDays, parseISO } from 'date-fns';
 import { toast } from 'react-hot-toast';
