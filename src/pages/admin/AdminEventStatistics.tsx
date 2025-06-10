@@ -1,11 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
-
-// Подключение к Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseServiceKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+import { supabase } from '../../lib/supabase';
 
 const EventCard = ({ event, isPast = false }) => {
   const formatDate = (dateStr) => {
