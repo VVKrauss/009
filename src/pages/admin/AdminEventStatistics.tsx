@@ -659,7 +659,7 @@ const EventsStatistics = () => {
         </div>
       </div>
     </div>
-  );
+  ); 
 };
 
 export default EventsStatistics;
