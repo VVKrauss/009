@@ -14,7 +14,7 @@ const EventCard = ({ event, isPast = false }) => {
 
   useEffect(() => {
     const loadSpeakers = async () => {
-      if (!event.speakers || !Array.isArray(event.speakers) {
+      f (!event.speakers || !Array.isArray(event.speakers)) {
         return;
       }
 
