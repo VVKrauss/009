@@ -14,10 +14,9 @@ const EventCard = ({ event, isPast = false }) => {
 
   useEffect(() => {
     const loadSpeakers = async () => {
-      f (!event.speakers || !Array.isArray(event.speakers)) {
+      if (!event.speakers || !Array.isArray(event.speakers)) {
         return;
       }
-    }
       setLoadingSpeakers(true);
       try {
         const speakerIds = event.speakers.filter(speaker => 
@@ -467,7 +466,7 @@ const EventsStatistics = () => {
     } catch (error) {
       console.error(`Error loading more ${type} events:`, error);
     } finally {
-      setLoadingMore(prev => ({ ...prev, [type]: false });
+      setLoadingMore(prev => ({ ...prev, [type]: false }));
     }
   };
 
