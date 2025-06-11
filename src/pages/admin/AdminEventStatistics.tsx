@@ -1,12 +1,56 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 const EventCard = ({ event, isPast = false }) => {
   // Проверяем что event существует
   if (!event) {
     return null;
   }
+
+  const [speakers, setSpeakers] = useState([]);
+  const [loadingSpeakers, setLoadingSpeakers] = useState(false);
+
+  // Загружаем данные спикеров при монтировании компонента
+  useEffect(() => {
+    const loadSpeakers = async () => {
+      if (!event.speakers || !Array.isArray(event.speakers) || event.speakers.length === 0) {
+        return;
+      }
+
+      setLoadingSpeakers(true);
+      try {
+        // Фильтруем только валидные UUID
+        const speakerIds = event.speakers.filter(speaker => 
+          typeof speaker === 'string' && speaker.length > 0
+        );
+
+        if (speakerIds.length === 0) {
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('speakers')
+          .select('id, name, photos')
+          .in('id', speakerIds)
+          .eq('active', true);
+
+        if (error) {
+          console.error('Error loading speakers:', error);
+          return;
+        }
+
+        setSpeakers(data || []);
+      } catch (error) {
+        console.error('Error loading speakers:', error);
+      } finally {
+        setLoadingSpeakers(false);
+      }
+    };
+
+    loadSpeakers();
+  }, [event.speakers]);
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'Дата не указана';
@@ -62,7 +106,31 @@ const EventCard = ({ event, isPast = false }) => {
   const getStatusColor = () => {
     if (fillPercentage >= 90) return 'text-error-500';
     if (fillPercentage >= 70) return 'text-warning-500';
-    return 'text-success-500';
+    return 'text-primary-500';
+  };
+
+  const getProgressBarGradient = () => {
+    if (fillPercentage >= 90) return 'bg-gradient-to-r from-error-400 to-error-600';
+    if (fillPercentage >= 70) return 'bg-gradient-to-r from-warning-400 to-warning-600';
+    return 'bg-gradient-to-r from-primary-400 to-primary-600';
+  };
+
+  // Получаем первое фото спикера из массива photos
+  const getSpeakerPhoto = (speaker) => {
+    if (!speaker.photos || !Array.isArray(speaker.photos) || speaker.photos.length === 0) {
+      return null;
+    }
+    
+    // Находим основное фото (isMain) или берем первое
+    const mainPhoto = speaker.photos.find(photo => photo.isMain) || speaker.photos[0];
+    
+    // Проверяем, что у фото есть URL
+    if (!mainPhoto || !mainPhoto.url) {
+      return null;
+    }
+    
+    // Используем утилиту для получения полного URL
+    return getSupabaseImageUrl(mainPhoto.url);
   };
 
   return (
@@ -143,11 +211,7 @@ const EventCard = ({ event, isPast = false }) => {
               </div>
               <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
                 <div 
-                  className={`h-3 rounded-full transition-all duration-500 ease-out ${
-                    fillPercentage >= 90 ? 'bg-gradient-to-r from-error-400 to-error-600' :
-                    fillPercentage >= 70 ? 'bg-gradient-to-r from-warning-400 to-warning-600' :
-                    'bg-gradient-to-r from-success-400 to-success-600'
-                  }`}
+                  className={`h-3 rounded-full transition-all duration-500 ease-out ${getProgressBarGradient()}`}
                   style={{ width: `${Math.min(fillPercentage, 100)}%` }}
                 ></div>
               </div>
@@ -155,43 +219,43 @@ const EventCard = ({ event, isPast = false }) => {
           )}
         </div>
 
-        {(() => {
-          try {
-            if (!event.speakers || !Array.isArray(event.speakers) || event.speakers.length === 0) {
-              return null;
-            }
-            
-            const validSpeakers = event.speakers.filter(speaker => 
-              speaker !== null && 
-              speaker !== undefined && 
-              (typeof speaker === 'string' || (typeof speaker === 'object' && speaker.name))
-            );
-
-            if (validSpeakers.length === 0) {
-              return null;
-            }
-
-            return (
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 font-heading">Спикеры:</p>
-                <div className="flex flex-wrap gap-2">
-                  {validSpeakers.map((speaker, index) => (
-                    <span 
-                      key={index}
-                      className="inline-flex items-center bg-gradient-to-r from-secondary-50 to-secondary-100 dark:from-secondary-900/20 dark:to-secondary-800/20 text-secondary-700 dark:text-secondary-300 px-3 py-1 rounded-full text-sm font-medium"
-                    >
-                      <Star className="w-3 h-3 mr-1" />
-                      {typeof speaker === 'object' ? (speaker.name || 'Без имени') : speaker}
-                    </span>
-                  ))}
-                </div>
+        {/* Спикеры */}
+        {(speakers.length > 0 || loadingSpeakers) && (
+          <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 font-heading">Спикеры:</p>
+            {loadingSpeakers ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-primary-500" />
+                <span className="text-sm text-gray-500 dark:text-gray-400">Загрузка спикеров...</span>
               </div>
-            );
-          } catch (error) {
-            console.error('Error rendering speakers:', error);
-            return null;
-          }
-        })()}
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                {speakers.map((speaker) => {
+                  const photoUrl = getSpeakerPhoto(speaker);
+                  return (
+                    <div 
+                      key={speaker.id}
+                      className="flex items-center gap-2 bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20 text-primary-700 dark:text-primary-300 px-3 py-2 rounded-full text-sm font-medium"
+                    >
+                      {photoUrl ? (
+                        <img 
+                          src={photoUrl} 
+                          alt={speaker.name}
+                          className="w-6 h-6 rounded-full object-cover border-2 border-primary-200 dark:border-primary-600"
+                        />
+                      ) : (
+                        <div className="w-6 h-6 bg-primary-200 dark:bg-primary-600 rounded-full flex items-center justify-center">
+                          <Users className="w-3 h-3 text-primary-600 dark:text-primary-300" />
+                        </div>
+                      )}
+                      <span>{speaker.name || 'Без имени'}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {isPast && (
           <div className="mt-4">
