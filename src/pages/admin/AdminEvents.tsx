@@ -1,68 +1,12 @@
-
+import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Plus, Search, Edit, Eye, Calendar, Users, MapPin, Trash2, Filter, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-// Временные типы для демонстрации
-interface Event {
-  id: string;
-  title: string;
-  description?: string;
-  location?: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  price?: number;
-  currency?: string;
-  payment_type?: 'free' | 'donation' | 'cost';
-  status: 'active' | 'draft' | 'past';
-  bg_image?: string;
-  registrations?: {
-    current: number;
-    max_regs: number;
-  };
-  current_registration_count?: number;
-  max_registrations?: number;
-}
-
-// Временные компоненты для демонстрации
-const EventDetailsModal = ({ isOpen, onClose, event }: any) => null;
-const Link = ({ to, children, className, onClick, title }: any) => (
-  <a href={to} className={className} onClick={onClick} title={title}>{children}</a>
-);
-
-// Утилиты для работы с датами
-const formatTimeFromTimestamp = (timestamp: string) => {
-  try {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return '--:--';
-  }
-};
-
-const formatDateWithTime = (date: string, startTime: string, endTime: string) => {
-  try {
-    const dateObj = new Date(date);
-    const dateStr = dateObj.toLocaleDateString('ru-RU', { 
-      day: 'numeric', 
-      month: 'long', 
-      year: 'numeric' 
-    });
-    const startStr = formatTimeFromTimestamp(startTime);
-    const endStr = formatTimeFromTimestamp(endTime);
-    return `${dateStr} • ${startStr} - ${endStr}`;
-  } catch {
-    return 'Дата не указана';
-  }
-};
-
-const isBefore = (date1: string, date2: Date) => {
-  try {
-    return new Date(date1) < date2;
-  } catch {
-    return false;
-  }
-};
+import { format, parseISO, isBefore } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { useNavigate, Link } from 'react-router-dom';
+import EventDetailsModal from '../../components/admin/EventDetailsModal';
+import { Event, EventRegistrations } from './constants';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -116,6 +60,7 @@ const formatDateWithTime = (date: string, startTime: string, endTime: string) =>
 };
 
 const AdminEvents = () => {
+  const navigate = useNavigate();
   const [events, setEvents] = useState<Event[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -179,7 +124,7 @@ const AdminEvents = () => {
         const today = new Date();
         filteredData = filteredData.filter(event => 
           event.status === 'past' || 
-          isBefore(event.date, today)
+          isBefore(parseISO(event.date), today)
         );
       }
 
