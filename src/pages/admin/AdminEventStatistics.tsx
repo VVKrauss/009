@@ -1,34 +1,30 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award } from 'lucide-react';
+import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 const EventCard = ({ event, isPast = false }) => {
-  // Проверяем что event существует
   if (!event) {
     return null;
   }
 
   const [speakers, setSpeakers] = useState([]);
   const [loadingSpeakers, setLoadingSpeakers] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Загружаем данные спикеров при монтировании компонента
   useEffect(() => {
     const loadSpeakers = async () => {
-      if (!event.speakers || !Array.isArray(event.speakers) || event.speakers.length === 0) {
+      if (!event.speakers || !Array.isArray(event.speakers) {
         return;
       }
 
       setLoadingSpeakers(true);
       try {
-        // Фильтруем только валидные UUID
         const speakerIds = event.speakers.filter(speaker => 
           typeof speaker === 'string' && speaker.length > 0
         );
 
-        if (speakerIds.length === 0) {
-          return;
-        }
+        if (speakerIds.length === 0) return;
 
         const { data, error } = await supabase
           .from('speakers')
@@ -36,11 +32,7 @@ const EventCard = ({ event, isPast = false }) => {
           .in('id', speakerIds)
           .eq('active', true);
 
-        if (error) {
-          console.error('Error loading speakers:', error);
-          return;
-        }
-
+        if (error) throw error;
         setSpeakers(data || []);
       } catch (error) {
         console.error('Error loading speakers:', error);
@@ -102,6 +94,9 @@ const EventCard = ({ event, isPast = false }) => {
   const currentRegs = parseInt(registrations.current || '0') || 0;
   const maxRegs = registrations.max_regs || 0;
   const fillPercentage = maxRegs > 0 ? (currentRegs / maxRegs) * 100 : 0;
+  const regList = registrations.reg_list || [];
+  const currentAdults = registrations.current_adults || 0;
+  const currentChildren = registrations.current_children || 0;
 
   const getStatusColor = () => {
     if (fillPercentage >= 90) return 'text-error-500';
@@ -115,54 +110,137 @@ const EventCard = ({ event, isPast = false }) => {
     return 'bg-gradient-to-r from-primary-400 to-primary-600';
   };
 
-  // Получаем первое фото спикера из массива photos
   const getSpeakerPhoto = (speaker) => {
-    if (!speaker.photos || !Array.isArray(speaker.photos) || speaker.photos.length === 0) {
-      return null;
-    }
-    
-    // Находим основное фото (isMain) или берем первое
+    if (!speaker.photos || !Array.isArray(speaker.photos)) return null;
     const mainPhoto = speaker.photos.find(photo => photo.isMain) || speaker.photos[0];
-    
-    // Проверяем, что у фото есть URL
-    if (!mainPhoto || !mainPhoto.url) {
-      return null;
-    }
-    
-    // Используем утилиту для получения полного URL
-    return getSupabaseImageUrl(mainPhoto.url);
+    return mainPhoto?.url ? getSupabaseImageUrl(mainPhoto.url) : null;
+  };
+
+  const RegistrationModal = () => {
+    if (!isModalOpen) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <div className="relative bg-white dark:bg-dark-800 rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-white dark:bg-dark-800 p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+              Регистрации на "{event.title || 'мероприятие'}"
+            </h3>
+            <button 
+              onClick={() => setIsModalOpen(false)}
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Всего регистраций</p>
+                <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">{currentRegs}</p>
+              </div>
+              <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Взрослые билеты</p>
+                <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">{currentAdults}</p>
+              </div>
+              <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Детские билеты</p>
+                <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">{currentChildren}</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-dark-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Имя</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Телефон</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Взрослые</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Дети</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Дата</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Статус</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-dark-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {regList.length > 0 ? (
+                    regList.map((reg) => (
+                      <tr key={reg.id}>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          {reg.full_name || '-'}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {reg.email || '-'}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {reg.phone || '-'}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {reg.adult_tickets || 0}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {reg.child_tickets || 0}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {reg.created_at ? new Date(reg.created_at).toLocaleDateString('ru-RU') : '-'}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            reg.status 
+                              ? 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-400'
+                              : 'bg-error-100 text-error-800 dark:bg-error-900/30 dark:text-error-400'
+                          }`}>
+                            {reg.status ? 'Подтверждено' : 'Отменено'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="7" className="px-4 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                        Нет данных о регистрациях
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
     <div className="group relative bg-white dark:bg-dark-800 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600">
-      {/* Градиентная полоска сверху */}
       <div className="h-1 bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600"></div>
       
       <div className="p-6">
         <div className="flex justify-between items-start mb-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <span className="inline-flex items-center gap-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-3 py-1 rounded-full text-sm font-medium font-heading">
+              <span className="inline-flex items-center gap-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-3 py-1 rounded-full text-sm font-medium">
                 {getEventTypeIcon(event.event_type)}
                 {getEventTypeLabel(event.event_type)}
               </span>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 font-heading group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
               {event.title || 'Без названия'}
             </h3>
           </div>
           <div className="text-right ml-4">
-            {(event.price || 0) > 0 ? (
+            {event.price > 0 ? (
               <div className="text-right">
-                <span className="text-2xl font-bold text-primary-600 dark:text-primary-400 font-heading">
-                  {(event.price || 0).toLocaleString()}
+                <span className="text-2xl font-bold text-primary-600 dark:text-primary-400">
+                  {event.price.toLocaleString()}
                 </span>
                 <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">
                   {event.currency || 'RUB'}
                 </span>
               </div>
             ) : (
-              <span className="text-xl font-bold text-success-600 dark:text-success-400 font-heading">
+              <span className="text-xl font-bold text-success-600 dark:text-success-400">
                 Бесплатно
               </span>
             )}
@@ -204,7 +282,7 @@ const EventCard = ({ event, isPast = false }) => {
           </div>
 
           {!isPast && maxRegs > 0 && (
-            <div className="mt-6">
+            <div className="mt-6 cursor-pointer" onClick={() => setIsModalOpen(true)}>
               <div className="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <span>Заполненность</span>
                 <span className={`${getStatusColor()} font-bold`}>{Math.round(fillPercentage)}%</span>
@@ -219,41 +297,33 @@ const EventCard = ({ event, isPast = false }) => {
           )}
         </div>
 
-        {/* Спикеры */}
-        {(speakers.length > 0 || loadingSpeakers) && (
+        {speakers.length > 0 && (
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 font-heading">Спикеры:</p>
-            {loadingSpeakers ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-primary-500" />
-                <span className="text-sm text-gray-500 dark:text-gray-400">Загрузка спикеров...</span>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-3">
-                {speakers.map((speaker) => {
-                  const photoUrl = getSpeakerPhoto(speaker);
-                  return (
-                    <div 
-                      key={speaker.id}
-                      className="flex items-center gap-2 bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20 text-primary-700 dark:text-primary-300 px-3 py-2 rounded-full text-sm font-medium"
-                    >
-                      {photoUrl ? (
-                        <img 
-                          src={photoUrl} 
-                          alt={speaker.name}
-                          className="w-6 h-6 rounded-full object-cover border-2 border-primary-200 dark:border-primary-600"
-                        />
-                      ) : (
-                        <div className="w-6 h-6 bg-primary-200 dark:bg-primary-600 rounded-full flex items-center justify-center">
-                          <Users className="w-3 h-3 text-primary-600 dark:text-primary-300" />
-                        </div>
-                      )}
-                      <span>{speaker.name || 'Без имени'}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Спикеры:</p>
+            <div className="flex flex-wrap gap-3">
+              {speakers.map((speaker) => {
+                const photoUrl = getSpeakerPhoto(speaker);
+                return (
+                  <div 
+                    key={speaker.id}
+                    className="flex items-center gap-2 bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20 text-primary-700 dark:text-primary-300 px-3 py-2 rounded-full text-sm font-medium"
+                  >
+                    {photoUrl ? (
+                      <img 
+                        src={photoUrl} 
+                        alt={speaker.name}
+                        className="w-6 h-6 rounded-full object-cover border-2 border-primary-200 dark:border-primary-600"
+                      />
+                    ) : (
+                      <div className="w-6 h-6 bg-primary-200 dark:bg-primary-600 rounded-full flex items-center justify-center">
+                        <Users className="w-3 h-3 text-primary-600 dark:text-primary-300" />
+                      </div>
+                    )}
+                    <span>{speaker.name || 'Без имени'}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -266,6 +336,8 @@ const EventCard = ({ event, isPast = false }) => {
           </div>
         )}
       </div>
+
+      <RegistrationModal />
     </div>
   );
 };
@@ -301,16 +373,12 @@ const EventsStatistics = () => {
     past: { offset: 0, hasMore: true }
   });
 
-  // Функция для загрузки данных из Supabase
   const loadEventsFromSupabase = async (type, offset = 0, limit = 10) => {
     try {
       const now = new Date().toISOString();
-      let query = supabase
-        .from('events')
-        .select('*');
+      let query = supabase.from('events').select('*');
 
       if (type === 'nearest') {
-        // Ближайшее мероприятие (в течение 7 дней)
         const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
         query = query
           .gte('start_time', now)
@@ -319,14 +387,12 @@ const EventsStatistics = () => {
           .order('start_time', { ascending: true })
           .limit(1);
       } else if (type === 'upcoming') {
-        // Предстоящие мероприятия
         query = query
           .gte('start_time', now)
           .eq('status', 'active')
           .order('start_time', { ascending: true })
           .range(offset, offset + limit - 1);
       } else if (type === 'past') {
-        // Прошедшие мероприятия
         query = query
           .or(`start_time.lt.${now},status.eq.past`)
           .order('start_time', { ascending: false })
@@ -335,26 +401,18 @@ const EventsStatistics = () => {
 
       const { data, error } = await query;
 
-      if (error) {
-        console.error('Supabase error:', error);
-        throw error;
-      }
-
-      // Фильтруем null значения и валидируем данные
-      const validData = (data || []).filter(event => event && event.id);
+      if (error) throw error;
 
       return {
-        data: validData,
-        hasMore: validData.length === limit
+        data: (data || []).filter(event => event && event.id),
+        hasMore: (data || []).length === limit
       };
     } catch (error) {
       console.error('Error loading events:', error);
-      // Возвращаем пустой массив вместо ошибки, чтобы UI не ломался
       return { data: [], hasMore: false };
     }
   };
 
-  // Загрузка начальных данных
   useEffect(() => {
     const loadInitialData = async () => {
       setLoading({ nearest: true, upcoming: true, past: true });
@@ -386,7 +444,6 @@ const EventsStatistics = () => {
     loadInitialData();
   }, []);
 
-  // Загрузка дополнительных данных
   const loadMore = async (type) => {
     if (!pagination[type].hasMore) return;
 
@@ -410,7 +467,7 @@ const EventsStatistics = () => {
     } catch (error) {
       console.error(`Error loading more ${type} events:`, error);
     } finally {
-      setLoadingMore(prev => ({ ...prev, [type]: false }));
+      setLoadingMore(prev => ({ ...prev, [type]: false });
     }
   };
 
@@ -421,11 +478,10 @@ const EventsStatistics = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-dark-900 dark:via-dark-900 dark:to-dark-800 py-8 font-sans">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-dark-900 dark:via-dark-900 dark:to-dark-800 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Заголовок */}
         <div className="mb-12 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary-600 via-primary-500 to-secondary-500 bg-clip-text text-transparent mb-4 font-heading">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary-600 via-primary-500 to-secondary-500 bg-clip-text text-transparent mb-4">
             Статистика мероприятий
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
@@ -433,7 +489,6 @@ const EventsStatistics = () => {
           </p>
         </div>
 
-        {/* Вкладки */}
         <div className="mb-10">
           <div className="flex flex-wrap justify-center gap-2 bg-white dark:bg-dark-800 p-2 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
             {tabs.map((tab) => {
@@ -442,7 +497,7 @@ const EventsStatistics = () => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center justify-center px-6 py-3 rounded-xl font-semibold transition-all duration-300 font-heading ${
+                  className={`flex items-center justify-center px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg transform scale-105'
                       : 'text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-dark-700'
@@ -465,11 +520,10 @@ const EventsStatistics = () => {
           </div>
         </div>
 
-        {/* Контент вкладок */}
         <div className="space-y-8">
           {activeTab === 'nearest' && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 font-heading flex items-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
                 <Clock className="w-6 h-6 mr-3 text-primary-500" />
                 Ближайшее мероприятие
               </h2>
@@ -486,7 +540,7 @@ const EventsStatistics = () => {
                   <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-6">
                     <Calendar className="w-12 h-12 text-primary-500" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 font-heading">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                     Нет ближайших мероприятий
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400">
@@ -499,7 +553,7 @@ const EventsStatistics = () => {
 
           {activeTab === 'upcoming' && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 font-heading flex items-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
                 <Calendar className="w-6 h-6 mr-3 text-primary-500" />
                 Предстоящие мероприятия
               </h2>
@@ -517,7 +571,7 @@ const EventsStatistics = () => {
                       <button
                         onClick={() => loadMore('upcoming')}
                         disabled={loadingMore.upcoming}
-                        className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg font-heading"
+                        className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
                       >
                         {loadingMore.upcoming ? (
                           <>
@@ -539,7 +593,7 @@ const EventsStatistics = () => {
                   <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-6">
                     <Calendar className="w-12 h-12 text-primary-500" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 font-heading">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                     Нет предстоящих мероприятий
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400">
@@ -552,7 +606,7 @@ const EventsStatistics = () => {
 
           {activeTab === 'past' && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 font-heading flex items-center">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
                 <TrendingUp className="w-6 h-6 mr-3 text-primary-500" />
                 Прошедшие мероприятия
               </h2>
@@ -570,7 +624,7 @@ const EventsStatistics = () => {
                       <button
                         onClick={() => loadMore('past')}
                         disabled={loadingMore.past}
-                        className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg font-heading"
+                        className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
                       >
                         {loadingMore.past ? (
                           <>
@@ -592,7 +646,7 @@ const EventsStatistics = () => {
                   <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-6">
                     <TrendingUp className="w-12 h-12 text-primary-500" />
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2 font-heading">
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                     Нет прошедших мероприятий
                   </h3>
                   <p className="text-gray-500 dark:text-gray-400">
