@@ -17,7 +17,7 @@ const EventCard = ({ event, isPast = false }) => {
       f (!event.speakers || !Array.isArray(event.speakers)) {
         return;
       }
-
+    }
       setLoadingSpeakers(true);
       try {
         const speakerIds = event.speakers.filter(speaker => 
