@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 const EventCard = ({ event, isPast = false }) => {
   // Проверяем что event существует
@@ -120,7 +120,16 @@ const EventCard = ({ event, isPast = false }) => {
     if (!speaker.photos || !Array.isArray(speaker.photos) || speaker.photos.length === 0) {
       return null;
     }
-    return speaker.photos[0];
+    
+    // Находим основное фото (isMain) или берем первое
+    const mainPhoto = speaker.photos.find(photo => photo.isMain) || speaker.photos[0];
+    
+    // Если есть фото, возвращаем URL через утилиту getSupabaseImageUrl
+    if (mainPhoto && mainPhoto.url) {
+      return getSupabaseImageUrl(mainPhoto.url);
+    }
+    
+    return null;
   };
 
   return (
@@ -221,15 +230,15 @@ const EventCard = ({ event, isPast = false }) => {
             ) : (
               <div className="flex flex-wrap gap-3">
                 {speakers.map((speaker) => {
-                  const photo = getSpeakerPhoto(speaker);
+                  const photoUrl = getSpeakerPhoto(speaker);
                   return (
                     <div 
                       key={speaker.id}
                       className="flex items-center gap-2 bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20 text-primary-700 dark:text-primary-300 px-3 py-2 rounded-full text-sm font-medium"
                     >
-                      {photo ? (
+                      {photoUrl ? (
                         <img 
-                          src={photo} 
+                          src={photoUrl} 
                           alt={speaker.name}
                           className="w-6 h-6 rounded-full object-cover border-2 border-primary-200 dark:border-primary-600"
                         />
