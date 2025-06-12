@@ -177,8 +177,8 @@ const AdminRent = () => {
   };
 
   const handleCropComplete = () => {
-    if (cropperRef.current) {
-      const croppedCanvas = cropperRef.current.getCroppedCanvas();
+    if (cropperRef.current && cropperRef.current.cropper) {
+      const croppedCanvas = cropperRef.current.cropper.getCroppedCanvas();
       setCroppedImage(croppedCanvas.toDataURL('image/jpeg', 0.8)); // 0.8 quality for JPEG
     }
   };
