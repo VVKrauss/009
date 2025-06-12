@@ -68,15 +68,28 @@ const formatTimeFromTimestamp = (timestamp: string) => {
   }
 };
 
-const isPastEvent = (eventDate: string) => {
+const isPastEvent = (eventDate: string, endTime?: string) => {
   try {
     const eventDateTime = parseISO(eventDate);
-    return eventDateTime < new Date();
+    
+    // Если есть время окончания, используем его
+    if (endTime) {
+      const endDateTime = parseISO(endTime);
+      return endDateTime < new Date();
+    }
+    
+    // Если времени окончания нет, считаем событие прошедшим только на следующий день
+    const nextDay = new Date(eventDateTime);
+    nextDay.setDate(nextDay.getDate() + 1);
+    nextDay.setHours(0, 0, 0, 0);
+    
+    return new Date() >= nextDay;
   } catch (e) {
     console.error('Error checking event date:', e);
     return false;
   }
 };
+
 
 const renderDescriptionWithLinks = (description: string) => {
   if (!description) {
