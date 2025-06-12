@@ -1,6 +1,24 @@
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Edit, Trash2, Plus, Save, X, Image as ImageIcon } from 'lucide-react';
+import { toast } from 'react-hot-toast';
+import { 
+  Plus, 
+  X, 
+  Edit, 
+  Trash2, 
+  Image as ImageIcon, 
+  Save, 
+  Eye, 
+  Users, 
+  Mail, 
+  Phone, 
+  MapPin,
+  Star,
+  Heart,
+  Info,
+  Link,
+  Loader2
+} from 'lucide-react';
 import Cropper from 'react-cropper';
 import 'cropperjs/dist/cropper.css';
 
@@ -194,12 +212,14 @@ const AdminRent = () => {
       const blob = await fetch(croppedImage).then(res => res.blob());
       
       // Generate unique filename
-      const filename = `rent_${Date.now()}.jpg`;
-      const filePath = filename;
+      const timestamp = Date.now();
+      const fileExt = selectedFile.name.split('.').pop();
+      const filename = `rent_${timestamp}.${fileExt}`;
+      const filePath = `rent_photos/${filename}`;
       
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('rent-photos')
+        .from('images')
         .upload(filePath, blob, {
           cacheControl: '3600',
           upsert: false,
@@ -210,7 +230,7 @@ const AdminRent = () => {
       
       // Get public URL
       const { data: publicUrlData } = supabase.storage
-        .from('rent-photos')
+        .from('images')
         .getPublicUrl(filePath);
       
       // Update photos array
@@ -235,11 +255,11 @@ const AdminRent = () => {
       // Extract filename from URL
       const urlParts = photoUrl.split('/');
       const filename = urlParts[urlParts.length - 1];
-      const filePath = filename;
+      const filePath = `rent_photos/${filename}`;
       
       // Delete from storage
       const { error: deleteError } = await supabase.storage
-        .from('rent-photos')
+        .from('images')
         .remove([filePath]);
       
       if (deleteError) throw deleteError;
