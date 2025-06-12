@@ -195,7 +195,7 @@ const AdminRent = () => {
       
       // Generate unique filename
       const filename = `rent_${Date.now()}.jpg`;
-      const filePath = `rent-photos/${filename}`;
+      const filePath = filename;
       
       // Upload to Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -235,7 +235,7 @@ const AdminRent = () => {
       // Extract filename from URL
       const urlParts = photoUrl.split('/');
       const filename = urlParts[urlParts.length - 1];
-      const filePath = `rent-photos/${filename}`;
+      const filePath = filename;
       
       // Delete from storage
       const { error: deleteError } = await supabase.storage
