@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Calendar, Clock, MapPin, Users, ArrowRight, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import Layout from '../components/layout/Layout';
-import PageHeader from '../components/ui/PageHeader';
 import BookingForm from '../components/rent/BookingForm';
 import { Link } from 'react-router-dom';
 
@@ -202,10 +201,13 @@ const PhotoSlideshow = ({ photos, title }) => {
           
           {/* Контент слайда */}
           <div className="absolute bottom-0 left-0 right-0 p-4 md:p-8 text-white">
-            <h2 className="text-xl md:text-3xl font-bold mb-2">
+            <h1 className="text-2xl md:text-4xl font-bold mb-2">
               {title}
-            </h2>
-            <p className="text-sm md:text-lg opacity-90">
+            </h1>
+            <p className="text-base md:text-xl opacity-90 mb-2">
+              Аренда пространства для ваших мероприятий
+            </p>
+            <p className="text-sm md:text-lg opacity-75">
               Фото {currentSlide + 1} из {photos.length} • Нажмите для просмотра
             </p>
           </div>
@@ -323,7 +325,6 @@ const RentPage = () => {
   if (loading) {
     return (
       <Layout>
-        <PageHeader title="" />
         <div className="section bg-gray-50 dark:bg-dark-800">
           <div className="container text-center py-12">
             Загрузка...
@@ -336,7 +337,6 @@ const RentPage = () => {
   if (error || !settings) {
     return (
       <Layout>
-        <PageHeader title="" />
         <div className="section bg-gray-50 dark:bg-dark-800">
           <div className="container text-center py-12 text-red-600">
             {error || 'Данные не найдены'}
@@ -348,24 +348,17 @@ const RentPage = () => {
 
   return (
     <Layout>
-      <PageHeader 
-        title={settings.title}
-        subtitle="Аренда пространства для ваших мероприятий"
-      />
+      {/* Hero Section - Слайдшоу фотографий вместо header */}
+      {settings.photos && settings.photos.length > 0 && (
+        <PhotoSlideshow 
+          photos={settings.photos} 
+          title={settings.title}
+        />
+      )}
       
       <main className="section bg-gray-50 dark:bg-dark-800">
         <div className="container">
-          {/* Hero Section - Слайдшоу фотографий */}
-          <div className="mb-12 bg-white dark:bg-dark-900 rounded-xl shadow-md overflow-hidden">
-            {settings.photos && settings.photos.length > 0 && (
-              <PhotoSlideshow 
-                photos={settings.photos} 
-                title={settings.title}
-              />
-            )}
-          </div>
-
-          {/* Description without photo gallery */}
+          {/* Description */}
           <div className="mb-12 bg-white dark:bg-dark-900 rounded-xl shadow-md p-6">
             <div 
               className="prose dark:prose-invert max-w-none"
