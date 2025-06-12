@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Calendar, Clock, MapPin, Users, ArrowRight, Check } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, ArrowRight, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import PageHeader from '../components/ui/PageHeader';
 import BookingForm from '../components/rent/BookingForm';
@@ -37,6 +37,108 @@ type RentInfoSettings = {
     daily: number;
   };
   included_services: string[];
+};
+
+// Компонент слайдшоу фотографий
+const PhotoSlideshow = ({ photos, title }) => {
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+
+  useEffect(() => {
+    if (!isAutoPlaying || !photos?.length) return;
+
+    const interval = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % photos.length);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [isAutoPlaying, photos?.length]);
+
+  const goToSlide = (index) => {
+    setCurrentSlide(index);
+    setIsAutoPlaying(false);
+    setTimeout(() => setIsAutoPlaying(true), 10000);
+  };
+
+  const nextSlide = () => {
+    setCurrentSlide(prev => (prev + 1) % photos.length);
+    setIsAutoPlaying(false);
+    setTimeout(() => setIsAutoPlaying(true), 10000);
+  };
+
+  const prevSlide = () => {
+    setCurrentSlide(prev => (prev - 1 + photos.length) % photos.length);
+    setIsAutoPlaying(false);
+    setTimeout(() => setIsAutoPlaying(true), 10000);
+  };
+
+  if (!photos?.length) return null;
+
+  return (
+    <div className="relative h-64 md:h-96 w-full bg-gray-900 rounded-xl overflow-hidden">
+      {/* Основное изображение */}
+      <div 
+        className="w-full h-full bg-cover bg-center transition-all duration-500"
+        style={{ 
+          backgroundImage: `url(${photos[currentSlide].startsWith('http') 
+            ? photos[currentSlide] 
+            : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${photos[currentSlide]}`})`,
+        }}
+      >
+        {/* Градиент оверлей */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+        
+        {/* Контент слайда */}
+        <div className="absolute bottom-0 left-0 right-0 p-4 md:p-8 text-white">
+          <h2 className="text-xl md:text-3xl font-bold mb-2">
+            {title}
+          </h2>
+          <p className="text-sm md:text-lg opacity-90">
+            Фото {currentSlide + 1} из {photos.length}
+          </p>
+        </div>
+      </div>
+
+      {/* Навигационные стрелки */}
+      {photos.length > 1 && (
+        <>
+          <button
+            onClick={prevSlide}
+            className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-200 backdrop-blur-sm"
+            aria-label="Предыдущее фото"
+          >
+            <ChevronLeft className="w-5 h-5" />
+          </button>
+          
+          <button
+            onClick={nextSlide}
+            className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-all duration-200 backdrop-blur-sm"
+            aria-label="Следующее фото"
+          >
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </>
+      )}
+
+      {/* Индикаторы слайдов */}
+      {photos.length > 1 && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex gap-2">
+          {photos.map((_, index) => (
+            <button
+              key={index}
+              onClick={() => goToSlide(index)}
+              className={`w-2 h-2 rounded-full transition-all duration-200 ${
+                index === currentSlide 
+                  ? 'bg-white' 
+                  : 'bg-white/50 hover:bg-white/75'
+              }`}
+              aria-label={`Перейти к фото ${index + 1}`}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
 };
 
 const getDurationIcon = (duration: string) => {
@@ -131,52 +233,22 @@ const RentPage = () => {
       
       <main className="section bg-gray-50 dark:bg-dark-800">
         <div className="container">
-          {/* Hero Section */}
-          <div className="mb-12 bg-white dark:bg-dark-900 rounded-xl shadow-md overflow-hidden">
+          {/* Hero Section - Слайдшоу фотографий */}
+          <div className="mb-12">
             {settings.photos && settings.photos.length > 0 && (
-              <div className="h-64 md:h-96 w-full">
-                <img
-                  src={settings.photos[0].startsWith('http') 
-                    ? settings.photos[0] 
-                    : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${settings.photos[0]}`}
-                  alt={settings.title}
-                  className="w-full h-full object-cover"
-                />
-              </div>
+              <PhotoSlideshow 
+                photos={settings.photos} 
+                title={settings.title}
+              />
             )}
           </div>
 
-          {/* Description with HTML and Photo Gallery */}
-          <div className="mb-12 grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Text content - takes 2/3 of width on large screens */}
+          {/* Description without photo gallery */}
+          <div className="mb-12 bg-white dark:bg-dark-900 rounded-xl shadow-md p-6">
             <div 
-              className="lg:col-span-2 prose dark:prose-invert max-w-none"
+              className="prose dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{ __html: settings.description }}
             />
-            
-            {/* Photo gallery - takes 1/3 of width on large screens */}
-            {settings.photos && settings.photos.length > 0 && (
-              <div className="hidden lg:flex flex-col gap-4 h-full">
-                {settings.photos.map((photo, index) => (
-                  <div 
-                    key={index}
-                    className="flex-1 rounded-xl overflow-hidden"
-                    style={{
-                      maxHeight: `calc((100% - ${(settings.photos!.length - 1) * 16}px) / ${settings.photos!.length})`,
-                      minHeight: '100px'
-                    }}
-                  >
-                    <img
-                      src={photo.startsWith('http') 
-                        ? photo 
-                        : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${photo}`}
-                      alt={`${settings.title} - фото ${index + 1}`}
-                      className="w-full h-full object-cover rounded-xl"
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Main pricing section */}
