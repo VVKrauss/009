@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award, X, BarChart3, DollarSign, Heart, Gift, Filter, Eye } from 'lucide-react';
+import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award, X, BarChart3, DollarSign, Heart, Gift, Filter, Eye, Grid3X3, List } from 'lucide-react';
 
 import { supabase } from '../../lib/supabase';
 import { getSupabaseImageUrl } from '../../utils/imageUtils';
@@ -358,7 +358,230 @@ const EventCard = ({ event, isPast = false, isCompact = false }) => {
   );
 };
 
-const StatCard = ({ title, value, subtitle, icon: Icon, color = 'primary', trend }) => {
+const EventListItem = ({ event, isPast = false }) => {
+  if (!event) return null;
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'Дата не указана';
+    try {
+      return new Date(dateStr).toLocaleDateString('ru-RU', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric'
+      });
+    } catch (error) {
+      return 'Некорректная дата';
+    }
+  };
+
+  const formatTime = (timeStr) => {
+    if (!timeStr) return '--:--';
+    try {
+      return new Date(timeStr).toLocaleTimeString('ru-RU', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    } catch (error) {
+      return '--:--';
+    }
+  };
+
+  const getEventTypeLabel = (type) => {
+    const types = {
+      conference: 'Конференция',
+      workshop: 'Мастер-класс',
+      meetup: 'Встреча',
+      seminar: 'Семинар',
+      webinar: 'Вебинар',
+      training: 'Тренинг'
+    };
+    return types[type] || type;
+  };
+
+  const getEventTypeIcon = (type) => {
+    switch(type) {
+      case 'conference': return <Award className="w-4 h-4" />;
+      case 'workshop': return <Star className="w-4 h-4" />;
+      case 'meetup': return <Users className="w-4 h-4" />;
+      default: return <Calendar className="w-4 h-4" />;
+    }
+  };
+
+  const registrations = event.registrations || {};
+  const currentRegs = parseInt(registrations.current || '0') || 0;
+  const maxRegs = registrations.max_regs || 0;
+  const regList = registrations.reg_list || [];
+  const currentAdults = registrations.current_adults || 0;
+  const currentChildren = registrations.current_children || 0;
+
+  const RegistrationModal = () => {
+    if (!isModalOpen) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50">
+        <div className="relative bg-white dark:bg-dark-800 rounded-2xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="sticky top-0 bg-white dark:bg-dark-800 p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+              Регистрации на "{event.title || 'мероприятие'}"
+            </h3>
+            <button 
+              onClick={() => setIsModalOpen(false)}
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Всего регистраций</p>
+                <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">{currentRegs}</p>
+              </div>
+              <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Взрослые билеты</p>
+                <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">{currentAdults}</p>
+              </div>
+              <div className="bg-primary-50 dark:bg-primary-900/20 p-4 rounded-lg">
+                <p className="text-sm text-gray-500 dark:text-gray-400">Детские билеты</p>
+                <p className="text-2xl font-bold text-primary-600 dark:text-primary-400">{currentChildren}</p>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead className="bg-gray-50 dark:bg-dark-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Имя</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Телефон</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Взрослые</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Дети</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Дата</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Статус</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-dark-800 divide-y divide-gray-200 dark:divide-gray-700">
+                  {regList.length > 0 ? (
+                    regList.map((reg) => (
+                      <tr key={reg.id}>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                          {reg.full_name || '-'}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {reg.email || '-'}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {reg.phone || '-'}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {reg.adult_tickets || 0}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {reg.child_tickets || 0}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                          {reg.created_at ? new Date(reg.created_at).toLocaleDateString('ru-RU') : '-'}
+                        </td>
+                        <td className="px-4 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 text-xs rounded-full ${
+                            reg.status 
+                              ? 'bg-success-100 text-success-800 dark:bg-success-900/30 dark:text-success-400'
+                              : 'bg-error-100 text-error-800 dark:bg-error-900/30 dark:text-error-400'
+                          }`}>
+                            {reg.status ? 'Подтверждено' : 'Отменено'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="7" className="px-4 py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                        Нет данных о регистрациях
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white dark:bg-dark-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600 transition-all duration-200 hover:shadow-md">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4 flex-1">
+          <div className="flex-shrink-0">
+            <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+              {getEventTypeIcon(event.event_type)}
+            </div>
+          </div>
+          
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                {event.title || 'Без названия'}
+              </h3>
+              <span className="inline-flex items-center gap-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-2 py-1 rounded-full text-xs font-medium">
+                {getEventTypeLabel(event.event_type)}
+              </span>
+            </div>
+            
+            <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+              <div className="flex items-center">
+                <Calendar className="w-4 h-4 mr-1" />
+                {formatDate(event.date || event.start_time)}
+              </div>
+              <div className="flex items-center">
+                <Clock className="w-4 h-4 mr-1" />
+                {formatTime(event.start_time)}
+              </div>
+              <div className="flex items-center">
+                <Users className="w-4 h-4 mr-1" />
+                {currentRegs}/{maxRegs} участников
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center space-x-4">
+          <div className="text-right">
+            {event.price > 0 ? (
+              <div className="text-right">
+                <span className="text-lg font-bold text-primary-600 dark:text-primary-400">
+                  {event.price.toLocaleString()}
+                </span>
+                <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">
+                  {event.currency || 'RUB'}
+                </span>
+              </div>
+            ) : (
+              <span className="text-lg font-bold text-success-600 dark:text-success-400">
+                Бесплатно
+              </span>
+            )}
+          </div>
+
+          {isPast && currentRegs > 0 && (
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-3 py-2 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-800/50 transition-colors text-sm font-medium"
+            >
+              Подробнее
+            </button>
+          )}
+        </div>
+      </div>
+
+      <RegistrationModal />
+    </div>
+  );
+};
   return (
     <div className={`bg-white dark:bg-dark-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all duration-300`}>
       <div className="flex items-center justify-between mb-4">
@@ -394,7 +617,7 @@ const LoadingSpinner = () => (
 
 const EventsStatistics = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [priceFilter, setPriceFilter] = useState('all');
+  const [isListView, setIsListView] = useState(false);
   const [events, setEvents] = useState({
     nearest: [],
     upcoming: [],
@@ -421,19 +644,10 @@ const EventsStatistics = () => {
     completionRate: 0
   });
 
-  const loadEventsFromSupabase = async (type, offset = 0, limit = 10, priceFilterValue = 'all') => {
+  const loadEventsFromSupabase = async (type, offset = 0, limit = 10) => {
     try {
       const now = new Date().toISOString();
       let query = supabase.from('events').select('*');
-
-      // Применяем фильтр по цене
-      if (priceFilterValue === 'free') {
-        query = query.eq('price', 0);
-      } else if (priceFilterValue === 'donation') {
-        query = query.gt('price', 0).lt('price', 1000);
-      } else if (priceFilterValue === 'paid') {
-        query = query.gte('price', 1000);
-      }
 
       if (type === 'nearest') {
         const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -516,9 +730,9 @@ const EventsStatistics = () => {
       
       try {
         const [nearestResult, upcomingResult, pastResult] = await Promise.all([
-          loadEventsFromSupabase('nearest', 0, 1, priceFilter),
-          loadEventsFromSupabase('upcoming', 0, 6, priceFilter),
-          loadEventsFromSupabase('past', 0, 10, priceFilter)
+          loadEventsFromSupabase('nearest', 0, 1),
+          loadEventsFromSupabase('upcoming', 0, 6),
+          loadEventsFromSupabase('past', 0, 10)
         ]);
 
         setEvents({
@@ -541,7 +755,7 @@ const EventsStatistics = () => {
     };
 
     loadInitialData();
-  }, [priceFilter]);
+  }, []);
 
   const loadMore = async (type) => {
     if (!pagination[type].hasMore) return;
@@ -549,7 +763,7 @@ const EventsStatistics = () => {
     setLoadingMore(prev => ({ ...prev, [type]: true }));
 
     try {
-      const result = await loadEventsFromSupabase(type, pagination[type].offset, 10, priceFilter);
+      const result = await loadEventsFromSupabase(type, pagination[type].offset, 10);
       
       setEvents(prev => ({
         ...prev,
@@ -576,13 +790,6 @@ const EventsStatistics = () => {
     { id: 'past', label: 'Прошедшие', count: events.past.length, icon: TrendingUp }
   ];
 
-  const priceFilters = [
-    { id: 'all', label: 'Все', icon: Filter },
-    { id: 'free', label: 'Бесплатные', icon: Gift },
-    { id: 'donation', label: 'Донаты', icon: Heart },
-    { id: 'paid', label: 'Платные', icon: DollarSign }
-  ];
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-dark-900 dark:via-dark-900 dark:to-dark-800 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -595,18 +802,7 @@ const EventsStatistics = () => {
           </p>
         </div>
 
-        {/* Фильтры по цене */}
-        <div className="mb-8">
-          <div className="flex flex-wrap justify-center gap-2 bg-white dark:bg-dark-800 p-3 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
-            {priceFilters.map((filter) => {
-              const IconComponent = filter.icon;
-              return (
-                <button
-                  key={filter.id}
-                  onClick={() => setPriceFilter(filter.id)}
-                  className={`flex items-center justify-center px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
-                    priceFilter === filter.id
-                      ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md transform scale-105'
+d transform scale-105'
                       : 'text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-dark-700'
                   }`}
                 >
@@ -653,66 +849,75 @@ const EventsStatistics = () => {
         {/* Контент вкладок */}
         <div className="space-y-8">
           {activeTab === 'dashboard' && (
-            <div className="space-y-12">
-              {/* Статистические карточки */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard
-                  title="Всего мероприятий"
-                  value={stats.totalEvents}
-                  subtitle="Завершенных"
-                  icon={Calendar}
-                  color="primary"
-                />
-                <StatCard
-                  title="Участников"
-                  value={stats.totalParticipants.toLocaleString()}
-                  subtitle="За все время"
-                  icon={Users}
-                  color="success"
-                />
-                <StatCard
-                  title="Выручка"
-                  value={`${stats.totalRevenue.toLocaleString()} ₽`}
-                  subtitle="Общая сумма"
-                  icon={DollarSign}
-                  color="warning"
-                />
-                <StatCard
-                  title="Средняя посещаемость"
-                  value={stats.avgParticipants}
-                  subtitle={`${stats.completionRate}% успешность`}
-                  icon={TrendingUp}
-                  color="error"
-                />
-              </div>
+            <div className="space-y-8">
+              {/* Статистика и ближайшее мероприятие */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Компактная статистика */}
+                <div className="lg:col-span-1">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <BarChart3 className="w-5 h-5 mr-2 text-primary-500" />
+                    Статистика
+                  </h2>
+                  <div className="grid grid-cols-1 gap-3">
+                    <StatCard
+                      title="Всего мероприятий"
+                      value={stats.totalEvents}
+                      subtitle="Завершенных"
+                      icon={Calendar}
+                      color="primary"
+                    />
+                    <StatCard
+                      title="Участников"
+                      value={stats.totalParticipants.toLocaleString()}
+                      subtitle="За все время"
+                      icon={Users}
+                      color="success"
+                    />
+                    <StatCard
+                      title="Выручка"
+                      value={`${stats.totalRevenue.toLocaleString()} ₽`}
+                      subtitle="Общая сумма"
+                      icon={DollarSign}
+                      color="warning"
+                    />
+                    <StatCard
+                      title="Средняя посещаемость"
+                      value={stats.avgParticipants}
+                      subtitle={`${stats.completionRate}% успешность`}
+                      icon={TrendingUp}
+                      color="error"
+                    />
+                  </div>
+                </div>
 
-              {/* Ближайшее мероприятие */}
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
-                  <Clock className="w-6 h-6 mr-3 text-primary-500" />
-                  Ближайшее мероприятие
-                </h2>
-                {loading.nearest ? (
-                  <LoadingSpinner />
-                ) : events.nearest.length > 0 ? (
-                  <div className="max-w-2xl mx-auto">
-                    {events.nearest.map((event) => (
-                      <EventCard key={event.id} event={event} />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-white dark:bg-dark-800 rounded-2xl border border-gray-200 dark:border-gray-700">
-                    <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Calendar className="w-8 h-8 text-primary-500" />
+                {/* Ближайшее мероприятие */}
+                <div className="lg:col-span-2">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <Clock className="w-5 h-5 mr-2 text-primary-500" />
+                    Ближайшее мероприятие
+                  </h2>
+                  {loading.nearest ? (
+                    <LoadingSpinner />
+                  ) : events.nearest.length > 0 ? (
+                    <div>
+                      {events.nearest.map((event) => (
+                        <EventCard key={event.id} event={event} />
+                      ))}
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
-                      Нет ближайших мероприятий
-                    </h3>
-                    <p className="text-gray-500 dark:text-gray-400">
-                      Запланируйте новое мероприятие
-                    </p>
-                  </div>
-                )}
+                  ) : (
+                    <div className="text-center py-12 bg-white dark:bg-dark-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+                      <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Calendar className="w-8 h-8 text-primary-500" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                        Нет ближайших мероприятий
+                      </h3>
+                      <p className="text-gray-500 dark:text-gray-400">
+                        Запланируйте новое мероприятие
+                      </p>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Предстоящие мероприятия (компактный вид) */}
@@ -810,19 +1015,55 @@ const EventsStatistics = () => {
 
           {activeTab === 'past' && (
             <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
-                <TrendingUp className="w-6 h-6 mr-3 text-primary-500" />
-                Прошедшие мероприятия
-              </h2>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                  <TrendingUp className="w-6 h-6 mr-3 text-primary-500" />
+                  Прошедшие мероприятия
+                </h2>
+                
+                {/* Тумблер для переключения вида */}
+                <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+                  <button
+                    onClick={() => setIsListView(false)}
+                    className={`p-2 rounded-md transition-all duration-200 ${
+                      !isListView 
+                        ? 'bg-white dark:bg-dark-700 text-primary-600 dark:text-primary-400 shadow-sm' 
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    <Grid3X3 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setIsListView(true)}
+                    className={`p-2 rounded-md transition-all duration-200 ${
+                      isListView 
+                        ? 'bg-white dark:bg-dark-700 text-primary-600 dark:text-primary-400 shadow-sm' 
+                        : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                    }`}
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+              
               {loading.past ? (
                 <LoadingSpinner />
               ) : events.past.length > 0 ? (
                 <div className="space-y-8">
-                  <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
-                    {events.past.map((event) => (
-                      <EventCard key={event.id} event={event} isPast={true} />
-                    ))}
-                  </div>
+                  {isListView ? (
+                    <div className="space-y-3">
+                      {events.past.map((event) => (
+                        <EventListItem key={event.id} event={event} isPast={true} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+                      {events.past.map((event) => (
+                        <EventCard key={event.id} event={event} isPast={true} />
+                      ))}
+                    </div>
+                  )}
+                  
                   {pagination.past.hasMore && (
                     <div className="text-center pt-4">
                       <button
