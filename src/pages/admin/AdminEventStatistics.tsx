@@ -580,23 +580,24 @@ const EventListItem = ({ event, isPast = false }) => {
 
       <RegistrationModal />
     </div>
-  );
 };
+
+const StatCard = ({ title, value, subtitle, icon: Icon, color = 'primary', trend }) => {
   return (
-    <div className={`bg-white dark:bg-dark-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all duration-300`}>
-      <div className="flex items-center justify-between mb-4">
-        <div className={`w-12 h-12 bg-${color}-100 dark:bg-${color}-900/30 rounded-xl flex items-center justify-center`}>
-          <Icon className={`w-6 h-6 text-${color}-600 dark:text-${color}-400`} />
+    <div className={`bg-white dark:bg-dark-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-200`}>
+      <div className="flex items-center justify-between mb-2">
+        <div className={`w-8 h-8 bg-${color}-100 dark:bg-${color}-900/30 rounded-lg flex items-center justify-center`}>
+          <Icon className={`w-4 h-4 text-${color}-600 dark:text-${color}-400`} />
         </div>
         {trend && (
-          <span className={`text-sm font-medium ${trend > 0 ? 'text-success-500' : 'text-error-500'}`}>
+          <span className={`text-xs font-medium ${trend > 0 ? 'text-success-500' : 'text-error-500'}`}>
             {trend > 0 ? '+' : ''}{trend}%
           </span>
         )}
       </div>
       <div className="space-y-1">
-        <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
-        <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
+        <p className="text-xl font-bold text-gray-900 dark:text-white">{value}</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400">{title}</p>
         {subtitle && (
           <p className="text-xs text-gray-400 dark:text-gray-500">{subtitle}</p>
         )}
@@ -800,18 +801,6 @@ const EventsStatistics = () => {
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
             Полная аналитика и контроль ваших событий
           </p>
-        </div>
-
-d transform scale-105'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-dark-700'
-                  }`}
-                >
-                  <IconComponent className="w-4 h-4 mr-2" />
-                  {filter.label}
-                </button>
-              );
-            })}
-          </div>
         </div>
 
         {/* Вкладки */}
