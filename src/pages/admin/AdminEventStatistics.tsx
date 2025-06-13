@@ -587,7 +587,7 @@ const EventsStatistics = () => {
     { id: 'past', label: 'Прошедшие', count: events.past.length, icon: TrendingUp }
   ];
 
-
+ 
 
   
   return (
