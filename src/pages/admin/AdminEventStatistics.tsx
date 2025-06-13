@@ -142,8 +142,8 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
   const fillPercentage = maxRegs > 0 ? (currentRegs / maxRegs) * 100 : 0;
 
   const getStatusColor = () => {
-    if (fillPercentage >= 90) return 'text-red-500';
-    if (fillPercentage >= 70) return 'text-yellow-500';
+    if (fillPercentage >= 90) return 'text-error-500';
+    if (fillPercentage >= 70) return 'text-warning-500';
     return 'text-primary-500';
   };
 
@@ -154,7 +154,7 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
   };
 
   return (
-    <div className={`group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600 ${isCompact ? 'p-4' : 'p-6'}`}>
+    <div className={`group relative bg-white dark:bg-dark-800 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600 ${isCompact ? 'p-4' : 'p-6'}`}>
       {/* Цветная полоска сверху */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600"></div>
       
@@ -186,8 +186,8 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
               </div>
             ) : (
               <div className="flex items-center justify-end gap-1">
-                <Gift className={`text-green-600 dark:text-green-400 ${isCompact ? 'w-5 h-5' : 'w-6 h-6'}`} />
-                <span className={`font-bold text-green-600 dark:text-green-400 ${isCompact ? 'text-sm' : 'text-base'}`}>
+                <Gift className={`text-success-600 dark:text-success-400 ${isCompact ? 'w-5 h-5' : 'w-6 h-6'}`} />
+                <span className={`font-bold text-success-600 dark:text-success-400 ${isCompact ? 'text-sm' : 'text-base'}`}>
                   Бесплатно
                 </span>
               </div>
@@ -274,7 +274,7 @@ const EventListItem = ({ event, isPast = false }: { event: any, isPast?: boolean
   const maxRegs = registrations.max_regs || 0;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600 transition-all duration-200 hover:shadow-md relative overflow-hidden">
+    <div className="bg-white dark:bg-dark-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600 transition-all duration-200 hover:shadow-md relative overflow-hidden">
       {/* Цветная полоска сверху */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600"></div>
       
@@ -319,8 +319,8 @@ const EventListItem = ({ event, isPast = false }: { event: any, isPast?: boolean
                   </>
                 ) : (
                   <>
-                    <Gift className="w-3 h-3 text-green-600" />
-                    <span className="font-medium text-green-600">Бесплатно</span>
+                    <Gift className="w-3 h-3 text-success-600" />
+                    <span className="font-medium text-success-600">Бесплатно</span>
                   </>
                 )}
               </div>
@@ -338,19 +338,12 @@ const EventListItem = ({ event, isPast = false }: { event: any, isPast?: boolean
 };
 
 // Компонент карточки статистики
-const StatCard = ({ title, value, subtitle, icon: Icon, color = 'blue' }: { title: string, value: string | number, subtitle?: string, icon: any, color?: string }) => {
-  const colorClasses = {
-    blue: 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400',
-    green: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
-    yellow: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400',
-    red: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-  };
-
+const StatCard = ({ title, value, subtitle, icon: Icon, color = 'primary' }: { title: string, value: string | number, subtitle?: string, icon: any, color?: string }) => {
   return (
-    <div className="bg-white dark:bg-gray-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-200">
+    <div className="bg-white dark:bg-dark-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-200">
       <div className="flex items-center justify-between mb-2">
-        <div className={`w-6 h-6 rounded-md flex items-center justify-center ${colorClasses[color as keyof typeof colorClasses] || colorClasses.blue}`}>
-          <Icon className="w-3 h-3" />
+        <div className={`w-6 h-6 bg-${color}-100 dark:bg-${color}-900/30 rounded-md flex items-center justify-center`}>
+          <Icon className={`w-3 h-3 text-${color}-600 dark:text-${color}-400`} />
         </div>
       </div>
       <div className="space-y-0.5">
@@ -382,7 +375,7 @@ const ViewToggle = ({ isListView, onToggle }: { isListView: boolean, onToggle: (
       onClick={() => onToggle(false)}
       className={`p-2 rounded-md transition-all duration-200 ${
         !isListView 
-          ? 'bg-white dark:bg-gray-700 text-primary-600 dark:text-primary-400 shadow-sm' 
+          ? 'bg-white dark:bg-dark-700 text-primary-600 dark:text-primary-400 shadow-sm' 
           : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
       }`}
     >
@@ -392,7 +385,7 @@ const ViewToggle = ({ isListView, onToggle }: { isListView: boolean, onToggle: (
       onClick={() => onToggle(true)}
       className={`p-2 rounded-md transition-all duration-200 ${
         isListView 
-          ? 'bg-white dark:bg-gray-700 text-primary-600 dark:text-primary-400 shadow-sm' 
+          ? 'bg-white dark:bg-dark-700 text-primary-600 dark:text-primary-400 shadow-sm' 
           : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
       }`}
     >
@@ -594,11 +587,11 @@ const EventsStatistics = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-dark-900 dark:via-dark-900 dark:to-dark-800 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Заголовок */}
         <div className="mb-12 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary-600 via-primary-500 to-purple-500 bg-clip-text text-transparent mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary-600 via-primary-500 to-secondary-500 bg-clip-text text-transparent mb-4">
             Управление мероприятиями
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
@@ -608,7 +601,7 @@ const EventsStatistics = () => {
 
         {/* Вкладки */}
         <div className="mb-10">
-          <div className="flex flex-wrap justify-center gap-2 bg-white dark:bg-gray-800 p-2 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-wrap justify-center gap-2 bg-white dark:bg-dark-800 p-2 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
             {tabs.map((tab) => {
               const IconComponent = tab.icon;
               return (
@@ -618,7 +611,7 @@ const EventsStatistics = () => {
                   className={`flex items-center justify-center px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg transform scale-105'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-dark-700'
                   }`}
                 >
                   <IconComponent className="w-5 h-5 mr-2" />
@@ -646,7 +639,7 @@ const EventsStatistics = () => {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                 {/* Статистика с фильтром */}
                 <div className="lg:col-span-1">
-                  <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 space-y-6">
+                  <div className="bg-white dark:bg-dark-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 space-y-6">
                     {/* Фильтр по времени */}
                     <div>
                       <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
@@ -683,7 +676,7 @@ const EventsStatistics = () => {
                                 type="date"
                                 value={customDateRange.start}
                                 onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
-                                className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-xs bg-white dark:bg-dark-700 text-gray-900 dark:text-white"
                               />
                             </div>
                             <div>
@@ -692,7 +685,7 @@ const EventsStatistics = () => {
                                 type="date"
                                 value={customDateRange.end}
                                 onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
-                                className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-xs bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                                className="px-2 py-1 border border-gray-300 dark:border-gray-600 rounded-md text-xs bg-white dark:bg-dark-700 text-gray-900 dark:text-white"
                               />
                             </div>
                           </div>
@@ -706,26 +699,26 @@ const EventsStatistics = () => {
                         title="Мероприятий"
                         value={stats.totalEvents}
                         icon={Calendar}
-                        color="blue"
+                        color="primary"
                       />
                       <StatCard
                         title="Участников"
                         value={stats.totalParticipants.toLocaleString()}
                         icon={Users}
-                        color="green"
+                        color="success"
                       />
                       <StatCard
                         title="Выручка"
                         value={`${Math.round(stats.totalRevenue / 1000)}K ₽`}
                         icon={DollarSign}
-                        color="yellow"
+                        color="warning"
                       />
                       <StatCard
                         title="Ср. посещ."
                         value={stats.avgParticipants}
                         subtitle={`${stats.completionRate}% успех`}
                         icon={TrendingUp}
-                        color="red"
+                        color="error"
                       />
                     </div>
                   </div>
@@ -746,7 +739,7 @@ const EventsStatistics = () => {
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+                    <div className="text-center py-12 bg-white dark:bg-dark-800 rounded-2xl border border-gray-200 dark:border-gray-700">
                       <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-4">
                         <Calendar className="w-8 h-8 text-primary-500" />
                       </div>
@@ -798,7 +791,7 @@ const EventsStatistics = () => {
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+                  <div className="text-center py-12 bg-white dark:bg-dark-800 rounded-2xl border border-gray-200 dark:border-gray-700">
                     <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-4">
                       <Calendar className="w-8 h-8 text-primary-500" />
                     </div>
