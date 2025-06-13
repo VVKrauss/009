@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award, X, BarChart3, DollarSign, Heart, Gift, Filter, Eye } from 'lucide-react';
 
-// Предполагаем, что эти импорты доступны из оригинального кода
-// const { supabase } = require('../../lib/supabase');
-// const { getSupabaseImageUrl } = require('../../utils/imageUtils');
-
-// Заглушки для демонстрации интерфейса
-const supabase = null;
-const getSupabaseImageUrl = (url) => url;
+import { supabase } from '../../lib/supabase';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 const EventCard = ({ event, isPast = false, isCompact = false }) => {
   if (!event) {
@@ -20,7 +15,7 @@ const EventCard = ({ event, isPast = false, isCompact = false }) => {
 
   useEffect(() => {
     const loadSpeakers = async () => {
-      if (!event.speakers || !Array.isArray(event.speakers) || !supabase) {
+      if (!event.speakers || !Array.isArray(event.speakers)) {
         return;
       }
       setLoadingSpeakers(true);
@@ -428,11 +423,6 @@ const EventsStatistics = () => {
 
   const loadEventsFromSupabase = async (type, offset = 0, limit = 10, priceFilterValue = 'all') => {
     try {
-      if (!supabase) {
-        // Возвращаем пустые данные если Supabase недоступен
-        return { data: [], hasMore: false };
-      }
-
       const now = new Date().toISOString();
       let query = supabase.from('events').select('*');
 
@@ -482,8 +472,6 @@ const EventsStatistics = () => {
 
   const calculateStats = async () => {
     try {
-      if (!supabase) return;
-
       const { data: pastEvents, error } = await supabase
         .from('events')
         .select('*')
