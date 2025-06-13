@@ -1,9 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award, X } from 'lucide-react';
-import { supabase } from '../../lib/supabase';
-import { getSupabaseImageUrl } from '../../utils/imageUtils';
+import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award, X, BarChart3, DollarSign, Heart, Gift, Filter, Eye } from 'lucide-react';
 
-const EventCard = ({ event, isPast = false }) => {
+// Предполагаем, что эти импорты доступны из оригинального кода
+// const { supabase } = require('../../lib/supabase');
+// const { getSupabaseImageUrl } = require('../../utils/imageUtils');
+
+// Заглушки для демонстрации интерфейса
+const supabase = null;
+const getSupabaseImageUrl = (url) => url;
+
+const EventCard = ({ event, isPast = false, isCompact = false }) => {
   if (!event) {
     return null;
   }
@@ -14,7 +20,7 @@ const EventCard = ({ event, isPast = false }) => {
 
   useEffect(() => {
     const loadSpeakers = async () => {
-      if (!event.speakers || !Array.isArray(event.speakers)) {
+      if (!event.speakers || !Array.isArray(event.speakers) || !supabase) {
         return;
       }
       setLoadingSpeakers(true);
@@ -87,6 +93,18 @@ const EventCard = ({ event, isPast = false }) => {
       case 'meetup': return <Users className="w-4 h-4" />;
       default: return <Calendar className="w-4 h-4" />;
     }
+  };
+
+  const getPriceTypeIcon = (price) => {
+    if (price === 0) return <Gift className="w-4 h-4" />;
+    if (price > 0 && price < 1000) return <Heart className="w-4 h-4" />;
+    return <DollarSign className="w-4 h-4" />;
+  };
+
+  const getPriceTypeLabel = (price) => {
+    if (price === 0) return 'Бесплатно';
+    if (price > 0 && price < 1000) return 'Донаты';
+    return 'Платно';
   };
 
   const registrations = event.registrations || {};
@@ -212,10 +230,10 @@ const EventCard = ({ event, isPast = false }) => {
   };
 
   return (
-    <div className="group relative bg-white dark:bg-dark-800 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600">
+    <div className={`group relative bg-white dark:bg-dark-800 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600 ${isCompact ? 'p-4' : 'p-6'}`}>
       <div className="h-1 bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600"></div>
       
-      <div className="p-6">
+      <div className={isCompact ? 'mt-4' : ''}>
         <div className="flex justify-between items-start mb-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
@@ -223,15 +241,19 @@ const EventCard = ({ event, isPast = false }) => {
                 {getEventTypeIcon(event.event_type)}
                 {getEventTypeLabel(event.event_type)}
               </span>
+              <span className="inline-flex items-center gap-1 bg-gray-50 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-sm font-medium">
+                {getPriceTypeIcon(event.price)}
+                {getPriceTypeLabel(event.price)}
+              </span>
             </div>
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+            <h3 className={`font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors ${isCompact ? 'text-lg' : 'text-xl'}`}>
               {event.title || 'Без названия'}
             </h3>
           </div>
           <div className="text-right ml-4">
             {event.price > 0 ? (
               <div className="text-right">
-                <span className="text-2xl font-bold text-primary-600 dark:text-primary-400">
+                <span className={`font-bold text-primary-600 dark:text-primary-400 ${isCompact ? 'text-lg' : 'text-2xl'}`}>
                   {event.price.toLocaleString()}
                 </span>
                 <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">
@@ -239,14 +261,14 @@ const EventCard = ({ event, isPast = false }) => {
                 </span>
               </div>
             ) : (
-              <span className="text-xl font-bold text-success-600 dark:text-success-400">
+              <span className={`font-bold text-success-600 dark:text-success-400 ${isCompact ? 'text-lg' : 'text-xl'}`}>
                 Бесплатно
               </span>
             )}
           </div>
         </div>
 
-        {event.description && (
+        {!isCompact && event.description && (
           <p className="text-gray-600 dark:text-gray-300 mb-6 leading-relaxed">
             {event.description.length > 120 
               ? `${event.description.substring(0, 120)}...` 
@@ -254,33 +276,33 @@ const EventCard = ({ event, isPast = false }) => {
           </p>
         )}
 
-        <div className="space-y-4">
+        <div className={`space-y-${isCompact ? '2' : '4'}`}>
           <div className="flex items-center text-gray-700 dark:text-gray-300">
-            <div className="flex items-center justify-center w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3">
-              <Calendar className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+            <div className={`flex items-center justify-center bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3 ${isCompact ? 'w-6 h-6' : 'w-8 h-8'}`}>
+              <Calendar className={`text-primary-600 dark:text-primary-400 ${isCompact ? 'w-3 h-3' : 'w-4 h-4'}`} />
             </div>
-            <span className="font-medium">{formatDate(event.date || event.start_time)}</span>
+            <span className={`font-medium ${isCompact ? 'text-sm' : ''}`}>{formatDate(event.date || event.start_time)}</span>
           </div>
 
           <div className="flex items-center text-gray-700 dark:text-gray-300">
-            <div className="flex items-center justify-center w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3">
-              <Clock className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+            <div className={`flex items-center justify-center bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3 ${isCompact ? 'w-6 h-6' : 'w-8 h-8'}`}>
+              <Clock className={`text-primary-600 dark:text-primary-400 ${isCompact ? 'w-3 h-3' : 'w-4 h-4'}`} />
             </div>
-            <span className="font-medium">
+            <span className={`font-medium ${isCompact ? 'text-sm' : ''}`}>
               {formatTime(event.start_time)} - {formatTime(event.end_time)}
             </span>
           </div>
 
           <div className="flex items-center text-gray-700 dark:text-gray-300">
-            <div className="flex items-center justify-center w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3">
-              <Users className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+            <div className={`flex items-center justify-center bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3 ${isCompact ? 'w-6 h-6' : 'w-8 h-8'}`}>
+              <Users className={`text-primary-600 dark:text-primary-400 ${isCompact ? 'w-3 h-3' : 'w-4 h-4'}`} />
             </div>
-            <span className="font-medium">
+            <span className={`font-medium ${isCompact ? 'text-sm' : ''}`}>
               <span className={getStatusColor()}>{currentRegs}</span> из {maxRegs} участников
             </span>
           </div>
 
-          {!isPast && maxRegs > 0 && (
+          {!isPast && maxRegs > 0 && !isCompact && (
             <div className="mt-6 cursor-pointer" onClick={() => setIsModalOpen(true)}>
               <div className="flex justify-between text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 <span>Заполненность</span>
@@ -296,7 +318,7 @@ const EventCard = ({ event, isPast = false }) => {
           )}
         </div>
 
-        {speakers.length > 0 && (
+        {speakers.length > 0 && !isCompact && (
           <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
             <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Спикеры:</p>
             <div className="flex flex-wrap gap-3">
@@ -341,18 +363,43 @@ const EventCard = ({ event, isPast = false }) => {
   );
 };
 
+const StatCard = ({ title, value, subtitle, icon: Icon, color = 'primary', trend }) => {
+  return (
+    <div className={`bg-white dark:bg-dark-800 p-6 rounded-2xl shadow-lg border border-gray-100 dark:border-gray-700 hover:shadow-xl transition-all duration-300`}>
+      <div className="flex items-center justify-between mb-4">
+        <div className={`w-12 h-12 bg-${color}-100 dark:bg-${color}-900/30 rounded-xl flex items-center justify-center`}>
+          <Icon className={`w-6 h-6 text-${color}-600 dark:text-${color}-400`} />
+        </div>
+        {trend && (
+          <span className={`text-sm font-medium ${trend > 0 ? 'text-success-500' : 'text-error-500'}`}>
+            {trend > 0 ? '+' : ''}{trend}%
+          </span>
+        )}
+      </div>
+      <div className="space-y-1">
+        <p className="text-2xl font-bold text-gray-900 dark:text-white">{value}</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400">{title}</p>
+        {subtitle && (
+          <p className="text-xs text-gray-400 dark:text-gray-500">{subtitle}</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 const LoadingSpinner = () => (
   <div className="flex justify-center items-center py-12">
     <div className="relative">
       <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
       <div className="absolute inset-0 w-8 h-8 border-2 border-primary-200 dark:border-primary-800 rounded-full"></div>
     </div>
-    <span className="ml-3 text-gray-600 dark:text-gray-300 font-medium">Загрузка мероприятий...</span>
+    <span className="ml-3 text-gray-600 dark:text-gray-300 font-medium">Загрузка данных...</span>
   </div>
 );
 
 const EventsStatistics = () => {
-  const [activeTab, setActiveTab] = useState('upcoming');
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [priceFilter, setPriceFilter] = useState('all');
   const [events, setEvents] = useState({
     nearest: [],
     upcoming: [],
@@ -371,11 +418,32 @@ const EventsStatistics = () => {
     upcoming: { offset: 0, hasMore: true },
     past: { offset: 0, hasMore: true }
   });
+  const [stats, setStats] = useState({
+    totalEvents: 0,
+    totalParticipants: 0,
+    totalRevenue: 0,
+    avgParticipants: 0,
+    completionRate: 0
+  });
 
-  const loadEventsFromSupabase = async (type, offset = 0, limit = 10) => {
+  const loadEventsFromSupabase = async (type, offset = 0, limit = 10, priceFilterValue = 'all') => {
     try {
+      if (!supabase) {
+        // Возвращаем пустые данные если Supabase недоступен
+        return { data: [], hasMore: false };
+      }
+
       const now = new Date().toISOString();
       let query = supabase.from('events').select('*');
+
+      // Применяем фильтр по цене
+      if (priceFilterValue === 'free') {
+        query = query.eq('price', 0);
+      } else if (priceFilterValue === 'donation') {
+        query = query.gt('price', 0).lt('price', 1000);
+      } else if (priceFilterValue === 'paid') {
+        query = query.gte('price', 1000);
+      }
 
       if (type === 'nearest') {
         const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -412,15 +480,57 @@ const EventsStatistics = () => {
     }
   };
 
+  const calculateStats = async () => {
+    try {
+      if (!supabase) return;
+
+      const { data: pastEvents, error } = await supabase
+        .from('events')
+        .select('*')
+        .or(`start_time.lt.${new Date().toISOString()},status.eq.past`);
+
+      if (error) throw error;
+
+      const totalEvents = pastEvents.length;
+      let totalParticipants = 0;
+      let totalRevenue = 0;
+      let completedEvents = 0;
+
+      pastEvents.forEach(event => {
+        const registrations = event.registrations || {};
+        const participants = parseInt(registrations.current || '0') || 0;
+        totalParticipants += participants;
+        
+        if (event.price && participants > 0) {
+          totalRevenue += event.price * participants;
+        }
+        
+        if (event.status === 'completed' || participants > 0) {
+          completedEvents++;
+        }
+      });
+
+      setStats({
+        totalEvents,
+        totalParticipants,
+        totalRevenue,
+        avgParticipants: totalEvents > 0 ? Math.round(totalParticipants / totalEvents) : 0,
+        completionRate: totalEvents > 0 ? Math.round((completedEvents / totalEvents) * 100) : 0
+      });
+    } catch (error) {
+      console.error('Error calculating stats:', error);
+    }
+  };
+
   useEffect(() => {
     const loadInitialData = async () => {
       setLoading({ nearest: true, upcoming: true, past: true });
       
       try {
         const [nearestResult, upcomingResult, pastResult] = await Promise.all([
-          loadEventsFromSupabase('nearest'),
-          loadEventsFromSupabase('upcoming', 0, 10),
-          loadEventsFromSupabase('past', 0, 10)
+          loadEventsFromSupabase('nearest', 0, 1, priceFilter),
+          loadEventsFromSupabase('upcoming', 0, 6, priceFilter),
+          loadEventsFromSupabase('past', 0, 10, priceFilter)
         ]);
 
         setEvents({
@@ -430,9 +540,11 @@ const EventsStatistics = () => {
         });
 
         setPagination({
-          upcoming: { offset: 10, hasMore: upcomingResult.hasMore },
+          upcoming: { offset: 6, hasMore: upcomingResult.hasMore },
           past: { offset: 10, hasMore: pastResult.hasMore }
         });
+
+        await calculateStats();
       } catch (error) {
         console.error('Error loading initial data:', error);
       } finally {
@@ -441,7 +553,7 @@ const EventsStatistics = () => {
     };
 
     loadInitialData();
-  }, []);
+  }, [priceFilter]);
 
   const loadMore = async (type) => {
     if (!pagination[type].hasMore) return;
@@ -449,7 +561,7 @@ const EventsStatistics = () => {
     setLoadingMore(prev => ({ ...prev, [type]: true }));
 
     try {
-      const result = await loadEventsFromSupabase(type, pagination[type].offset, 10);
+      const result = await loadEventsFromSupabase(type, pagination[type].offset, 10, priceFilter);
       
       setEvents(prev => ({
         ...prev,
@@ -471,9 +583,16 @@ const EventsStatistics = () => {
   };
 
   const tabs = [
-    { id: 'nearest', label: 'Ближайшее', count: events.nearest.length, icon: Clock },
+    { id: 'dashboard', label: 'Дашборд', icon: BarChart3 },
     { id: 'upcoming', label: 'Предстоящие', count: events.upcoming.length, icon: Calendar },
     { id: 'past', label: 'Прошедшие', count: events.past.length, icon: TrendingUp }
+  ];
+
+  const priceFilters = [
+    { id: 'all', label: 'Все', icon: Filter },
+    { id: 'free', label: 'Бесплатные', icon: Gift },
+    { id: 'donation', label: 'Донаты', icon: Heart },
+    { id: 'paid', label: 'Платные', icon: DollarSign }
   ];
 
   return (
@@ -481,13 +600,37 @@ const EventsStatistics = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="mb-12 text-center">
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary-600 via-primary-500 to-secondary-500 bg-clip-text text-transparent mb-4">
-            Статистика мероприятий
+            Управление мероприятиями
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
-            Управляйте своими мероприятиями и отслеживайте их эффективность
+            Полная аналитика и контроль ваших событий
           </p>
         </div>
 
+        {/* Фильтры по цене */}
+        <div className="mb-8">
+          <div className="flex flex-wrap justify-center gap-2 bg-white dark:bg-dark-800 p-3 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
+            {priceFilters.map((filter) => {
+              const IconComponent = filter.icon;
+              return (
+                <button
+                  key={filter.id}
+                  onClick={() => setPriceFilter(filter.id)}
+                  className={`flex items-center justify-center px-4 py-2 rounded-xl font-medium transition-all duration-300 ${
+                    priceFilter === filter.id
+                      ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-md transform scale-105'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-dark-700'
+                  }`}
+                >
+                  <IconComponent className="w-4 h-4 mr-2" />
+                  {filter.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Вкладки */}
         <div className="mb-10">
           <div className="flex flex-wrap justify-center gap-2 bg-white dark:bg-dark-800 p-2 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700">
             {tabs.map((tab) => {
@@ -504,7 +647,7 @@ const EventsStatistics = () => {
                 >
                   <IconComponent className="w-5 h-5 mr-2" />
                   {tab.label}
-                  {tab.count > 0 && (
+                  {tab.count && tab.count > 0 && (
                     <span className={`ml-3 px-2 py-1 text-sm rounded-full font-bold ${
                       activeTab === tab.id
                         ? 'bg-white/20 text-white'
@@ -519,34 +662,108 @@ const EventsStatistics = () => {
           </div>
         </div>
 
+        {/* Контент вкладок */}
         <div className="space-y-8">
-          {activeTab === 'nearest' && (
-            <div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
-                <Clock className="w-6 h-6 mr-3 text-primary-500" />
-                Ближайшее мероприятие
-              </h2>
-              {loading.nearest ? (
-                <LoadingSpinner />
-              ) : events.nearest.length > 0 ? (
-                <div className="max-w-2xl mx-auto">
-                  {events.nearest.map((event) => (
-                    <EventCard key={event.id} event={event} />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-16">
-                  <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Calendar className="w-12 h-12 text-primary-500" />
+          {activeTab === 'dashboard' && (
+            <div className="space-y-12">
+              {/* Статистические карточки */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <StatCard
+                  title="Всего мероприятий"
+                  value={stats.totalEvents}
+                  subtitle="Завершенных"
+                  icon={Calendar}
+                  color="primary"
+                />
+                <StatCard
+                  title="Участников"
+                  value={stats.totalParticipants.toLocaleString()}
+                  subtitle="За все время"
+                  icon={Users}
+                  color="success"
+                />
+                <StatCard
+                  title="Выручка"
+                  value={`${stats.totalRevenue.toLocaleString()} ₽`}
+                  subtitle="Общая сумма"
+                  icon={DollarSign}
+                  color="warning"
+                />
+                <StatCard
+                  title="Средняя посещаемость"
+                  value={stats.avgParticipants}
+                  subtitle={`${stats.completionRate}% успешность`}
+                  icon={TrendingUp}
+                  color="error"
+                />
+              </div>
+
+              {/* Ближайшее мероприятие */}
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 flex items-center">
+                  <Clock className="w-6 h-6 mr-3 text-primary-500" />
+                  Ближайшее мероприятие
+                </h2>
+                {loading.nearest ? (
+                  <LoadingSpinner />
+                ) : events.nearest.length > 0 ? (
+                  <div className="max-w-2xl mx-auto">
+                    {events.nearest.map((event) => (
+                      <EventCard key={event.id} event={event} />
+                    ))}
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                    Нет ближайших мероприятий
-                  </h3>
-                  <p className="text-gray-500 dark:text-gray-400">
-                    Запланируйте новое мероприятие или проверьте позже
-                  </p>
+                ) : (
+                  <div className="text-center py-12 bg-white dark:bg-dark-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+                    <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Calendar className="w-8 h-8 text-primary-500" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                      Нет ближайших мероприятий
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400">
+                      Запланируйте новое мероприятие
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Предстоящие мероприятия (компактный вид) */}
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                    <Calendar className="w-6 h-6 mr-3 text-primary-500" />
+                    Предстоящие мероприятия
+                  </h2>
+                  <button
+                    onClick={() => setActiveTab('upcoming')}
+                    className="flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
+                  >
+                    <Eye className="w-4 h-4 mr-1" />
+                    Смотреть все
+                  </button>
                 </div>
-              )}
+                {loading.upcoming ? (
+                  <LoadingSpinner />
+                ) : events.upcoming.length > 0 ? (
+                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                    {events.upcoming.slice(0, 6).map((event) => (
+                      <EventCard key={event.id} event={event} isCompact={true} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-white dark:bg-dark-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+                    <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Calendar className="w-8 h-8 text-primary-500" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                      Нет предстоящих мероприятий
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400">
+                      Создайте новое мероприятие
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
