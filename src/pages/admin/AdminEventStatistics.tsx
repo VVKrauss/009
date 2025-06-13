@@ -144,7 +144,7 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
   const getStatusColor = () => {
     if (fillPercentage >= 90) return 'text-red-500';
     if (fillPercentage >= 70) return 'text-yellow-500';
-    return 'text-blue-500';
+    return 'text-primary-500';
   };
 
   const getSpeakerPhoto = (speaker: any) => {
@@ -154,20 +154,20 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
   };
 
   return (
-    <div className={`group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-600 ${isCompact ? 'p-4' : 'p-6'}`}>
+    <div className={`group relative bg-white dark:bg-gray-800 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600 ${isCompact ? 'p-4' : 'p-6'}`}>
       {/* Цветная полоска сверху */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600"></div>
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600"></div>
       
       <div className={isCompact ? 'mt-2' : 'mt-4'}>
         <div className="flex justify-between items-start mb-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <span className="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-md text-xs font-medium">
+              <span className="inline-flex items-center gap-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-2 py-1 rounded-md text-xs font-medium">
                 {getEventTypeIcon(event.event_type)}
                 <span className="ml-1">{getEventTypeLabel(event.event_type)}</span>
               </span>
             </div>
-            <h3 className={`font-bold text-gray-900 dark:text-white mb-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors ${isCompact ? 'text-lg' : 'text-xl'}`}>
+            <h3 className={`font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors ${isCompact ? 'text-lg' : 'text-xl'}`}>
               {event.title || 'Без названия'}
             </h3>
           </div>
@@ -175,8 +175,8 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
             {event.price > 0 ? (
               <div className="text-right">
                 <div className="flex items-center justify-end gap-1">
-                  <CreditCard className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                  <span className={`font-bold text-blue-600 dark:text-blue-400 ${isCompact ? 'text-lg' : 'text-xl'}`}>
+                  <CreditCard className="w-4 h-4 text-primary-600 dark:text-primary-400" />
+                  <span className={`font-bold text-primary-600 dark:text-primary-400 ${isCompact ? 'text-lg' : 'text-xl'}`}>
                     {event.price.toLocaleString()}
                   </span>
                   <span className="text-sm text-gray-500 dark:text-gray-400">
@@ -197,15 +197,15 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
 
         <div className={`space-y-${isCompact ? '2' : '4'}`}>
           <div className="flex items-center text-gray-700 dark:text-gray-300">
-            <div className={`flex items-center justify-center bg-blue-100 dark:bg-blue-900/30 rounded-lg mr-3 ${isCompact ? 'w-6 h-6' : 'w-8 h-8'}`}>
-              <Calendar className={`text-blue-600 dark:text-blue-400 ${isCompact ? 'w-3 h-3' : 'w-4 h-4'}`} />
+            <div className={`flex items-center justify-center bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3 ${isCompact ? 'w-6 h-6' : 'w-8 h-8'}`}>
+              <Calendar className={`text-primary-600 dark:text-primary-400 ${isCompact ? 'w-3 h-3' : 'w-4 h-4'}`} />
             </div>
             <span className={`font-medium ${isCompact ? 'text-sm' : ''}`}>{formatDate(event.date || event.start_time)}</span>
           </div>
 
           <div className="flex items-center text-gray-700 dark:text-gray-300">
-            <div className={`flex items-center justify-center bg-blue-100 dark:bg-blue-900/30 rounded-lg mr-3 ${isCompact ? 'w-6 h-6' : 'w-8 h-8'}`}>
-              <Clock className={`text-blue-600 dark:text-blue-400 ${isCompact ? 'w-3 h-3' : 'w-4 h-4'}`} />
+            <div className={`flex items-center justify-center bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3 ${isCompact ? 'w-6 h-6' : 'w-8 h-8'}`}>
+              <Clock className={`text-primary-600 dark:text-primary-400 ${isCompact ? 'w-3 h-3' : 'w-4 h-4'}`} />
             </div>
             <span className={`font-medium ${isCompact ? 'text-sm' : ''}`}>
               {formatTime(event.start_time)} - {formatTime(event.end_time)}
@@ -213,8 +213,8 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
           </div>
 
           <div className="flex items-center text-gray-700 dark:text-gray-300">
-            <div className={`flex items-center justify-center bg-blue-100 dark:bg-blue-900/30 rounded-lg mr-3 ${isCompact ? 'w-6 h-6' : 'w-8 h-8'}`}>
-              <Users className={`text-blue-600 dark:text-blue-400 ${isCompact ? 'w-3 h-3' : 'w-4 h-4'}`} />
+            <div className={`flex items-center justify-center bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3 ${isCompact ? 'w-6 h-6' : 'w-8 h-8'}`}>
+              <Users className={`text-primary-600 dark:text-primary-400 ${isCompact ? 'w-3 h-3' : 'w-4 h-4'}`} />
             </div>
             <span className={`font-medium ${isCompact ? 'text-sm' : ''}`}>
               <span className={getStatusColor()}>{currentRegs}</span> из {maxRegs} участников
@@ -231,17 +231,17 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
                 return (
                   <div 
                     key={speaker.id}
-                    className="flex items-center gap-2 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 text-blue-700 dark:text-blue-300 px-3 py-2 rounded-full text-sm font-medium"
+                    className="flex items-center gap-2 bg-gradient-to-r from-primary-50 to-primary-100 dark:from-primary-900/20 dark:to-primary-800/20 text-primary-700 dark:text-primary-300 px-3 py-2 rounded-full text-sm font-medium"
                   >
                     {photoUrl ? (
                       <img 
                         src={photoUrl} 
                         alt={speaker.name}
-                        className="w-6 h-6 rounded-full object-cover border-2 border-blue-200 dark:border-blue-600"
+                        className="w-6 h-6 rounded-full object-cover border-2 border-primary-200 dark:border-primary-600"
                       />
                     ) : (
-                      <div className="w-6 h-6 bg-blue-200 dark:bg-blue-600 rounded-full flex items-center justify-center">
-                        <Users className="w-3 h-3 text-blue-600 dark:text-blue-300" />
+                      <div className="w-6 h-6 bg-primary-200 dark:bg-primary-600 rounded-full flex items-center justify-center">
+                        <Users className="w-3 h-3 text-primary-600 dark:text-primary-300" />
                       </div>
                     )}
                     <span>{speaker.name || 'Без имени'}</span>
@@ -274,14 +274,14 @@ const EventListItem = ({ event, isPast = false }: { event: any, isPast?: boolean
   const maxRegs = registrations.max_regs || 0;
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-600 transition-all duration-200 hover:shadow-md relative overflow-hidden">
+    <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600 transition-all duration-200 hover:shadow-md relative overflow-hidden">
       {/* Цветная полоска сверху */}
-      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600"></div>
+      <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600"></div>
       
       <div className="flex items-start justify-between mt-2">
         <div className="flex items-start space-x-3 flex-1 min-w-0">
           <div className="flex-shrink-0">
-            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
               {getEventTypeIcon(event.event_type)}
             </div>
           </div>
@@ -306,7 +306,7 @@ const EventListItem = ({ event, isPast = false }: { event: any, isPast?: boolean
                 <Users className="w-3 h-3 mr-1" />
                 {currentRegs}/{maxRegs}
               </div>
-              <span className="inline-flex items-center bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded text-xs font-medium">
+              <span className="inline-flex items-center bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-2 py-0.5 rounded text-xs font-medium">
                 {getEventTypeLabel(event.event_type)}
               </span>
               <div className="flex items-center gap-1">
@@ -325,7 +325,7 @@ const EventListItem = ({ event, isPast = false }: { event: any, isPast?: boolean
                 )}
               </div>
               {isPast && currentRegs > 0 && (
-                <button className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-xs underline">
+                <button className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-xs underline">
                   Подробнее
                 </button>
               )}
@@ -340,7 +340,7 @@ const EventListItem = ({ event, isPast = false }: { event: any, isPast?: boolean
 // Компонент карточки статистики
 const StatCard = ({ title, value, subtitle, icon: Icon, color = 'blue' }: { title: string, value: string | number, subtitle?: string, icon: any, color?: string }) => {
   const colorClasses = {
-    blue: 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400',
+    blue: 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400',
     green: 'bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400',
     yellow: 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400',
     red: 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
@@ -368,8 +368,8 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = 'blue' }: { titl
 const LoadingSpinner = () => (
   <div className="flex justify-center items-center py-12">
     <div className="relative">
-      <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-      <div className="absolute inset-0 w-8 h-8 border-2 border-blue-200 dark:border-blue-800 rounded-full"></div>
+      <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      <div className="absolute inset-0 w-8 h-8 border-2 border-primary-200 dark:border-primary-800 rounded-full"></div>
     </div>
     <span className="ml-3 text-gray-600 dark:text-gray-300 font-medium">Загрузка данных...</span>
   </div>
@@ -382,7 +382,7 @@ const ViewToggle = ({ isListView, onToggle }: { isListView: boolean, onToggle: (
       onClick={() => onToggle(false)}
       className={`p-2 rounded-md transition-all duration-200 ${
         !isListView 
-          ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' 
+          ? 'bg-white dark:bg-gray-700 text-primary-600 dark:text-primary-400 shadow-sm' 
           : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
       }`}
     >
@@ -392,7 +392,7 @@ const ViewToggle = ({ isListView, onToggle }: { isListView: boolean, onToggle: (
       onClick={() => onToggle(true)}
       className={`p-2 rounded-md transition-all duration-200 ${
         isListView 
-          ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm' 
+          ? 'bg-white dark:bg-gray-700 text-primary-600 dark:text-primary-400 shadow-sm' 
           : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
       }`}
     >
@@ -598,7 +598,7 @@ const EventsStatistics = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Заголовок */}
         <div className="mb-12 text-center">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 via-blue-500 to-purple-500 bg-clip-text text-transparent mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary-600 via-primary-500 to-purple-500 bg-clip-text text-transparent mb-4">
             Управление мероприятиями
           </h1>
           <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
@@ -617,8 +617,8 @@ const EventsStatistics = () => {
                   onClick={() => setActiveTab(tab.id)}
                   className={`flex items-center justify-center px-6 py-3 rounded-xl font-semibold transition-all duration-300 ${
                     activeTab === tab.id
-                      ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-lg transform scale-105'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700'
+                      ? 'bg-gradient-to-r from-primary-500 to-primary-600 text-white shadow-lg transform scale-105'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-primary-600 dark:hover:text-primary-400 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
                   <IconComponent className="w-5 h-5 mr-2" />
@@ -627,7 +627,7 @@ const EventsStatistics = () => {
                     <span className={`ml-3 px-2 py-1 text-sm rounded-full font-bold ${
                       activeTab === tab.id
                         ? 'bg-white/20 text-white'
-                        : 'bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
+                        : 'bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400'
                     }`}>
                       {tab.count}
                     </span>
@@ -650,7 +650,7 @@ const EventsStatistics = () => {
                     {/* Фильтр по времени */}
                     <div>
                       <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                        <BarChart3 className="w-5 h-5 mr-2 text-blue-500" />
+                        <BarChart3 className="w-5 h-5 mr-2 text-primary-500" />
                         Статистика
                       </h3>
                       <div className="mb-4">
@@ -664,7 +664,7 @@ const EventsStatistics = () => {
                                 onClick={() => setTimeFilter(filter.id)}
                                 className={`flex items-center px-2 py-1 rounded-md font-medium transition-all duration-200 text-xs ${
                                   timeFilter === filter.id
-                                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                    ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
                                     : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                                 }`}
                               >
@@ -734,7 +734,7 @@ const EventsStatistics = () => {
                 {/* Ближайшее мероприятие */}
                 <div className="lg:col-span-2">
                   <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
-                    <Clock className="w-5 h-5 mr-2 text-blue-500" />
+                    <Clock className="w-5 h-5 mr-2 text-primary-500" />
                     Ближайшее мероприятие
                   </h2>
                   {loading.nearest ? (
@@ -747,8 +747,8 @@ const EventsStatistics = () => {
                     </div>
                   ) : (
                     <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
-                      <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <Calendar className="w-8 h-8 text-blue-500" />
+                      <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Calendar className="w-8 h-8 text-primary-500" />
                       </div>
                       <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                         Нет ближайших мероприятий
@@ -765,14 +765,14 @@ const EventsStatistics = () => {
               <div>
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                    <Calendar className="w-6 h-6 mr-3 text-blue-500" />
+                    <Calendar className="w-6 h-6 mr-3 text-primary-500" />
                     Предстоящие мероприятия
                   </h2>
                   <div className="flex items-center gap-4">
                     <ViewToggle isListView={isListView} onToggle={setIsListView} />
                     <button
                       onClick={() => setActiveTab('upcoming')}
-                      className="flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+                      className="flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
                     >
                       <Eye className="w-4 h-4 mr-1" />
                       Смотреть все
@@ -799,8 +799,8 @@ const EventsStatistics = () => {
                   </div>
                 ) : (
                   <div className="text-center py-12 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700">
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Calendar className="w-8 h-8 text-blue-500" />
+                    <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Calendar className="w-8 h-8 text-primary-500" />
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                       Нет предстоящих мероприятий
@@ -818,7 +818,7 @@ const EventsStatistics = () => {
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                  <Calendar className="w-6 h-6 mr-3 text-blue-500" />
+                  <Calendar className="w-6 h-6 mr-3 text-primary-500" />
                   Предстоящие мероприятия
                 </h2>
                 <ViewToggle isListView={isListView} onToggle={setIsListView} />
@@ -845,7 +845,7 @@ const EventsStatistics = () => {
                       <button
                         onClick={() => loadMore('upcoming')}
                         disabled={loadingMore.upcoming}
-                        className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
+                        className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
                       >
                         {loadingMore.upcoming ? (
                           <>
@@ -864,8 +864,8 @@ const EventsStatistics = () => {
                 </div>
               ) : (
                 <div className="text-center py-16">
-                  <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Calendar className="w-12 h-12 text-blue-500" />
+                  <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Calendar className="w-12 h-12 text-primary-500" />
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                     Нет предстоящих мероприятий
@@ -882,7 +882,7 @@ const EventsStatistics = () => {
             <div>
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
-                  <TrendingUp className="w-6 h-6 mr-3 text-blue-500" />
+                  <TrendingUp className="w-6 h-6 mr-3 text-primary-500" />
                   Прошедшие мероприятия
                 </h2>
                 <ViewToggle isListView={isListView} onToggle={setIsListView} />
@@ -911,7 +911,7 @@ const EventsStatistics = () => {
                       <button
                         onClick={() => loadMore('past')}
                         disabled={loadingMore.past}
-                        className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
+                        className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
                       >
                         {loadingMore.past ? (
                           <>
@@ -930,8 +930,8 @@ const EventsStatistics = () => {
                 </div>
               ) : (
                 <div className="text-center py-16">
-                  <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <TrendingUp className="w-12 h-12 text-blue-500" />
+                  <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <TrendingUp className="w-12 h-12 text-primary-500" />
                   </div>
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                     Нет прошедших мероприятий
