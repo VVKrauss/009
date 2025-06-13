@@ -1,5 +1,306 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award, X, BarChart3, DollarSign, Heart, Gift, Filter, Eye, Grid3X3, List } from 'lucide-react';
+{activeTab === 'dashboard' && (
+            <div className="space-y-8">
+              {/* Фильтр по времени для статистики */}
+              <div className="bg-white dark:bg-dark-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
+                <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Период для статистики</h3>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {timeFilters.map((filter) => {
+                    const IconComponent = filter.icon;
+                    return (
+                      <button
+                        key={filter.id}
+                        onClick={() => setTimeFilter(filter.id)}
+                        className={`flex items-center px-3 py-2 rounded-lg font-medium transition-all duration-200 text-sm ${
+                          timeFilter === filter.id
+                            ? 'bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300'
+                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                        }`}
+                      >
+                        <IconComponent className="w-4 h-4 mr-2" />
+                        {filter.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                {timeFilter === 'custom' && (
+                  <div className="flex gap-3">
+                    <div>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">От</label>
+                      <input
+                        type="date"
+                        value={customDateRange.start}
+                        onChange={(e) => setCustomDateRange(prev => ({ ...prev, start: e.target.value }))}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-dark-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-500 dark:text-gray-400 mb-1">До</label>
+                      <input
+                        type="date"
+                        value={customDateRange.end}
+                        onChange={(e) => setCustomDateRange(prev => ({ ...prev, end: e.target.value }))}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-dark-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Статистика и ближайшее мероприятие */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                {/* Компактная статистика 2x2 */}
+                <div className="lg:col-span-1">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <BarChart3 className="w-5 h-5 mr-2 text-primary-500" />
+                    Статистика
+                  </h2>
+                  <div className="grid grid-cols-2 gap-2">
+                    <StatCard
+                      title="Мероприятий"
+                      value={stats.totalEvents}
+                      icon={Calendar}
+                      color="primary"
+                    />
+                    <StatCard
+                      title="Участников"
+                      value={stats.totalParticipants.toLocaleString()}
+                      icon={Users}
+                      color="success"
+                    />
+                    <StatCard
+                      title="Выручка"
+                      value={`${Math.round(stats.totalRevenue / 1000)}K ₽`}
+                      icon={DollarSign}
+                      color="warning"
+                    />
+                    <StatCard
+                      title="Ср. посещ."
+                      value={stats.avgParticipants}
+                      subtitle={`${stats.completionRate}% успех`}
+                      icon={TrendingUp}
+                      color="error"
+                    />
+                  </div>
+                </div>
+
+                {/* Ближайшее мероприятие */}
+                <div className="lg:col-span-2">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center">
+                    <Clock className="w-5 h-5 mr-2 text-primary-500" />
+                    Ближайшее мероприятие
+                  </h2>
+                  {loading.nearest ? (
+                    <LoadingSpinner />
+                  ) : events.nearest.length > 0 ? (
+                    <div>
+                      {events.nearest.map((event) => (
+                        <EventCard key={event.id} event={event} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 bg-white dark:bg-dark-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+                      <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Calendar className="w-8 h-8 text-primary-500" />
+                      </div>
+                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                        Нет ближайших мероприятий
+                      </h3>
+                      <p className="text-gray-500 dark:text-gray-400">
+                        Запланируйте новое мероприятие
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Предстоящие мероприятия (компактный вид) */}
+              <div>
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                    <Calendar className="w-6 h-6 mr-3 text-primary-500" />
+                    Предстоящие мероприятия
+                  </h2>
+                  <div className="flex items-center gap-4">
+                    <ViewToggle isListView={isListView} onToggle={setIsListView} />
+                    <button
+                      onClick={() => setActiveTab('upcoming')}
+                      className="flex items-center text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium"
+                    >
+                      <Eye className="w-4 h-4 mr-1" />
+                      Смотреть все
+                    </button>
+                  </div>
+                </div>
+                {loading.upcoming ? (
+                  <LoadingSpinner />
+                ) : events.upcoming.length > 0 ? (
+                  <div>
+                    {isListView ? (
+                      <div className="space-y-3">
+                        {events.upcoming.slice(0, 6).map((event) => (
+                          <EventListItem key={event.id} event={event} />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                        {events.upcoming.slice(0, 6).map((event) => (
+                          <EventCard key={event.id} event={event} isCompact={true} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-white dark:bg-dark-800 rounded-2xl border border-gray-200 dark:border-gray-700">
+                    <div className="w-16 h-16 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Calendar className="w-8 h-8 text-primary-500" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                      Нет предстоящих мероприятий
+                    </h3>
+                    <p className="text-gray-500 dark:text-gray-400">
+                      Создайте новое мероприятие
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'upcoming' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                  <Calendar className="w-6 h-6 mr-3 text-primary-500" />
+                  Предстоящие мероприятия
+                </h2>
+                <ViewToggle isListView={isListView} onToggle={setIsListView} />
+              </div>
+              {loading.upcoming ? (
+                <LoadingSpinner />
+              ) : events.upcoming.length > 0 ? (
+                <div className="space-y-8">
+                  {isListView ? (
+                    <div className="space-y-3">
+                      {events.upcoming.map((event) => (
+                        <EventListItem key={event.id} event={event} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+                      {events.upcoming.map((event) => (
+                        <EventCard key={event.id} event={event} />
+                      ))}
+                    </div>
+                  )}
+                  {pagination.upcoming.hasMore && (
+                    <div className="text-center pt-4">
+                      <button
+                        onClick={() => loadMore('upcoming')}
+                        disabled={loadingMore.upcoming}
+                        className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
+                      >
+                        {loadingMore.upcoming ? (
+                          <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Загрузка...
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-5 h-5 mr-2" />
+                            Показать еще 10 мероприятий
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Calendar className="w-12 h-12 text-primary-500" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                    Нет предстоящих мероприятий
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    Создайте новое мероприятие, чтобы начать привлекать участников
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'past' && (
+            <div>
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white flex items-center">
+                  <TrendingUp className="w-6 h-6 mr-3 text-primary-500" />
+                  Прошедшие мероприятия
+                </h2>
+                <ViewToggle isListView={isListView} onToggle={setIsListView} />
+              </div>
+              
+              {loading.past ? (
+                <LoadingSpinner />
+              ) : events.past.length > 0 ? (
+                <div className="space-y-8">
+                  {isListView ? (
+                    <div className="space-y-3">
+                      {events.past.map((event) => (
+                        <EventListItem key={event.id} event={event} isPast={true} />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid gap-8 md:grid-cols-2 xl:grid-cols-3">
+                      {events.past.map((event) => (
+                        <EventCard key={event.id} event={event} isPast={true} />
+                      ))}
+                    </div>
+                  )}
+                  
+                  {pagination.past.hasMore && (
+                    <div className="text-center pt-4">
+                      <button
+                        onClick={() => loadMore('past')}
+                        disabled={loadingMore.past}
+                        className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
+                      >
+                        {loadingMore.past ? (
+                          <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Загрузка...
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-5 h-5 mr-2" />
+                            Показать еще 10 мероприятий
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center py-16">
+                  <div className="w-24 h-24 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <TrendingUp className="w-12 h-12 text-primary-500" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                    Нет прошедших мероприятий
+                  </h3>
+                  <p className="text-gray-500 dark:text-gray-400">
+                    Здесь появится история ваших завершенных мероприятий
+                  </p>
+                </div>
+              )}
+            </div>
+          )}  const tabs = [
+    { id: 'dashboard', label: 'Дашборд', icon: BarChart3 },
+    { id: 'upcoming', label: 'Предстоящие', count: events.upcoming.length, icon: Calendar },
+    { id: 'past', label: 'Прошедшие', count: events.past.length, icon: TrendingUp }
+  ];import React, { useState, useEffect } from 'react';
+import { Calendar, Users, MapPin, Clock, ChevronDown, Loader2, Star, TrendingUp, Award, X, BarChart3, DollarSign, Heart, Gift, Filter, Eye, Grid3X3, List, CalendarDays } from 'lucide-react';
 
 import { supabase } from '../../lib/supabase';
 import { getSupabaseImageUrl } from '../../utils/imageUtils';
@@ -235,10 +536,6 @@ const EventCard = ({ event, isPast = false, isCompact = false }) => {
               <span className="inline-flex items-center gap-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-3 py-1 rounded-full text-sm font-medium">
                 {getEventTypeIcon(event.event_type)}
                 {getEventTypeLabel(event.event_type)}
-              </span>
-              <span className="inline-flex items-center gap-1 bg-gray-50 dark:bg-gray-900/30 text-gray-700 dark:text-gray-300 px-3 py-1 rounded-full text-sm font-medium">
-                {getPriceTypeIcon(event.price)}
-                {getPriceTypeLabel(event.price)}
               </span>
             </div>
             <h3 className={`font-bold text-gray-900 dark:text-white mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors ${isCompact ? 'text-lg' : 'text-xl'}`}>
@@ -514,67 +811,50 @@ const EventListItem = ({ event, isPast = false }) => {
 
   return (
     <div className="bg-white dark:bg-dark-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600 transition-all duration-200 hover:shadow-md">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4 flex-1">
+      <div className="flex items-start justify-between">
+        <div className="flex items-start space-x-3 flex-1 min-w-0">
           <div className="flex-shrink-0">
-            <div className="w-12 h-12 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 bg-primary-100 dark:bg-primary-900/30 rounded-lg flex items-center justify-center">
               {getEventTypeIcon(event.event_type)}
             </div>
           </div>
           
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
-                {event.title || 'Без названия'}
-              </h3>
-              <span className="inline-flex items-center gap-1 bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-2 py-1 rounded-full text-xs font-medium">
-                {getEventTypeLabel(event.event_type)}
-              </span>
-            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white truncate mb-1">
+              {event.title && event.title.length > 50 
+                ? `${event.title.substring(0, 50)}...` 
+                : event.title || 'Без названия'}
+            </h3>
             
-            <div className="flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
               <div className="flex items-center">
-                <Calendar className="w-4 h-4 mr-1" />
+                <Calendar className="w-3 h-3 mr-1" />
                 {formatDate(event.date || event.start_time)}
               </div>
               <div className="flex items-center">
-                <Clock className="w-4 h-4 mr-1" />
+                <Clock className="w-3 h-3 mr-1" />
                 {formatTime(event.start_time)}
               </div>
               <div className="flex items-center">
-                <Users className="w-4 h-4 mr-1" />
-                {currentRegs}/{maxRegs} участников
+                <Users className="w-3 h-3 mr-1" />
+                {currentRegs}/{maxRegs}
               </div>
+              <span className="inline-flex items-center bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-2 py-0.5 rounded text-xs font-medium">
+                {getEventTypeLabel(event.event_type)}
+              </span>
+              <span className="font-medium text-gray-900 dark:text-white">
+                {event.price > 0 ? `${event.price.toLocaleString()} ${event.currency || 'RUB'}` : 'Бесплатно'}
+              </span>
+              {isPast && currentRegs > 0 && (
+                <button
+                  onClick={() => setIsModalOpen(true)}
+                  className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 font-medium text-xs underline"
+                >
+                  Подробнее
+                </button>
+              )}
             </div>
           </div>
-        </div>
-
-        <div className="flex items-center space-x-4">
-          <div className="text-right">
-            {event.price > 0 ? (
-              <div className="text-right">
-                <span className="text-lg font-bold text-primary-600 dark:text-primary-400">
-                  {event.price.toLocaleString()}
-                </span>
-                <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">
-                  {event.currency || 'RUB'}
-                </span>
-              </div>
-            ) : (
-              <span className="text-lg font-bold text-success-600 dark:text-success-400">
-                Бесплатно
-              </span>
-            )}
-          </div>
-
-          {isPast && currentRegs > 0 && (
-            <button
-              onClick={() => setIsModalOpen(true)}
-              className="px-3 py-2 bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-800/50 transition-colors text-sm font-medium"
-            >
-              Подробнее
-            </button>
-          )}
         </div>
       </div>
 
@@ -585,10 +865,10 @@ const EventListItem = ({ event, isPast = false }) => {
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color = 'primary', trend }) => {
   return (
-    <div className={`bg-white dark:bg-dark-800 p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-200`}>
+    <div className={`bg-white dark:bg-dark-800 p-3 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-200`}>
       <div className="flex items-center justify-between mb-2">
-        <div className={`w-8 h-8 bg-${color}-100 dark:bg-${color}-900/30 rounded-lg flex items-center justify-center`}>
-          <Icon className={`w-4 h-4 text-${color}-600 dark:text-${color}-400`} />
+        <div className={`w-6 h-6 bg-${color}-100 dark:bg-${color}-900/30 rounded-md flex items-center justify-center`}>
+          <Icon className={`w-3 h-3 text-${color}-600 dark:text-${color}-400`} />
         </div>
         {trend && (
           <span className={`text-xs font-medium ${trend > 0 ? 'text-success-500' : 'text-error-500'}`}>
@@ -596,8 +876,8 @@ const StatCard = ({ title, value, subtitle, icon: Icon, color = 'primary', trend
           </span>
         )}
       </div>
-      <div className="space-y-1">
-        <p className="text-xl font-bold text-gray-900 dark:text-white">{value}</p>
+      <div className="space-y-0.5">
+        <p className="text-lg font-bold text-gray-900 dark:text-white">{value}</p>
         <p className="text-xs text-gray-500 dark:text-gray-400">{title}</p>
         {subtitle && (
           <p className="text-xs text-gray-400 dark:text-gray-500">{subtitle}</p>
@@ -620,6 +900,8 @@ const LoadingSpinner = () => (
 const EventsStatistics = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [isListView, setIsListView] = useState(false);
+  const [timeFilter, setTimeFilter] = useState('all');
+  const [customDateRange, setCustomDateRange] = useState({ start: '', end: '' });
   const [events, setEvents] = useState({
     nearest: [],
     upcoming: [],
@@ -688,10 +970,52 @@ const EventsStatistics = () => {
 
   const calculateStats = async () => {
     try {
-      const { data: pastEvents, error } = await supabase
+      let query = supabase
         .from('events')
-        .select('*')
-        .or(`start_time.lt.${new Date().toISOString()},status.eq.past`);
+        .select('*');
+
+      // Применяем фильтр по времени
+      const now = new Date();
+      let startDate, endDate;
+
+      switch (timeFilter) {
+        case 'today':
+          startDate = new Date(now.setHours(0, 0, 0, 0)).toISOString();
+          endDate = new Date(now.setHours(23, 59, 59, 999)).toISOString();
+          break;
+        case 'week':
+          const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
+          startDate = new Date(weekStart.setHours(0, 0, 0, 0)).toISOString();
+          endDate = new Date().toISOString();
+          break;
+        case 'month':
+          const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+          startDate = monthStart.toISOString();
+          endDate = new Date().toISOString();
+          break;
+        case 'custom':
+          if (customDateRange.start && customDateRange.end) {
+            startDate = new Date(customDateRange.start).toISOString();
+            endDate = new Date(customDateRange.end).toISOString();
+          } else {
+            startDate = null;
+            endDate = new Date().toISOString();
+          }
+          break;
+        default:
+          endDate = new Date().toISOString();
+      }
+
+      if (timeFilter !== 'all') {
+        if (startDate) {
+          query = query.gte('start_time', startDate);
+        }
+        query = query.lte('start_time', endDate);
+      } else {
+        query = query.or(`start_time.lt.${new Date().toISOString()},status.eq.past`);
+      }
+
+      const { data: pastEvents, error } = await query;
 
       if (error) throw error;
 
@@ -723,6 +1047,37 @@ const EventsStatistics = () => {
       });
     } catch (error) {
       console.error('Error calculating stats:', error);
+    }
+  };
+
+  useEffect(() => {
+    calculateStats();
+  }, [timeFilter, customDateRange]);
+
+  const loadMore = async (type) => {
+    if (!pagination[type].hasMore) return;
+
+    setLoadingMore(prev => ({ ...prev, [type]: true }));
+
+    try {
+      const result = await loadEventsFromSupabase(type, pagination[type].offset, 10);
+      
+      setEvents(prev => ({
+        ...prev,
+        [type]: [...prev[type], ...result.data]
+      }));
+
+      setPagination(prev => ({
+        ...prev,
+        [type]: {
+          offset: prev[type].offset + 10,
+          hasMore: result.hasMore
+        }
+      }));
+    } catch (error) {
+      console.error(`Error loading more ${type} events:`, error);
+    } finally {
+      setLoadingMore(prev => ({ ...prev, [type]: false }));
     }
   };
 
@@ -759,38 +1114,38 @@ const EventsStatistics = () => {
     loadInitialData();
   }, []);
 
-  const loadMore = async (type) => {
-    if (!pagination[type].hasMore) return;
-
-    setLoadingMore(prev => ({ ...prev, [type]: true }));
-
-    try {
-      const result = await loadEventsFromSupabase(type, pagination[type].offset, 10);
-      
-      setEvents(prev => ({
-        ...prev,
-        [type]: [...prev[type], ...result.data]
-      }));
-
-      setPagination(prev => ({
-        ...prev,
-        [type]: {
-          offset: prev[type].offset + 10,
-          hasMore: result.hasMore
-        }
-      }));
-    } catch (error) {
-      console.error(`Error loading more ${type} events:`, error);
-    } finally {
-      setLoadingMore(prev => ({ ...prev, [type]: false }));
-    }
-  };
-
-  const tabs = [
-    { id: 'dashboard', label: 'Дашборд', icon: BarChart3 },
-    { id: 'upcoming', label: 'Предстоящие', count: events.upcoming.length, icon: Calendar },
-    { id: 'past', label: 'Прошедшие', count: events.past.length, icon: TrendingUp }
+  const timeFilters = [
+    { id: 'all', label: 'Все время', icon: CalendarDays },
+    { id: 'today', label: 'Сегодня', icon: Calendar },
+    { id: 'week', label: 'Неделя', icon: Calendar },
+    { id: 'month', label: 'Месяц', icon: Calendar },
+    { id: 'custom', label: 'Период', icon: CalendarDays }
   ];
+
+  const ViewToggle = ({ isListView, onToggle }) => (
+    <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg">
+      <button
+        onClick={() => onToggle(false)}
+        className={`p-2 rounded-md transition-all duration-200 ${
+          !isListView 
+            ? 'bg-white dark:bg-dark-700 text-primary-600 dark:text-primary-400 shadow-sm' 
+            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+        }`}
+      >
+        <Grid3X3 className="w-4 h-4" />
+      </button>
+      <button
+        onClick={() => onToggle(true)}
+        className={`p-2 rounded-md transition-all duration-200 ${
+          isListView 
+            ? 'bg-white dark:bg-dark-700 text-primary-600 dark:text-primary-400 shadow-sm' 
+            : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+        }`}
+      >
+        <List className="w-4 h-4" />
+      </button>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-dark-900 dark:via-dark-900 dark:to-dark-800 py-8">
