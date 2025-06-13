@@ -580,6 +580,7 @@ const EventListItem = ({ event, isPast = false }) => {
 
       <RegistrationModal />
     </div>
+  );
 };
 
 const StatCard = ({ title, value, subtitle, icon: Icon, color = 'primary', trend }) => {
