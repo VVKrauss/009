@@ -1,15 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { MessageCircle, AtSign, Phone, MapPin } from 'lucide-react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../lib/supabase';
 import Logo from '../ui/Logo';
 import SocialLinks from '../ui/SocialLinks';
-
-// Инициализация Supabase клиента
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
 
 interface FooterSettings {
   id: number;
@@ -85,14 +79,6 @@ export function Footer() {
     { path: '/about', label: 'О нас' },
   ];
 
-  // Статические ссылки для услуг
-  const serviceLinks = [
-    { path: '/rent', label: 'Аренда помещений' },
-    { path: '/coworking', label: 'Коворкинг' },
-    { path: '/events-organization', label: 'Организация мероприятий' },
-    { path: '/equipment', label: 'Техническое оснащение' },
-  ];
-
   return (
     <footer className="bg-dark-900 border-t border-dark-700">
       <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
@@ -109,15 +95,8 @@ export function Footer() {
               <Logo className="h-10 w-auto mb-4" inverted />
             )}
             <p className="text-dark-300 mb-4">
-              
-             Рассказываем в Сербии о науке легко и интересно через кинопоказы, лекции, фестивали, квизы, экскурсии.     Помогаем понять, как устроен мир, и найти единомышленников.
+              {settings.footer_text}
             </p>
-            {/* {settings.social_media && (
-              <SocialLinks 
-                className="flex gap-4"
-                socialLinks={settings.social_media}
-              />
-            )} */}
           </div>
 
           {/* Колонка 2: Навигация */}
@@ -137,23 +116,6 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Колонка 3: Услуги */}
-          {/* <div>
-            <h4 className="text-lg font-semibold text-white mb-4">Услуги</h4>
-            <ul className="space-y-2">
-              {serviceLinks.map((item, index) => (
-                <li key={index}>
-                  <Link 
-                    to={item.path}
-                    className="text-dark-300 hover:text-white transition-colors"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
- */}
           {/* Колонка 4: Контакты */}
           {(settings.email || settings.phone || settings.address || settings.working_hours) && (
             <div>
@@ -201,9 +163,6 @@ export function Footer() {
             </div>
           )}
         </div>
-
-       
-        
       </div>
     </footer>
   );

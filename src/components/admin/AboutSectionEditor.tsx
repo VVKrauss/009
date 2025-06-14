@@ -1,15 +1,8 @@
-import { useState, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { Edit, Save, X, Upload, Eye } from 'lucide-react';
+import { useState } from 'react';
+import { Save, Eye, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import Cropper from 'react-cropper';
-import 'cropperjs/dist/cropper.css';
-import imageCompression from 'browser-image-compression';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from '../../lib/supabase';
+import ImageUploadAndCrop from '../shared/ImageUploadAndCrop';
 
 type AboutSectionData = {
   title: string;
@@ -29,10 +22,6 @@ const AboutSectionEditor = ({ siteSettingsId, initialData, onUpdate }: AboutSect
   const [data, setData] = useState<AboutSectionData>(initialData);
   const [loading, setLoading] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
-  const [showCropper, setShowCropper] = useState(false);
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [cropper, setCropper] = useState<any>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async () => {
     if (!data.title.trim()) {
@@ -66,64 +55,12 @@ const AboutSectionEditor = ({ siteSettingsId, initialData, onUpdate }: AboutSect
     }
   };
 
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      const compressedFile = await imageCompression(file, {
-        maxWidthOrHeight: 2000,
-        useWebWorker: true
-      });
-
-      setImageFile(compressedFile);
-      setShowCropper(true);
-    } catch (error) {
-      console.error('Error compressing image:', error);
-      toast.error('Ошибка при обработке изображения');
-    }
-  };
-
-  const handleCrop = async () => {
-    if (!cropper || !imageFile) return;
-
-    try {
-      setLoading(true);
-
-      const croppedCanvas = cropper.getCroppedCanvas({
-        width: 1200,
-        height: 800
-      });
-
-      const croppedBlob = await new Promise<Blob>((resolve) => {
-        croppedCanvas.toBlob((blob: Blob) => resolve(blob), 'image/jpeg', 0.9);
-      });
-
-      const fileName = `about_section_${Date.now()}.jpg`;
-      const filePath = `images/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(filePath, croppedBlob);
-
-      if (uploadError) throw uploadError;
-
-      const imageUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${filePath}`;
-      
-      setData(prev => ({
-        ...prev,
-        image: imageUrl
-      }));
-
-      setShowCropper(false);
-      setImageFile(null);
-      toast.success('Изображение обновлено');
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Ошибка при загрузке изображения');
-    } finally {
-      setLoading(false);
-    }
+  const handleImageUploadSuccess = (imageUrl: string) => {
+    setData(prev => ({
+      ...prev,
+      image: imageUrl
+    }));
+    toast.success('Изображение обновлено');
   };
 
   if (previewMode) {
@@ -224,58 +161,16 @@ const AboutSectionEditor = ({ siteSettingsId, initialData, onUpdate }: AboutSect
           Изображение
         </label>
         
-        {showCropper && imageFile ? (
-          <div className="space-y-4">
-            <Cropper
-              src={URL.createObjectURL(imageFile)}
-              style={{ height: 400, width: '100%' }}
-              aspectRatio={3/2}
-              guides={true}
-              onInitialized={instance => setCropper(instance)}
-            />
-            <div className="flex justify-end gap-4">
-              <button
-                onClick={() => {
-                  setShowCropper(false);
-                  setImageFile(null);
-                }}
-                className="btn-outline"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={handleCrop}
-                disabled={loading}
-                className="btn-primary"
-              >
-                {loading ? 'Сохранение...' : 'Обрезать и сохранить'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="relative">
-            <img
-              src={data.image}
-              alt="About section"
-              className="w-full h-48 object-cover rounded-lg"
-            />
-            <div className="absolute bottom-4 right-4 flex gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleImageSelect}
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-2 bg-white dark:bg-dark-800 rounded-full shadow-lg hover:bg-gray-100 dark:hover:bg-dark-700"
-              >
-                <Upload className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        )}
+        <ImageUploadAndCrop
+          aspectRatio={3/2}
+          targetWidth={1200}
+          targetHeight={800}
+          storagePathPrefix="about_section/"
+          initialImageUrl={data.image}
+          onUploadSuccess={(url) => handleImageUploadSuccess(url)}
+          onRemoveImage={() => setData(prev => ({ ...prev, image: '' }))}
+          recommendedText="Рекомендуемый размер: 1200x800px"
+        />
       </div>
 
       <div className="form-group">

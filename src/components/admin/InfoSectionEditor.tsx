@@ -1,13 +1,8 @@
-import { useState, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
-import { Edit, Save, X, Upload, Eye } from 'lucide-react';
+import { useState } from 'react';
+import { Save, Eye, X } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import imageCompression from 'browser-image-compression';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from '../../lib/supabase';
+import ImageUploadAndCrop from '../shared/ImageUploadAndCrop';
 
 type InfoSectionData = {
   title: string;
@@ -27,7 +22,6 @@ const InfoSectionEditor = ({ siteSettingsId, initialData, onUpdate }: InfoSectio
   const [data, setData] = useState<InfoSectionData>(initialData);
   const [loading, setLoading] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSave = async () => {
     if (!data.title.trim()) {
@@ -61,46 +55,12 @@ const InfoSectionEditor = ({ siteSettingsId, initialData, onUpdate }: InfoSectio
     }
   };
 
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      setLoading(true);
-      
-      // Опции для сжатия изображения
-      const options = {
-        maxWidthOrHeight: 1000, // Максимальная ширина/высота 1000px
-        maxSizeMB: 1,          // Максимальный размер файла 1MB
-        useWebWorker: true,
-        fileType: 'image/jpeg'
-      };
-
-      const compressedFile = await imageCompression(file, options);
-
-      const fileName = `info_section_${Date.now()}.jpg`;
-      const filePath = `images/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('images')
-        .upload(filePath, compressedFile);
-
-      if (uploadError) throw uploadError;
-
-      const imageUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${filePath}`;
-      
-      setData(prev => ({
-        ...prev,
-        image: imageUrl
-      }));
-
-      toast.success('Изображение обновлено');
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Ошибка при загрузке изображения');
-    } finally {
-      setLoading(false);
-    }
+  const handleImageUploadSuccess = (imageUrl: string) => {
+    setData(prev => ({
+      ...prev,
+      image: imageUrl
+    }));
+    toast.success('Изображение обновлено');
   };
 
   if (previewMode) {
@@ -201,29 +161,16 @@ const InfoSectionEditor = ({ siteSettingsId, initialData, onUpdate }: InfoSectio
           Изображение
         </label>
         
-        <div className="relative">
-          <img
-            src={data.image}
-            alt="Info section"
-            className="w-full h-48 object-cover rounded-lg"
-          />
-          <div className="absolute bottom-4 right-4 flex gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={handleImageSelect}
-            />
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              disabled={loading}
-              className="p-2 bg-white dark:bg-dark-800 rounded-full shadow-lg hover:bg-gray-100 dark:hover:bg-dark-700"
-            >
-              {loading ? 'Загрузка...' : <Upload className="h-5 w-5" />}
-            </button>
-          </div>
-        </div>
+        <ImageUploadAndCrop
+          aspectRatio={3/2}
+          targetWidth={1200}
+          targetHeight={800}
+          storagePathPrefix="info_section/"
+          initialImageUrl={data.image}
+          onUploadSuccess={(url) => handleImageUploadSuccess(url)}
+          onRemoveImage={() => setData(prev => ({ ...prev, image: '' }))}
+          recommendedText="Рекомендуемый размер: 1200x800px"
+        />
       </div>
 
       <div className="form-group">

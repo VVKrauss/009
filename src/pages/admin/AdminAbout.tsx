@@ -1,89 +1,99 @@
 import { useState, useEffect, useRef } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
-import { Plus, X, ArrowUp, ArrowDown, Edit, Trash2, Image as ImageIcon, Save, Eye, Home, Clock, Users } from 'lucide-react';
+import { 
+  Edit, 
+  Trash2, 
+  Plus, 
+  Save, 
+  X, 
+  Image as ImageIcon,
+  Loader2,
+  Home,
+  DollarSign,
+  Phone,
+  Mail,
+  MapPin,
+  Info
+} from 'lucide-react';
+import Cropper from 'react-cropper';
+import 'cropperjs/dist/cropper.css';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
-type AboutData = {
-  id?: number;
-  project_info: string;
-  team_members: Array<{
-    name: string;
-    role: string;
-    photo: string;
-  }>;
-  contributors: Array<{
-    name: string;
-    photo: string;
-  }>;
-  support_platforms: Array<{
-    url: string;
-    platform: string;
-  }>;
-  contact_info: {
-    email: string;
-    phone: string;
+type PriceItem = {
+  id: string;
+  name: string;
+  price: number;
+  duration: string; // 'hour', 'day', 'week', 'month'
+  description?: string;
+};
+
+type RentInfoSettings = {
+  id: number;
+  title: string;
+  description: string | null;
+  photos: string[] | null;
+  pricelist: PriceItem[];
+  contacts: {
     address: string;
-  };
+    phone: string;
+    email: string;
+    map_link: string;
+  } | null;
 };
 
-const defaultAboutData: AboutData = {
-  project_info: '',
-  team_members: [],
-  contributors: [],
-  support_platforms: [],
-  contact_info: {
-    email: '',
-    phone: '',
-    address: ''
-  }
-};
+const LoadingSpinner = () => (
+  <div className="flex justify-center items-center py-12">
+    <div className="relative">
+      <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+      <div className="absolute inset-0 w-8 h-8 border-2 border-primary-200 dark:border-primary-800 rounded-full"></div>
+    </div>
+    <span className="ml-3 text-gray-600 dark:text-gray-300 font-medium">Загрузка данных...</span>
+  </div>
+);
 
-const AdminAbout = () => {
-  const [aboutData, setAboutData] = useState<AboutData>(defaultAboutData);
+const AdminRent = () => {
+  const [data, setData] = useState<RentInfoSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState<{ type: string; index: number } | null>(null);
+  const [editData, setEditData] = useState<Partial<RentInfoSettings>>({});
+  const [newPriceItem, setNewPriceItem] = useState<Omit<PriceItem, 'id'>>({
+    name: '',
+    price: 0,
+    duration: 'hour',
+    description: ''
+  });
+  
+  // Photo management states
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [croppedImage, setCroppedImage] = useState<string | null>(null);
+  const [showCropper, setShowCropper] = useState(false);
+  const cropperRef = useRef<Cropper>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetchData();
+    fetchSettings();
   }, []);
 
-  const fetchData = async () => {
+  const fetchSettings = async () => {
     try {
       setLoading(true);
       const { data, error } = await supabase
-        .from('about_table')
+        .from('rent_info_settings')
         .select('*')
-        .eq('id', 7)
         .single();
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // Если записи нет, создаем новую с id = 7
-          const { data: newData, error: insertError } = await supabase
-            .from('about_table')
-            .insert([{ ...defaultAboutData, id: 7 }])
-            .select()
-            .single();
-
-          if (insertError) throw insertError;
-          
-          setAboutData(newData || { ...defaultAboutData, id: 7 });
-        } else {
-          throw error;
-        }
-      } else if (data) {
-        setAboutData(data);
-      }
+      if (error) throw error;
+      setData(data);
+      setEditData(data || {});
     } catch (err) {
-      console.error('Error fetching about data:', err);
-      toast.error('Ошибка при загрузке данных');
+      console.error('Error fetching settings:', err);
+      toast.error('Не удалось загрузить настройки');
     } finally {
       setLoading(false);
     }
@@ -92,424 +102,697 @@ const AdminAbout = () => {
   const handleSave = async () => {
     try {
       setSaving(true);
-      
-      // Всегда обновляем запись с id = 7
       const { error } = await supabase
-        .from('about_table')
-        .upsert({ ...aboutData, id: 7 });
+        .from('rent_info_settings')
+        .update(editData)
+        .eq('id', data?.id);
 
       if (error) throw error;
-
-      toast.success('Данные успешно сохранены');
+      await fetchSettings();
+      toast.success('Настройки успешно сохранены');
     } catch (err) {
-      console.error('Error saving about data:', err);
-      toast.error('Ошибка при сохранении данных');
+      console.error('Error saving settings:', err);
+      toast.error('Ошибка при сохранении настроек');
     } finally {
       setSaving(false);
     }
   };
 
-  const triggerFileInput = (type: 'team' | 'contributor', index: number) => {
-    setUploading({ type, index });
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
+  const handleAddPriceItem = () => {
+    if (!newPriceItem.name || newPriceItem.price <= 0) return;
+    
+    const updatedPricelist = [
+      ...(editData.pricelist || []),
+      {
+        ...newPriceItem,
+        id: Date.now().toString()
+      }
+    ];
+
+    setEditData(prev => ({
+      ...prev,
+      pricelist: updatedPricelist
+    }));
+
+    setNewPriceItem({
+      name: '',
+      price: 0,
+      duration: 'hour',
+      description: ''
+    });
+  };
+
+  const handleRemovePriceItem = (id: string) => {
+    const updatedPricelist = (editData.pricelist || []).filter(item => item.id !== id);
+    setEditData(prev => ({
+      ...prev,
+      pricelist: updatedPricelist
+    }));
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, field: string) => {
+    setEditData(prev => ({
+      ...prev,
+      [field]: e.target.value
+    }));
+  };
+
+  const handleContactsChange = (e: React.ChangeEvent<HTMLInputElement>, field: string) => {
+    setEditData(prev => ({
+      ...prev,
+      contacts: {
+        ...(prev.contacts || {}),
+        [field]: e.target.value
+      }
+    }));
+  };
+
+  const handlePriceItemChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>, field: string) => {
+    setNewPriceItem(prev => ({
+      ...prev,
+      [field]: field === 'price' ? Number(e.target.value) : e.target.value
+    }));
+  };
+
+  // Photo management functions
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      
+      // Check file size (max 5MB before compression)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Файл слишком большой. Максимальный размер 5MB.');
+        return;
+      }
+      
+      setSelectedFile(file);
+      setShowCropper(true);
     }
   };
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0 || !uploading) return;
+  const handleCropComplete = () => {
+    if (cropperRef.current && cropperRef.current.cropper) {
+      const croppedCanvas = cropperRef.current.cropper.getCroppedCanvas();
+      setCroppedImage(croppedCanvas.toDataURL('image/jpeg', 0.8));
+    }
+  };
 
-    const file = e.target.files[0];
-    const { type, index } = uploading;
-
+  const uploadPhoto = async () => {
+    if (!croppedImage || !selectedFile) return;
+    
     try {
+      setIsUploading(true);
+      
+      // Convert data URL to Blob
+      const blob = await fetch(croppedImage).then(res => res.blob());
+      
+      // Generate unique filename
       const timestamp = Date.now();
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${type}_${timestamp}.${fileExt}`;
-      const filePath = `about/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
+      const fileExt = selectedFile.name.split('.').pop();
+      const filename = `${timestamp}.${fileExt}`;
+      const filePath = `rent_photos/${filename}`;
+      
+      // Upload to Supabase Storage in images bucket with rent_photos folder
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('images')
-        .upload(filePath, file);
-
+        .upload(filePath, blob, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: 'image/jpeg',
+        });
+      
       if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase
-        .storage
+      
+      // Get public URL
+      const { data: publicUrlData } = supabase.storage
         .from('images')
         .getPublicUrl(filePath);
-
-      if (type === 'team') {
-        const newTeamMembers = [...aboutData.team_members];
-        newTeamMembers[index].photo = publicUrl;
-        setAboutData(prev => ({ ...prev, team_members: newTeamMembers }));
-      } else if (type === 'contributor') {
-        const newContributors = [...aboutData.contributors];
-        newContributors[index].photo = publicUrl;
-        setAboutData(prev => ({ ...prev, contributors: newContributors }));
-      }
-
-      toast.success('Изображение успешно загружено');
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Ошибка при загрузке изображения');
+      
+      // Update photos array
+      const updatedPhotos = [...(editData.photos || []), publicUrlData.publicUrl];
+      setEditData(prev => ({
+        ...prev,
+        photos: updatedPhotos
+      }));
+      
+      toast.success('Фото успешно загружено');
+      resetPhotoUpload();
+    } catch (err) {
+      console.error('Error uploading photo:', err);
+      toast.error('Ошибка при загрузке фото');
     } finally {
-      setUploading(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      setIsUploading(false);
     }
   };
 
-  const addTeamMember = () => {
-    setAboutData(prev => ({
-      ...prev,
-      team_members: [
-        ...prev.team_members,
-        { name: '', role: '', photo: '' }
-      ]
-    }));
+  const deletePhoto = async (photoUrl: string) => {
+    try {
+      // Extract filename from URL for images bucket with rent_photos folder
+      const urlParts = photoUrl.split('/');
+      const filename = urlParts[urlParts.length - 1];
+      const filePath = `rent_photos/${filename}`;
+      
+      // Delete from storage
+      const { error: deleteError } = await supabase.storage
+        .from('images')
+        .remove([filePath]);
+      
+      if (deleteError) throw deleteError;
+      
+      // Update photos array
+      const updatedPhotos = (editData.photos || []).filter(url => url !== photoUrl);
+      setEditData(prev => ({
+        ...prev,
+        photos: updatedPhotos
+      }));
+      
+      toast.success('Фото успешно удалено');
+    } catch (err) {
+      console.error('Error deleting photo:', err);
+      toast.error('Ошибка при удалении фото');
+    }
   };
 
-  const addContributor = () => {
-    setAboutData(prev => ({
-      ...prev,
-      contributors: [
-        ...prev.contributors,
-        { name: '', photo: '' }
-      ]
-    }));
-  };
-
-  const addSupportPlatform = () => {
-    setAboutData(prev => ({
-      ...prev,
-      support_platforms: [
-        ...prev.support_platforms,
-        { platform: '', url: '' }
-      ]
-    }));
-  };
-
-  const removeTeamMember = (index: number) => {
-    setAboutData(prev => ({
-      ...prev,
-      team_members: prev.team_members.filter((_, i) => i !== index)
-    }));
-  };
-
-  const removeContributor = (index: number) => {
-    setAboutData(prev => ({
-      ...prev,
-      contributors: prev.contributors.filter((_, i) => i !== index)
-    }));
-  };
-
-  const removeSupportPlatform = (index: number) => {
-    setAboutData(prev => ({
-      ...prev,
-      support_platforms: prev.support_platforms.filter((_, i) => i !== index)
-    }));
+  const resetPhotoUpload = () => {
+    setSelectedFile(null);
+    setCroppedImage(null);
+    setShowCropper(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-dark-900 dark:via-dark-900 dark:to-dark-800 py-8 font-sans">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <LoadingSpinner />
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-dark-900 dark:via-dark-900 dark:to-dark-800 py-8 font-sans">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center py-12">
+            <div className="text-yellow-600 dark:text-yellow-400 p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              Настройки аренды не найдены. Создайте новую запись.
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-[calc(100vh-200px)] bg-gray-50 dark:bg-gray-900 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-dark-900 dark:via-dark-900 dark:to-dark-800 py-8 font-sans">
       <input
         type="file"
         ref={fileInputRef}
-        onChange={handleFileUpload}
+        onChange={handleFileChange}
         accept="image/*"
         className="hidden"
       />
       
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">О проекте</h1>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Заголовок */}
+        <div className="mb-12 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary-600 via-primary-500 to-secondary-500 bg-clip-text text-transparent mb-4 font-heading">
+            Управление арендой
+          </h1>
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
+            Настройте информацию о ваших помещениях для аренды
+          </p>
+        </div>
+
+        {/* Кнопка сохранения */}
+        <div className="flex justify-center mb-10">
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-5 py-2.5 bg-primary hover:bg-primary/90 text-white font-medium rounded-lg flex items-center gap-2 transition-colors disabled:opacity-70"
+            className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg font-heading"
           >
-            <Save className="w-5 h-5" />
-            {saving ? 'Сохранение...' : 'Сохранить изменения'}
+            {saving ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Сохранение...
+              </>
+            ) : (
+              <>
+                <Save className="w-5 h-5" />
+                Сохранить изменения
+              </>
+            )}
           </button>
         </div>
 
         <div className="space-y-8">
-          {/* Project Info */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Информация о проекте</h2>
-            <textarea
-              value={aboutData.project_info}
-              onChange={(e) => setAboutData(prev => ({ ...prev, project_info: e.target.value }))}
-              className="w-full min-h-[200px] p-4 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-              placeholder="Введите информацию о проекте..."
-            />
-          </div>
-
-          {/* Team Members */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Команда проекта</h2>
-              <button
-                onClick={addTeamMember}
-                className="px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
+          {/* Main Settings Section */}
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center mb-6">
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-xl mr-4">
+                <Info className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Основные настройки</h2>
+                <p className="text-gray-500 dark:text-gray-400">Заголовок и описание страницы аренды</p>
+              </div>
             </div>
             
-            <div className="space-y-4">
-              {aboutData.team_members.map((member, index) => (
-                <div key={index} className="flex gap-4 items-start p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input
-                      type="text"
-                      value={member.name}
-                      onChange={(e) => {
-                        const newTeamMembers = [...aboutData.team_members];
-                        newTeamMembers[index].name = e.target.value;
-                        setAboutData(prev => ({ ...prev, team_members: newTeamMembers }));
-                      }}
-                      className="form-input"
-                      placeholder="Имя"
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Заголовок страницы</label>
+                <input
+                  type="text"
+                  value={editData.title || ''}
+                  onChange={(e) => handleChange(e, 'title')}
+                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                  placeholder="Введите заголовок страницы аренды"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Описание страницы</label>
+                <textarea
+                  value={editData.description || ''}
+                  onChange={(e) => handleChange(e, 'description')}
+                  rows={4}
+                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200 resize-none"
+                  placeholder="Опишите ваши помещения для аренды..."
+                />
+              </div>
+            </div>
+          </div>
+          
+          {/* Photo Gallery Section */}
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center mb-6">
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-xl mr-4">
+                <ImageIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Фотогалерея</h2>
+                <p className="text-gray-500 dark:text-gray-400">Загрузите фотографии ваших помещений</p>
+              </div>
+            </div>
+            
+            {/* Photo Upload Section */}
+            <div className="mb-8">
+              {showCropper ? (
+                <div className="space-y-6 p-6 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-gray-200 dark:border-gray-700">
+                  <h4 className="font-semibold text-gray-900 dark:text-white">Обрезка изображения</h4>
+                  
+                  <div className="h-64 w-full relative rounded-lg overflow-hidden">
+                    <Cropper
+                      src={selectedFile ? URL.createObjectURL(selectedFile) : ''}
+                      style={{ height: '100%', width: '100%' }}
+                      initialAspectRatio={16 / 9}
+                      guides={true}
+                      ref={cropperRef}
+                      crop={handleCropComplete}
+                      viewMode={1}
+                      minCropBoxHeight={100}
+                      minCropBoxWidth={100}
+                      responsive={true}
+                      autoCropArea={1}
+                      checkOrientation={false}
                     />
-                    <input
-                      type="text"
-                      value={member.role}
-                      onChange={(e) => {
-                        const newTeamMembers = [...aboutData.team_members];
-                        newTeamMembers[index].role = e.target.value;
-                        setAboutData(prev => ({ ...prev, team_members: newTeamMembers }));
-                      }}
-                      className="form-input"
-                      placeholder="Должность"
-                    />
-                    <div className="md:col-span-2 flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={member.photo}
-                        onChange={(e) => {
-                          const newTeamMembers = [...aboutData.team_members];
-                          newTeamMembers[index].photo = e.target.value;
-                          setAboutData(prev => ({ ...prev, team_members: newTeamMembers }));
-                        }}
-                        className="form-input flex-grow"
-                        placeholder="URL фотографии"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => triggerFileInput('team', index)}
-                        className="p-2 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
-                        title="Загрузить изображение"
-                      >
-                        <ImageIcon className="w-5 h-5" />
-                      </button>
-                    </div>
-                    {member.photo && (
-                      <div className="md:col-span-2">
-                        <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Предпросмотр:</div>
+                  </div>
+                  
+                  {croppedImage && (
+                    <div>
+                      <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Предпросмотр:</h5>
+                      <div className="flex justify-center">
                         <img 
-                          src={member.photo} 
-                          alt={`Preview ${member.name}`} 
-                          className="h-24 w-24 object-cover rounded-lg"
+                          src={croppedImage} 
+                          alt="Cropped preview" 
+                          className="max-h-40 rounded-lg border-2 border-gray-200 dark:border-gray-600 shadow-lg"
                         />
                       </div>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2">
+                    </div>
+                  )}
+                  
+                  <div className="flex gap-3 justify-center">
                     <button
-                      onClick={() => removeTeamMember(index)}
-                      className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
+                      onClick={resetPhotoUpload}
+                      className="flex items-center gap-2 px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200"
                     >
-                      <Trash2 className="w-5 h-5" />
+                      <X className="w-5 h-5" />
+                      Отмена
+                    </button>
+                    <button
+                      onClick={uploadPhoto}
+                      disabled={isUploading || !croppedImage}
+                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:transform-none"
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                          Загрузка...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-5 h-5" />
+                          Загрузить фото
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Contributors */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Контрибьюторы</h2>
-              <button
-                onClick={addContributor}
-                className="px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
-              >
-                <Plus className="w-5 h-5" />
-              </button>
+              ) : (
+                <div className="p-8 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700/30 dark:to-gray-600/30 hover:border-primary-400 dark:hover:border-primary-500 transition-all duration-200">
+                  <div className="text-center">
+                    <div className="flex justify-center mb-4">
+                      <div className="p-4 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-full">
+                        <ImageIcon className="w-8 h-8 text-primary-600 dark:text-primary-400" />
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-primary-600 dark:text-primary-400 font-semibold hover:text-primary-700 dark:hover:text-primary-300 transition-colors duration-200"
+                    >
+                      Нажмите для загрузки фото
+                    </button>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                      или перетащите файл сюда
+                    </p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                      JPG, PNG (максимум 5MB)
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {aboutData.contributors.map((contributor, index) => (
-                <div key={index} className="flex gap-4 items-start p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="flex-grow space-y-4">
-                    <input
-                      type="text"
-                      value={contributor.name}
-                      onChange={(e) => {
-                        const newContributors = [...aboutData.contributors];
-                        newContributors[index].name = e.target.value;
-                        setAboutData(prev => ({ ...prev, contributors: newContributors }));
-                      }}
-                      className="form-input"
-                      placeholder="Имя"
-                    />
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={contributor.photo}
-                        onChange={(e) => {
-                          const newContributors = [...aboutData.contributors];
-                          newContributors[index].photo = e.target.value;
-                          setAboutData(prev => ({ ...prev, contributors: newContributors }));
-                        }}
-                        className="form-input flex-grow"
-                        placeholder="URL фотографии"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => triggerFileInput('contributor', index)}
-                        className="p-2 bg-gray-200 dark:bg-gray-600 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
-                        title="Загрузить изображение"
-                      >
-                        <ImageIcon className="w-5 h-5" />
-                      </button>
-                    </div>
-                    {contributor.photo && (
-                      <div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400 mb-1">Предпросмотр:</div>
-                        <img 
-                          src={contributor.photo} 
-                          alt={`Preview ${contributor.name}`} 
-                          className="h-24 w-24 object-cover rounded-lg"
+            {/* Current Photos */}
+            <div>
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Текущие фотографии</h4>
+              {(editData.photos && editData.photos.length > 0) ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {editData.photos.map((photoUrl, index) => (
+                    <div key={index} className="group relative">
+                      <div className="aspect-square rounded-xl overflow-hidden border-2 border-gray-200 dark:border-gray-600 shadow-lg hover:shadow-xl transition-all duration-300">
+                        <img
+                          src={photoUrl}
+                          alt={`Rent photo ${index + 1}`}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                         />
                       </div>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => removeContributor(index)}
-                    className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                      <button
+                        onClick={() => deletePhoto(photoUrl)}
+                        className="absolute top-2 right-2 p-2 bg-red-500 hover:bg-red-600 text-white rounded-full opacity-0 group-hover:opacity-100 transition-all duration-200 transform hover:scale-110 shadow-lg"
+                        title="Удалить фото"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <div className="text-center py-12">
+                  <ImageIcon className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Нет загруженных фотографий</h3>
+                  <p className="text-gray-500 dark:text-gray-400">Добавьте фотографии ваших помещений</p>
+                </div>
+              )}
             </div>
           </div>
-
-          {/* Support Platforms */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Платформы поддержки</h2>
+          
+          {/* Price List Section */}
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center">
+                <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/30 dark:to-green-800/30 rounded-xl mr-4">
+                  <DollarSign className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Прайс-лист</h2>
+                  <p className="text-gray-500 dark:text-gray-400">Варианты аренды и цены</p>
+                </div>
+              </div>
               <button
-                onClick={addSupportPlatform}
-                className="px-4 py-2 bg-primary/10 text-primary rounded-lg hover:bg-primary/20 transition-colors"
+                onClick={handleAddPriceItem}
+                disabled={!newPriceItem.name || newPriceItem.price <= 0}
+                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg font-heading disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 <Plus className="w-5 h-5" />
+                Добавить вариант
               </button>
             </div>
             
-            <div className="space-y-4">
-              {aboutData.support_platforms.map((platform, index) => (
-                <div key={index} className="flex gap-4 items-start p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="flex-grow grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <input
-                      type="text"
-                      value={platform.platform}
-                      onChange={(e) => {
-                        const newPlatforms = [...aboutData.support_platforms];
-                        newPlatforms[index].platform = e.target.value;
-                        setAboutData(prev => ({ ...prev, support_platforms: newPlatforms }));
-                      }}
-                      className="form-input"
-                      placeholder="Название платформы"
-                    />
-                    <input
-                      type="url"
-                      value={platform.url}
-                      onChange={(e) => {
-                        const newPlatforms = [...aboutData.support_platforms];
-                        newPlatforms[index].url = e.target.value;
-                        setAboutData(prev => ({ ...prev, support_platforms: newPlatforms }));
-                      }}
-                      className="form-input"
-                      placeholder="URL"
-                    />
-                  </div>
-                  <button
-                    onClick={() => removeSupportPlatform(index)}
-                    className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+            {/* Add New Price Item */}
+            <div className="mb-8 p-6 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 rounded-xl border border-gray-200 dark:border-gray-700">
+              <h4 className="font-semibold text-gray-900 dark:text-white mb-4">Добавить новый вариант</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Название</label>
+                  <input
+                    type="text"
+                    value={newPriceItem.name}
+                    onChange={(e) => handlePriceItemChange(e, 'name')}
+                    className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                    placeholder="Стандартный зал"
+                  />
                 </div>
-              ))}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Цена (₽)</label>
+                  <input
+                    type="number"
+                    value={newPriceItem.price}
+                    onChange={(e) => handlePriceItemChange(e, 'price')}
+                    className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                    placeholder="1000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Период</label>
+                  <select
+                    value={newPriceItem.duration}
+                    onChange={(e) => handlePriceItemChange(e, 'duration')}
+                    className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                  >
+                    <option value="hour">Почасово</option>
+                    <option value="day">Посуточно</option>
+                    <option value="week">Понедельно</option>
+                    <option value="month">Помесячно</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">Описание</label>
+                  <input
+                    type="text"
+                    value={newPriceItem.description || ''}
+                    onChange={(e) => handlePriceItemChange(e, 'description')}
+                    className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                    placeholder="Дополнительная информация"
+                  />
+                </div>
+              </div>
+            </div>
+            
+            {/* Price List Table */}
+            <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Название</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Цена</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Период</th>
+                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Описание</th>
+                      <th className="px-6 py-4 text-right text-xs font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">Действия</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-dark-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    {(editData.pricelist || []).length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="px-6 py-12 text-center">
+                          <DollarSign className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Нет вариантов аренды</h3>
+                          <p className="text-gray-500 dark:text-gray-400">Добавьте варианты аренды с ценами</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      (editData.pricelist || []).map((item) => (
+                        <tr key={item.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/30 transition-colors duration-200">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-semibold text-gray-900 dark:text-white">
+                              {item.name}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm font-medium text-green-600 dark:text-green-400">
+                              {item.price.toLocaleString('ru-RU')} ₽
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
+                              {{
+                                hour: 'Час',
+                                day: 'День',
+                                week: 'Неделя',
+                                month: 'Месяц'
+                              }[item.duration]}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+                              {item.description || '-'}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <button
+                              onClick={() => handleRemovePriceItem(item.id)}
+                              className="inline-flex items-center justify-center w-8 h-8 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg transition-all duration-200 transform hover:scale-110"
+                              title="Удалить"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          
+          {/* Contacts Section */}
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center mb-6">
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 rounded-xl mr-4">
+                <Phone className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Контактная информация</h2>
+                <p className="text-gray-500 dark:text-gray-400">Способы связи для аренды</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <MapPin className="w-4 h-4 text-orange-500" />
+                  Адрес
+                </label>
+                <input
+                  type="text"
+                  value={editData.contacts?.address || ''}
+                  onChange={(e) => handleContactsChange(e, 'address')}
+                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-800 transition-all duration-200"
+                  placeholder="г. Москва, ул. Примерная, д. 1"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <Phone className="w-4 h-4 text-orange-500" />
+                  Телефон
+                </label>
+                <input
+                  type="tel"
+                  value={editData.contacts?.phone || ''}
+                  onChange={(e) => handleContactsChange(e, 'phone')}
+                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-800 transition-all duration-200"
+                  placeholder="+7 (999) 123-45-67"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <Mail className="w-4 h-4 text-orange-500" />
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editData.contacts?.email || ''}
+                  onChange={(e) => handleContactsChange(e, 'email')}
+                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-800 transition-all duration-200"
+                  placeholder="example@mail.com"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <MapPin className="w-4 h-4 text-orange-500" />
+                  Ссылка на карту
+                </label>
+                <input
+                  type="url"
+                  value={editData.contacts?.map_link || ''}
+                  onChange={(e) => handleContactsChange(e, 'map_link')}
+                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-orange-500 focus:ring-2 focus:ring-orange-200 dark:focus:ring-orange-800 transition-all duration-200"
+                  placeholder="https://yandex.ru/maps/..."
+                />
+              </div>
             </div>
           </div>
 
-          {/* Contact Info */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">Контактная информация</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
-                <input
-                  type="email"
-                  value={aboutData.contact_info.email}
-                  onChange={(e) => setAboutData(prev => ({
-                    ...prev,
-                    contact_info: { ...prev.contact_info, email: e.target.value }
-                  }))}
-                  className="form-input"
-                  placeholder="contact@example.com"
-                />
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-2xl p-6 border border-blue-200 dark:border-blue-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-blue-600 dark:text-blue-400">Загружено фото</p>
+                  <p className="text-3xl font-bold text-blue-900 dark:text-blue-100">{(editData.photos || []).length}</p>
+                </div>
+                <div className="p-3 bg-blue-200 dark:bg-blue-800 rounded-xl">
+                  <ImageIcon className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                </div>
               </div>
-              
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Телефон</label>
-                <input
-                  type="tel"
-                  value={aboutData.contact_info.phone}
-                  onChange={(e) => setAboutData(prev => ({
-                    ...prev,
-                    contact_info: { ...prev.contact_info, phone: e.target.value }
-                  }))}
-                  className="form-input"
-                  placeholder="+7 (XXX) XXX-XX-XX"
-                />
+            </div>
+
+            <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-2xl p-6 border border-green-200 dark:border-green-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-600 dark:text-green-400">Вариантов аренды</p>
+                  <p className="text-3xl font-bold text-green-900 dark:text-green-100">{(editData.pricelist || []).length}</p>
+                </div>
+                <div className="p-3 bg-green-200 dark:bg-green-800 rounded-xl">
+                  <DollarSign className="w-8 h-8 text-green-600 dark:text-green-400" />
+                </div>
               </div>
-              
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Адрес</label>
-                <input
-                  type="text"
-                  value={aboutData.contact_info.address}
-                  onChange={(e) => setAboutData(prev => ({
-                    ...prev,
-                    contact_info: { ...prev.contact_info, address: e.target.value }
-                  }))}
-                  className="form-input"
-                  placeholder="Город, улица, дом"
-                />
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-2xl p-6 border border-purple-200 dark:border-purple-700">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-purple-600 dark:text-purple-400">Мин. цена</p>
+                  <p className="text-3xl font-bold text-purple-900 dark:text-purple-100">
+                    {(editData.pricelist || []).length > 0 
+                      ? `${Math.min(...(editData.pricelist || []).map(item => item.price)).toLocaleString('ru-RU')} ₽`
+                      : '—'
+                    }
+                  </p>
+                </div>
+                <div className="p-3 bg-purple-200 dark:bg-purple-800 rounded-xl">
+                  <Home className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                </div>
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Floating Save Button for Mobile */}
+        <div className="fixed bottom-6 right-6 md:hidden">
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white rounded-full shadow-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+          >
+            {saving ? (
+              <Loader2 className="w-6 h-6 animate-spin" />
+            ) : (
+              <Save className="w-6 h-6" />
+            )}
+          </button>
         </div>
       </div>
     </div>
   );
 };
 
-export default AdminAbout;
+export default AdminRent;

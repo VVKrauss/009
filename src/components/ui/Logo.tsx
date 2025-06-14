@@ -1,3 +1,5 @@
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
+
 type LogoProps = {
   className?: string;
   inverted?: boolean;

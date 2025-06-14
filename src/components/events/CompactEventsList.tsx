@@ -1,7 +1,7 @@
-import { format, parseISO } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { Calendar, Users, Globe, Tag } from 'lucide-react';
+import { formatRussianDate } from '../../utils/dateTimeUtils';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 type Event = {
   id: number;
@@ -22,12 +22,6 @@ type CompactEventsListProps = {
 };
 
 const CompactEventsList = ({ events }: CompactEventsListProps) => {
-  const getImageUrl = (event: Event) => {
-    if (!event.bg_image) return 'https://via.placeholder.com/800x400?text=No+image';
-    if (event.bg_image.startsWith('http')) return event.bg_image;
-    return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.bg_image}`;
-  };
-
   if (events.length === 0) {
     return (
       <div className="bg-white dark:bg-dark-800 rounded-lg shadow-md p-4">
@@ -51,16 +45,16 @@ const CompactEventsList = ({ events }: CompactEventsListProps) => {
           >
             <div 
               className="h-32 bg-cover bg-center"
-              style={{ backgroundImage: `url(${getImageUrl(event)})` }}
+              style={{ backgroundImage: `url(${getSupabaseImageUrl(event.bg_image)})` }}
             ></div>
             <div className="p-3">
               <div className="flex items-start gap-3">
                 <div className="bg-primary-50 dark:bg-primary-900/20 rounded-lg p-2 text-center min-w-[3rem]">
                   <span className="block text-xl font-bold text-primary-600 dark:text-primary-400">
-                    {format(parseISO(event.date), 'd', { locale: ru })}
+                    {formatRussianDate(event.date, 'd')}
                   </span>
                   <span className="block text-xs text-primary-600 dark:text-primary-400 capitalize">
-                    {format(parseISO(event.date), 'LLL', { locale: ru })}
+                    {formatRussianDate(event.date, 'LLL')}
                   </span>
                 </div>
                 <div className="flex-grow">
@@ -83,10 +77,6 @@ const CompactEventsList = ({ events }: CompactEventsListProps) => {
                       <Tag className="w-3 h-3 mr-1" />
                       {event.event_type}
                     </span>
-                  </div>
-                  <div className="mt-2 text-sm text-dark-500 dark:text-dark-400">
-                    <Calendar className="w-4 h-4 inline-block mr-1" />
-                    {event.start_time} - {event.end_time}
                   </div>
                 </div>
               </div>

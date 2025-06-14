@@ -1,12 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from '../../lib/supabase';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 type RentSectionData = {
   title: string;
@@ -123,7 +119,7 @@ const RentSection = () => {
           <div className="w-full h-full rounded-lg overflow-hidden relative">
             <img 
               ref={imageRef}
-              data-src={data.image}
+              data-src={getSupabaseImageUrl(data.image)}
               alt={data.title}
               className="absolute inset-0 w-full h-full object-cover"
               loading="lazy"

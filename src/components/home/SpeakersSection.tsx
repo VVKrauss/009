@@ -1,12 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { createClient } from '@supabase/supabase-js';
 import { User, ArrowRight } from 'lucide-react';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from '../../lib/supabase';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 type Speaker = {
   id: string;
@@ -136,7 +132,7 @@ const SpeakersSection = () => {
               <div className="relative aspect-square">
                 {speaker.photos?.[0]?.url ? (
                   <img
-                    src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos[0].url}`}
+                    src={getSupabaseImageUrl(speaker.photos[0].url)}
                     alt={speaker.name}
                     className="w-full h-full object-cover transition-opacity duration-300 group-hover:opacity-90"
                     onError={(e) => {

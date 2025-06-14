@@ -7,6 +7,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import imageCompression from 'browser-image-compression';
 import Cropper from 'react-cropper';
 import 'cropperjs/dist/cropper.css';
+import { sendTelegramNotification } from '../../utils/telegramNotifications';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -100,6 +101,7 @@ const CreateEditEventPage = () => {
   const [speakersError, setSpeakersError] = useState<string | null>(null);
   const [speakerSearchQuery, setSpeakerSearchQuery] = useState('');
   const [usePaymentWidget, setUsePaymentWidget] = useState(false);
+  const [originalEventData, setOriginalEventData] = useState<Event | null>(null);
 
   // Festival program states
   const [editingProgramIndex, setEditingProgramIndex] = useState<number | null>(null);
@@ -127,8 +129,8 @@ const CreateEditEventPage = () => {
     bg_image: null,
     original_bg_image: null,
     date: new Date().toISOString().split('T')[0],
-    start_time: '',
-    end_time: '',
+    start_time: '10:00',
+    end_time: '12:00',
     location: 'Science Hub',
     age_category: ageCategories[0],
     price: null,
@@ -162,60 +164,18 @@ const CreateEditEventPage = () => {
     }
   };
 
-  const updateTimeSlots = async (eventData: Event) => {
-    try {
-      const startDateTime = new Date(`${eventData.date}T${eventData.start_time}:00`);
-      const endDateTime = new Date(`${eventData.date}T${eventData.end_time}:00`);
+  const isValidTime = (time: string) => {
+    if (!time) return false;
+    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    return timeRegex.test(time);
+  };
 
-      // Check if slot already exists
-      const { data: existingSlot, error: slotError } = await supabase
-        .from('time_slots_table')
-        .select('*')
-        .eq('slot_details->>event_id', eventData.id)
-        .single();
-
-      if (slotError && slotError.code !== 'PGRST116') { // PGRST116 - no rows found
-        throw slotError;
-      }
-
-      const slotData = {
-        date: eventData.date,
-        start_time: startDateTime.toTimeString().slice(0, 8),
-        end_time: endDateTime.toTimeString().slice(0, 8),
-        slot_details: {
-          event_id: eventData.id,
-          event_title: eventData.title,
-          event_type: eventData.event_type,
-          location: eventData.location,
-          max_registrations: eventData.max_registrations,
-          current_registrations: 0,
-          speakers: eventData.speakers || []
-        }
-      };
-
-      if (existingSlot) {
-        // Update existing slot
-        const { error: updateError } = await supabase
-          .from('time_slots_table')
-          .update(slotData)
-          .eq('id', existingSlot.id);
-
-        if (updateError) throw updateError;
-        toast.info('Временной слот обновлен');
-      } else {
-        // Create new slot
-        const { error: insertError } = await supabase
-          .from('time_slots_table')
-          .insert(slotData);
-
-        if (insertError) throw insertError;
-        toast.info('Создан новый временной слот');
-      }
-    } catch (error) {
-      console.error('Error updating time slots:', error);
-      toast.error('Ошибка при обновлении временных слотов');
-      throw error;
-    }
+  // Helper function to create proper timestamptz
+  const createTimestamp = (dateStr: string, timeStr: string) => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const date = new Date(dateStr);
+    date.setHours(hours, minutes, 0, 0);
+    return date.toISOString();
   };
 
   useEffect(() => {
@@ -240,10 +200,33 @@ const CreateEditEventPage = () => {
       if (error) throw error;
       
       if (data) {
-        const startTime = data.start_time ? new Date(data.start_time).toTimeString().slice(0, 5) : '';
-        const endTime = data.end_time ? new Date(data.end_time).toTimeString().slice(0, 5) : '';
+        // Parse timestamps from the database
+        let startTime = '10:00';
+        let endTime = '12:00';
 
-        setFormData({
+        if (data.start_time) {
+          try {
+            const startDate = new Date(data.start_time);
+            if (!isNaN(startDate.getTime())) {
+              startTime = startDate.toTimeString().slice(0, 5);
+            }
+          } catch (e) {
+            console.warn('Invalid start_time format:', data.start_time);
+          }
+        }
+
+        if (data.end_time) {
+          try {
+            const endDate = new Date(data.end_time);
+            if (!isNaN(endDate.getTime())) {
+              endTime = endDate.toTimeString().slice(0, 5);
+            }
+          } catch (e) {
+            console.warn('Invalid end_time format:', data.end_time);
+          }
+        }
+
+        const eventData = {
           ...data,
           short_description: data.short_description || '',
           start_time: startTime,
@@ -251,8 +234,10 @@ const CreateEditEventPage = () => {
           festival_program: data.festival_program || [],
           payment_widget_id: data.payment_widget_id || '',
           widget_chooser: data.widget_chooser || false
-        });
+        };
         
+        setFormData(eventData);
+        setOriginalEventData(eventData);
         setSelectedSpeakers(data.speakers || []);
         setUsePaymentWidget(data.widget_chooser || false);
         
@@ -299,13 +284,22 @@ const CreateEditEventPage = () => {
       setLoading(true);
       
       // Delete time slot first
-      const { error: slotError } = await supabase
+      const { data: existingSlots, error: slotSelectError } = await supabase
         .from('time_slots_table')
-        .delete()
+        .select('*')
         .eq('slot_details->>event_id', id);
 
-      if (slotError) throw slotError;
-      toast.update(toastId, { render: 'Временной слот удален', type: 'info', isLoading: false, autoClose: 3000 });
+      if (slotSelectError) throw slotSelectError;
+
+      if (existingSlots && existingSlots.length > 0) {
+        const { error: slotError } = await supabase
+          .from('time_slots_table')
+          .delete()
+          .eq('slot_details->>event_id', id);
+
+        if (slotError) throw slotError;
+        toast.update(toastId, { render: 'Временной слот удален', type: 'info', isLoading: false, autoClose: 3000 });
+      }
 
       // Delete program images
       if (formData.festival_program && formData.festival_program.length > 0) {
@@ -394,6 +388,17 @@ const CreateEditEventPage = () => {
       toast.error('Укажите время начала и окончания');
       return false;
     }
+
+    // Validate time format
+    if (!isValidTime(formData.start_time)) {
+      toast.error('Неверный формат времени начала');
+      return false;
+    }
+    if (!isValidTime(formData.end_time)) {
+      toast.error('Неверный формат времени окончания');
+      return false;
+    }
+
     if (!formData.location.trim()) {
       toast.error('Укажите место проведения');
       return false;
@@ -418,68 +423,114 @@ const CreateEditEventPage = () => {
     return true;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!validateForm()) return;
 
-    const toastId = toast.loading(id === 'new' ? 'Создание мероприятия...' : 'Обновление мероприятия...');
+  const toastId = toast.loading('Сохранение мероприятия...');
+  
+  try {
     setLoading(true);
 
-    try {
-      const startDateTime = new Date(`${formData.date}T${formData.start_time}:00`);
-      const endDateTime = new Date(`${formData.date}T${formData.end_time}:00`);
+    // Функция для конвертации timestampz в HH:MM
+    const formatTimeFromTimestamp = (timestamp: string) => {
+      const date = new Date(timestamp);
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    };
 
-      // Convert program item times to ISO format
-      const festivalProgram = formData.festival_program?.map(item => ({
-        ...item,
-        start_time: new Date(item.start_time).toISOString(),
-        end_time: new Date(item.end_time).toISOString()
-      })) || [];
+    // Prepare event data
+    const eventData = {
+      ...formData,
+      speakers: selectedSpeakers,
+      widget_chooser: usePaymentWidget,
+      start_time: createTimestamp(formData.date, formData.start_time),
+      end_time: createTimestamp(formData.date, formData.end_time)
+    };
 
-      const dataToSave = {
-        ...formData,
-        speakers: selectedSpeakers,
-        start_time: startDateTime.toISOString(),
-        end_time: endDateTime.toISOString(),
-        festival_program: festivalProgram,
-        widget_chooser: usePaymentWidget,
-        payment_link: formData.payment_link,
-        payment_widget_id: formData.payment_widget_id
-      };
+    const isNewEvent = id === 'new';
 
-      // Save event
+    if (isNewEvent) {
+      // Create new event
       const { error } = await supabase
         .from('events')
-        .upsert(dataToSave);
+        .insert(eventData);
 
       if (error) throw error;
 
-      // Update time slots
-      await updateTimeSlots(dataToSave);
+      toast.update(toastId, { 
+        render: 'Мероприятие создано', 
+        type: 'info', 
+        isLoading: false,  
+        autoClose: 3000 
+      });
+
+      // Send notification for new event
+      const message = `🎉 Добавлено новое мероприятие\n\n` +
+        `Название: <b>${eventData.title}</b>\n` +
+        `Дата: ${eventData.date}\n` +
+        `Время: ${formatTimeFromTimestamp(eventData.start_time)} - ${formatTimeFromTimestamp(eventData.end_time)}\n` +
+        `Место: ${eventData.location}\n` +
+        `Тип: ${eventData.event_type}\n` +
+        `Ссылка: ${window.location.origin}/events/${eventData.id}`;
+
+      const chatId = import.meta.env.VITE_TELEGRAM_COFFEE_CHAT_ID;
+      await sendTelegramNotification(chatId, message);
+
+      
 
       toast.update(toastId, { 
-        render: id === 'new' ? 'Мероприятие создано' : 'Мероприятие обновлено', 
+        render: 'Мероприятие успешно создано', 
         type: 'success', 
         isLoading: false, 
         autoClose: 3000 
       });
+
       navigate('/admin/events');
-    } catch (error) {
-      console.error('Error saving event:', error);
+    } else {
+      // Update existing event
+      const { error } = await supabase
+        .from('events')
+        .update(eventData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Send notification for updated event
+      const message = `🔄 Обновлено мероприятие\n\n` +
+        `Название: <b>${eventData.title}</b>\n` +
+        `Дата: ${eventData.date}\n` +
+        `Время: ${formatTimeFromTimestamp(eventData.start_time)} - ${formatTimeFromTimestamp(eventData.end_time)}\n` +
+        `Место: ${eventData.location}\n` +
+        `Тип: ${eventData.event_type}\n` +
+        `Ссылка: ${window.location.origin}/events/${eventData.id}`;
+      
+      const chatId = import.meta.env.VITE_TELEGRAM_COFFEE_CHAT_ID;
+      await sendTelegramNotification(chatId, message);
+
       toast.update(toastId, { 
-        render: 'Ошибка при сохранении мероприятия', 
-        type: 'error', 
+        render: 'Мероприятие успешно обновлено', 
+        type: 'success', 
         isLoading: false, 
         autoClose: 3000 
       });
-    } finally {
-      setLoading(false);
-    }
-  };
 
+      navigate('/admin/events');
+    }
+  } catch (error) {
+    console.error('Error saving event:', error);
+    toast.update(toastId, { 
+      render: 'Ошибка при сохранении мероприятия', 
+      type: 'error', 
+      isLoading: false, 
+      autoClose: 3000 
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   
   const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -648,7 +699,7 @@ const CreateEditEventPage = () => {
     }
   };
 
-const handleAddProgramItem = () => {
+  const handleAddProgramItem = () => {
     if (!currentProgramItem.title) {
       toast.error('Введите название пункта программы');
       return;
@@ -758,7 +809,6 @@ const handleAddProgramItem = () => {
       });
     }
   };
-
 
   const toggleSpeaker = (speakerId: string) => {
     setSelectedSpeakers(prev => {

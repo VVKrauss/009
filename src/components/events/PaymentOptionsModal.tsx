@@ -1,14 +1,6 @@
 import { CreditCard, MapPin } from 'lucide-react';
 import { useEffect, useRef } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { createClient } from '@supabase/supabase-js';
-
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
-
+import Modal from '../ui/Modal';
 
 type PaymentOptionsModalProps = {
   isOpen: boolean;
@@ -49,50 +41,17 @@ const PaymentOptionsModal = ({
     }
   }, [isOpen, paymentType]);
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white dark:bg-dark-800 rounded-lg w-full max-w-md p-6">
-        <h2 className="text-xl font-semibold mb-6">Выберите способ оплаты</h2>
-        
-        <div className="space-y-4">
-          {hasOnlinePayment && paymentType === 'widget' ? (
-            <div className="space-y-4">
-              <div ref={widgetContainerRef} className="w-full"></div>
-              <button
-                onClick={() => onSelectOption('venue')}
-                className="w-full p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors flex items-center gap-4"
-              >
-                <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full">
-                  <MapPin className="h-6 w-6 text-gray-600 dark:text-gray-400" />
-                </div>
-                <div className="text-left">
-                  <h3 className="font-medium">Оплата на месте</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Оплатите при посещении мероприятия
-                  </p>
-                </div>
-              </button>
-            </div>
-          ) : hasOnlinePayment && (
-            <button
-              onClick={() => onSelectOption('online')}
-              className="w-full p-4 border-2 border-primary-500 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors flex items-center gap-4"
-            >
-              <div className="p-2 bg-primary-100 dark:bg-primary-900/30 rounded-full">
-                <CreditCard className="h-6 w-6 text-primary-600 dark:text-primary-400" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-medium">Онлайн оплата</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Оплатите сейчас картой или электронным кошельком
-                </p>
-              </div>
-            </button>
-          )}
-          
-          {paymentType !== 'widget' && (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Выберите способ оплаты"
+      size="md"
+    >
+      <div className="space-y-4">
+        {hasOnlinePayment && paymentType === 'widget' ? (
+          <div className="space-y-4">
+            <div ref={widgetContainerRef} className="w-full"></div>
             <button
               onClick={() => onSelectOption('venue')}
               className="w-full p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors flex items-center gap-4"
@@ -107,17 +66,49 @@ const PaymentOptionsModal = ({
                 </p>
               </div>
             </button>
-          )}
-        </div>
+          </div>
+        ) : hasOnlinePayment && (
+          <button
+            onClick={() => onSelectOption('online')}
+            className="w-full p-4 border-2 border-primary-500 rounded-lg hover:bg-primary-50 dark:hover:bg-primary-900/20 transition-colors flex items-center gap-4"
+          >
+            <div className="p-2 bg-primary-100 dark:bg-primary-900/30 rounded-full">
+              <CreditCard className="h-6 w-6 text-primary-600 dark:text-primary-400" />
+            </div>
+            <div className="text-left">
+              <h3 className="font-medium">Онлайн оплата</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Оплатите сейчас картой или электронным кошельком
+              </p>
+            </div>
+          </button>
+        )}
         
-        <button
-          onClick={onClose}
-          className="mt-6 w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
-        >
-          Отмена
-        </button>
+        {paymentType !== 'widget' && (
+          <button
+            onClick={() => onSelectOption('venue')}
+            className="w-full p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors flex items-center gap-4"
+          >
+            <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-full">
+              <MapPin className="h-6 w-6 text-gray-600 dark:text-gray-400" />
+            </div>
+            <div className="text-left">
+              <h3 className="font-medium">Оплата на месте</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Оплатите при посещении мероприятия
+              </p>
+            </div>
+          </button>
+        )}
       </div>
-    </div>
+      
+      <button
+        onClick={onClose}
+        className="mt-6 w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
+      >
+        Отмена
+      </button>
+    </Modal>
   );
 };
 
