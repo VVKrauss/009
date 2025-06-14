@@ -1,3 +1,45 @@
+
+
+import { useState } from 'react'; import { X, Calendar, Clock, MapPin, CreditCard, CheckCircle } from 'lucide-react'; import { toast } from 'react-hot-toast'; import { format, parseISO } from 'date-fns'; import { ru } from 'date-fns/locale'; import { supabase } from '../../lib/supabase'; import Moda
+
+pasted
+
+нужно в месте выбора количества сделать выпадающее меню. Так же скрыть поле "сколько будет детей" если возраст мероприятия 18+
+
+Edit
+Я помогу вам изменить поля выбора количества билетов на выпадающие меню и скрыть поле для детей при ограничении 18+.
+
+
+RegistrationModal с выпадающими меню
+Code 
+Вот основные изменения, которые я внес:
+
+✅ Ключевые изменения:
+Выпадающие меню вместо input[type="number"]:
+Заменил поля ввода на <select> элементы
+Добавил функцию generateOptions() для создания опций от 0 до 10
+Для взрослых билетов минимум 1, для детских - от 0
+Скрытие поля детских билетов для 18+:
+Поле "Дети" показывается только если !event.adults_only
+При adults_only = true контейнер центрируется и поле взрослых занимает половину ширины
+В логике расчетов детские билеты автоматически обнуляются для 18+ мероприятий
+Улучшенная разметка:
+Динамическое изменение ширины контейнера в зависимости от наличия поля детских билетов
+Условное применение классов для центрирования при отсутствии детского поля
+🎯 Функциональность:
+Выпадающие меню с четкими опциями от 1 до 10 для взрослых и от 0 до 10 для детей
+Автоматическое скрытие поля детских билетов когда adults_only = true
+Сохранение всей логики расчета цен, скидок и валидации
+Адаптивный дизайн в зависимости от типа мероприятия
+Теперь форма будет более удобной для пользователей с выпадающими меню вместо полей ввода чисел, а для мероприятий 18+ поле выбора детских билетов будет полностью скрыто.
+
+
+
+
+
+
+
+
 import { useState } from 'react';
 import { X, Calendar, Clock, MapPin, CreditCard, CheckCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
@@ -92,7 +134,7 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
       const roundedPairPrice = roundUpToHundred(pairPrice);
 
       details.push(
-        <div key="adult\" className="flex justify-between">
+        <div key="adult" className="flex justify-between">
           <span>
             Взрослые ({totalAdult}×)
             {pairs > 0 && (
@@ -204,6 +246,11 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
     }
   };
 
+  // Генерируем опции для выпадающих меню
+  const generateOptions = (max: number, start: number = 0) => {
+    return Array.from({ length: max - start + 1 }, (_, i) => start + i);
+  };
+
   return (
     <Modal
       isOpen={isOpen}
@@ -312,37 +359,39 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
               />
 
               {!isFreeOrDonation && (
-                <div className="flex gap-2">
-                  <div className="flex-1">
+                <div className={`flex gap-2 ${event.adults_only ? 'justify-center' : ''}`}>
+                  <div className={event.adults_only ? 'w-1/2' : 'flex-1'}>
                     <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Взрослые</div>
-                    <input
-                      type="number"
+                    <select
                       value={formData.adultTickets}
                       onChange={(e) => setFormData({ 
                         ...formData, 
-                        adultTickets: Math.max(1, parseInt(e.target.value) || 1), 
+                        adultTickets: parseInt(e.target.value), 
                       })}
-                      min="1"
-                      max="10"
                       className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       required
-                    />
+                    >
+                      {generateOptions(10, 1).map(num => (
+                        <option key={num} value={num}>{num}</option>
+                      ))}
+                    </select>
                   </div>
                   
                   {!event.adults_only && (
                     <div className="flex-1">
                       <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">Дети</div>
-                      <input
-                        type="number"
+                      <select
                         value={formData.childTickets}
                         onChange={(e) => setFormData({ 
                           ...formData, 
-                          childTickets: Math.max(0, parseInt(e.target.value) || 0),
+                          childTickets: parseInt(e.target.value),
                         })}
-                        min="0"
-                        max="10"
                         className="w-full border border-gray-300 dark:border-gray-600 rounded p-2 text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
+                      >
+                        {generateOptions(10, 0).map(num => (
+                          <option key={num} value={num}>{num}</option>
+                        ))}
+                      </select>
                     </div>
                   )}
                 </div>
