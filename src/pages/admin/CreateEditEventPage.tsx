@@ -452,6 +452,25 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     const isNewEvent = id === 'new';
 
+    // Проверяем изменения времени для существующих мероприятий
+    let shouldSendNotification = false;
+    
+    if (isNewEvent) {
+      // Для новых мероприятий всегда отправляем уведомление
+      shouldSendNotification = true;
+    } else if (originalEventData) {
+      // Для существующих мероприятий проверяем изменения времени
+      const originalStartTime = createTimestamp(originalEventData.date, originalEventData.start_time);
+      const originalEndTime = createTimestamp(originalEventData.date, originalEventData.end_time);
+      
+      const timeChanged = 
+        originalStartTime !== eventData.start_time || 
+        originalEndTime !== eventData.end_time ||
+        originalEventData.date !== formData.date;
+      
+      shouldSendNotification = timeChanged;
+    }
+
     if (isNewEvent) {
       // Create new event
       const { error } = await supabase
@@ -468,18 +487,18 @@ const handleSubmit = async (e: React.FormEvent) => {
       });
 
       // Send notification for new event
-      const message = `🎉 Добавлено новое мероприятие\n\n` +
-        `Название: <b>${eventData.title}</b>\n` +
-        `Дата: ${eventData.date}\n` +
-        `Время: ${formatTimeFromTimestamp(eventData.start_time)} - ${formatTimeFromTimestamp(eventData.end_time)}\n` +
-        `Место: ${eventData.location}\n` +
-        `Тип: ${eventData.event_type}\n` +
-        `Ссылка: ${window.location.origin}/events/${eventData.id}`;
+      if (shouldSendNotification) {
+        const message = `🎉 Добавлено новое мероприятие\n\n` +
+          `Название: <b>${eventData.title}</b>\n` +
+          `Дата: ${eventData.date}\n` +
+          `Время: ${formatTimeFromTimestamp(eventData.start_time)} - ${formatTimeFromTimestamp(eventData.end_time)}\n` +
+          `Место: ${eventData.location}\n` +
+          `Тип: ${eventData.event_type}\n` +
+          `Ссылка: ${window.location.origin}/events/${eventData.id}`;
 
-      const chatId = import.meta.env.VITE_TELEGRAM_COFFEE_CHAT_ID;
-      await sendTelegramNotification(chatId, message);
-
-      
+        const chatId = import.meta.env.VITE_TELEGRAM_COFFEE_CHAT_ID;
+        await sendTelegramNotification(chatId, message);
+      }
 
       toast.update(toastId, { 
         render: 'Мероприятие успешно создано', 
@@ -498,20 +517,154 @@ const handleSubmit = async (e: React.FormEvent) => {
 
       if (error) throw error;
 
-      // Send notification for updated event
-      const message = `🔄 Обновлено мероприятие\n\n` +
-        `Название: <b>${eventData.title}</b>\n` +
-        `Дата: ${eventData.date}\n` +
-        `Время: ${formatTimeFromTimestamp(eventData.start_time)} - ${formatTimeFromTimestamp(eventData.end_time)}\n` +
-        `Место: ${eventData.location}\n` +
-        `Тип: ${eventData.event_type}\n` +
-        `Ссылка: ${window.location.origin}/events/${eventData.id}`;
-      
-      const chatId = import.meta.env.VITE_TELEGRAM_COFFEE_CHAT_ID;
-      await sendTelegramNotification(chatId, message);
+      // Send notification only if time changed
+      if (shouldSendNotification) {
+        const message = `🔄 Изменено время мероприятия\n\n` +
+          `Название: <b>${eventData.title}</b>\n` +
+          `Дата: ${eventData.date}\n` +
+          `Время: ${formatTimeFromTimestamp(eventData.start_time)} - ${formatTimeFromTimestamp(eventData.end_time)}\n` +
+          `Место: ${eventData.location}\n` +
+          `Тип: ${eventData.event_type}\n` +
+          `Ссылка: ${window.location.origin}/events/${eventData.id}`;
+        
+        const chatId = import.meta.env.VITE_TELEGRAM_COFFEE_CHAT_ID;
+        await sendTelegramNotification(chatId, message);
+      }
 
       toast.update(toastId, { 
-        render: 'Мероприятие успешно обновлено', 
+        render: shouldSendNotification 
+          ? 'Мероприятие обновлено, уведомление отправлено' 
+          : 'Мероприятие успешно обновлено', 
+        type: 'success', 
+        isLoading: false, 
+        autoClose: 3000 
+      });
+
+      navigate('/admin/events');
+    }
+  } catch (error) {
+    console.error('Error saving event:', error);
+    toast.update(toastId, { 
+      render: 'Ошибка при сохранении мероприятия', 
+      type: 'error', 
+      isLoading: false, 
+      autoClose: 3000 
+    });
+  } finally {
+    setLoading(false);
+  }
+};const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!validateForm()) return;
+
+  const toastId = toast.loading('Сохранение мероприятия...');
+  
+  try {
+    setLoading(true);
+
+    // Функция для конвертации timestampz в HH:MM
+    const formatTimeFromTimestamp = (timestamp: string) => {
+      const date = new Date(timestamp);
+      const hours = date.getHours().toString().padStart(2, '0');
+      const minutes = date.getMinutes().toString().padStart(2, '0');
+      return `${hours}:${minutes}`;
+    };
+
+    // Prepare event data
+    const eventData = {
+      ...formData,
+      speakers: selectedSpeakers,
+      widget_chooser: usePaymentWidget,
+      start_time: createTimestamp(formData.date, formData.start_time),
+      end_time: createTimestamp(formData.date, formData.end_time)
+    };
+
+    const isNewEvent = id === 'new';
+
+    // Проверяем изменения времени для существующих мероприятий
+    let shouldSendNotification = false;
+    
+    if (isNewEvent) {
+      // Для новых мероприятий всегда отправляем уведомление
+      shouldSendNotification = true;
+    } else if (originalEventData) {
+      // Для существующих мероприятий проверяем изменения времени
+      const originalStartTime = createTimestamp(originalEventData.date, originalEventData.start_time);
+      const originalEndTime = createTimestamp(originalEventData.date, originalEventData.end_time);
+      
+      const timeChanged = 
+        originalStartTime !== eventData.start_time || 
+        originalEndTime !== eventData.end_time ||
+        originalEventData.date !== formData.date;
+      
+      shouldSendNotification = timeChanged;
+    }
+
+    if (isNewEvent) {
+      // Create new event
+      const { error } = await supabase
+        .from('events')
+        .insert(eventData);
+
+      if (error) throw error;
+
+      toast.update(toastId, { 
+        render: 'Мероприятие создано', 
+        type: 'info', 
+        isLoading: false,  
+        autoClose: 3000 
+      });
+
+      // Send notification for new event
+      if (shouldSendNotification) {
+        const message = `🎉 Добавлено новое мероприятие\n\n` +
+          `Название: <b>${eventData.title}</b>\n` +
+          `Дата: ${eventData.date}\n` +
+          `Время: ${formatTimeFromTimestamp(eventData.start_time)} - ${formatTimeFromTimestamp(eventData.end_time)}\n` +
+          `Место: ${eventData.location}\n` +
+          `Тип: ${eventData.event_type}\n` +
+          `Ссылка: ${window.location.origin}/events/${eventData.id}`;
+
+        const chatId = import.meta.env.VITE_TELEGRAM_COFFEE_CHAT_ID;
+        await sendTelegramNotification(chatId, message);
+      }
+
+      toast.update(toastId, { 
+        render: 'Мероприятие успешно создано', 
+        type: 'success', 
+        isLoading: false, 
+        autoClose: 3000 
+      });
+
+      navigate('/admin/events');
+    } else {
+      // Update existing event
+      const { error } = await supabase
+        .from('events')
+        .update(eventData)
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Send notification only if time changed
+      if (shouldSendNotification) {
+        const message = `🔄 Изменено время мероприятия\n\n` +
+          `Название: <b>${eventData.title}</b>\n` +
+          `Дата: ${eventData.date}\n` +
+          `Время: ${formatTimeFromTimestamp(eventData.start_time)} - ${formatTimeFromTimestamp(eventData.end_time)}\n` +
+          `Место: ${eventData.location}\n` +
+          `Тип: ${eventData.event_type}\n` +
+          `Ссылка: ${window.location.origin}/events/${eventData.id}`;
+        
+        const chatId = import.meta.env.VITE_TELEGRAM_COFFEE_CHAT_ID;
+        await sendTelegramNotification(chatId, message);
+      }
+
+      toast.update(toastId, { 
+        render: shouldSendNotification 
+          ? 'Мероприятие обновлено, уведомление отправлено' 
+          : 'Мероприятие успешно обновлено', 
         type: 'success', 
         isLoading: false, 
         autoClose: 3000 
