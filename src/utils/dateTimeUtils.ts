@@ -23,7 +23,7 @@ export const formatTimeFromTimestamp = (timeString?: string): string => {
   try {
     const date = new Date(timeString);
     if (!isNaN(date.getTime())) {
-      return format(date, 'HH:mm');
+      return format(date, 'HH:mm', { locale: ru });
     }
   } catch (e) {
     console.error('Error parsing timestamp:', timeString, e);

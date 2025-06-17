@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
-import { format, parseISO } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { Calendar, Clock, MapPin, Users, Globe, Share2, ArrowLeft } from 'lucide-react';
 import Layout from '../components/layout/Layout';
 import RegistrationModal from '../components/events/RegistrationModal';
 import PaymentOptionsModal from '../components/events/PaymentOptionsModal';
 import { toast } from 'react-hot-toast';
 import { EventRegistrations } from './admin/constants';
+import { formatRussianDate, formatTimeFromTimestamp, formatTimeRange } from '../utils/dateTimeUtils';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -58,23 +57,13 @@ interface Event {
   current_registration_count?: number;
 }
 
-const formatTimeFromTimestamp = (timestamp: string) => {
-  if (!timestamp) return '';
-  try {
-    return format(parseISO(timestamp), 'HH:mm');
-  } catch (e) {
-    console.error('Error formatting time:', e);
-    return '';
-  }
-};
-
 const isPastEvent = (eventDate: string, endTime?: string) => {
   try {
-    const eventDateTime = parseISO(eventDate);
+    const eventDateTime = new Date(eventDate);
     
     // Если есть время окончания, используем его
     if (endTime) {
-      const endDateTime = parseISO(endTime);
+      const endDateTime = new Date(endTime);
       return endDateTime < new Date();
     }
     
@@ -89,7 +78,6 @@ const isPastEvent = (eventDate: string, endTime?: string) => {
     return false;
   }
 };
-
 
 const renderDescriptionWithLinks = (description: string) => {
   if (!description) {
@@ -216,7 +204,7 @@ const EventDetailsPage = () => {
 
   const handleShare = async (platform: string) => {
     const url = window.location.href;
-    const text = `${event?.title} - ${format(parseISO(event?.date || ''), 'd MMMM yyyy', { locale: ru })}`;
+    const text = `${event?.title} - ${formatRussianDate(event?.date || '')}`;
 
     switch (platform) {
       case 'telegram':
@@ -322,11 +310,11 @@ const EventDetailsPage = () => {
               <div className="flex flex-wrap gap-6 text-white/90">
                 <div className="flex items-center gap-2">
                   <Calendar className="h-5 w-5" />
-                  <span>{format(parseISO(event.date), 'd MMMM yyyy', { locale: ru })}</span>
+                  <span>{formatRussianDate(event.date)}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="h-5 w-5" />
-                  <span>{formatTimeFromTimestamp(event.start_time)} - {formatTimeFromTimestamp(event.end_time)}</span>
+                  <span>{formatTimeRange(event.start_time, event.end_time)}</span>
                 </div>
                 {event.location && (
                   <div className="flex items-center gap-2">
@@ -346,11 +334,11 @@ const EventDetailsPage = () => {
         <div className="flex flex-col gap-3 text-dark-600 dark:text-dark-300">
           <div className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            <span>{format(parseISO(event.date), 'd MMMM yyyy', { locale: ru })}</span>
+            <span>{formatRussianDate(event.date)}</span>
           </div>
           <div className="flex items-center gap-2">
             <Clock className="h-5 w-5" />
-            <span>{formatTimeFromTimestamp(event.start_time)} - {formatTimeFromTimestamp(event.end_time)}</span>
+            <span>{formatTimeRange(event.start_time, event.end_time)}</span>
           </div>
           {event.location && (
             <div className="flex items-center gap-2">

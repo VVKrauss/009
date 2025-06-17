@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Calendar, Users, Globe, Tag, Clock, MapPin } from 'lucide-react';
-import { formatTimeFromTimestamp, formatTimeRange } from '../../utils/dateTimeUtils';
-import { formatRussianDate } from '../../utils/dateTimeUtils';
+import { formatTimeFromTimestamp, formatTimeRange, formatRussianDate } from '../../utils/dateTimeUtils';
 import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 export type Event = {

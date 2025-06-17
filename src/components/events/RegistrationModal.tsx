@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { X, Calendar, Clock, MapPin, CreditCard, CheckCircle } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { format, parseISO } from 'date-fns';
-import { ru } from 'date-fns/locale';
+import { formatRussianDate, formatTimeFromTimestamp } from '../../utils/dateTimeUtils';
 import { supabase } from '../../lib/supabase';
 import Modal from '../ui/Modal';
 import { EventRegistrations } from '../../pages/admin/constants';
@@ -263,11 +262,11 @@ const RegistrationModal = ({ isOpen, onClose, event }: RegistrationModalProps) =
             <div className="flex flex-wrap items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
               <div className="flex items-center gap-1">
                 <Calendar className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                <span>{format(parseISO(event.start_time), 'dd.MM.yyyy', { locale: ru })}</span>
+                <span>{formatRussianDate(event.start_time, 'dd.MM.yyyy')}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Clock className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                <span>{format(parseISO(event.start_time), 'HH:mm', { locale: ru })}</span>
+                <span>{formatTimeFromTimestamp(event.start_time)}</span>
               </div>
               <div className="flex items-center gap-1">
                 <MapPin className="h-4 w-4 text-gray-500 dark:text-gray-400" />
