@@ -93,6 +93,6 @@ export const ageCategories = ['0+', '12+', '18+'];
 export const currencies = ['RSD', 'EUR', 'RUB'];
 export const statuses = ['draft', 'active', 'past'];
 
-export const TITLE_MAX_LENGTH = 50;
+export const TITLE_MAX_LENGTH = 70;
 export const SHORT_DESC_MAX_LENGTH = 150;
 export const DESC_MAX_LENGTH = 800;
