@@ -450,6 +450,8 @@ const handleSubmit = async (e: React.FormEvent) => {
       end_time: createTimestamp(formData.date, formData.end_time)
     };
 
+    console.log('Attempting to save eventData:', eventData);
+
     const isNewEvent = id === 'new';
 
     // Проверяем изменения времени для существующих мероприятий
@@ -473,9 +475,13 @@ const handleSubmit = async (e: React.FormEvent) => {
 
     if (isNewEvent) {
       // Create new event
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('events')
-        .insert(eventData);
+        .insert(eventData)
+        .select();
+
+      console.log('Supabase insert response data:', data);
+      console.log('Supabase insert response error:', error);
 
       if (error) throw error;
 
@@ -510,10 +516,14 @@ const handleSubmit = async (e: React.FormEvent) => {
       navigate('/admin/events');
     } else {
       // Update existing event
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('events')
         .update(eventData)
-        .eq('id', id);
+        .eq('id', id)
+        .select();
+
+      console.log('Supabase update response data:', data);
+      console.log('Supabase update response error:', error);
 
       if (error) throw error;
 
