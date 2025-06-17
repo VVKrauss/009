@@ -82,8 +82,8 @@ const ageCategories = ['0+', '12+', '18+'];
 const currencies = ['RSD', 'EUR', 'RUB'];
 const statuses = ['draft', 'active', 'past'];
 
-const TITLE_MAX_LENGTH = 50;
-const SHORT_DESC_MAX_LENGTH = 150;
+const TITLE_MAX_LENGTH = 70;
+const SHORT_DESC_MAX_LENGTH = 180;
 const DESC_MAX_LENGTH = 800;
 
 const CreateEditEventPage = () => {
