@@ -38,6 +38,7 @@ const CreateEditEventPage = () => {
   const [speakers, setSpeakers] = useState<Array<{ id: string; name: string; photos: any[] }>>([]);
   const [selectedSpeakers, setSelectedSpeakers] = useState<string[]>([]);
   const [eventData, setEventData] = useState<Partial<Event>>({
+    id: id || crypto.randomUUID(), // Generate ID for new events
     title: '',
     short_description: '',
     description: '',
