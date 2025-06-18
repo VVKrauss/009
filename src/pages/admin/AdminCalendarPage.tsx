@@ -143,7 +143,6 @@ const AdminCalendarPage = () => {
     setNewSlotModal(true);
   };
 
-
 const createOrUpdateTimeSlot = async () => {
   try {
     if (!newSlotData.date || !newSlotData.start_time || !newSlotData.end_time) {
@@ -153,6 +152,12 @@ const createOrUpdateTimeSlot = async () => {
 
     const startAt = new Date(`${newSlotData.date}T${newSlotData.start_time}:00Z`).toISOString();
     const endAt = new Date(`${newSlotData.date}T${newSlotData.end_time}:00Z`).toISOString();
+
+    // Проверка на корректность временного интервала
+    if (new Date(endAt) <= new Date(startAt)) {
+      toast.error('Время окончания должно быть позже времени начала');
+      return;
+    }
 
     // Проверка на пересечение временных интервалов
     const { data: overlappingSlots, error: overlapError } = await supabase
@@ -164,11 +169,21 @@ const createOrUpdateTimeSlot = async () => {
     if (overlapError) throw overlapError;
 
     if (overlappingSlots && overlappingSlots.length > 0) {
-      const overlappingInfo = overlappingSlots.map(slot => 
-        `${slot.start_time}-${slot.end_time}: ${slot.slot_details?.title || 'Слот'}`
-      ).join('\n');
-      
-      toast.error(`Время уже занято другими слотами:\n${overlappingInfo}`);
+      // Формируем детальное сообщение о занятых слотах
+      const overlappingDetails = overlappingSlots.map(slot => {
+        const type = slot.slot_details?.type === 'event' ? 'Мероприятие' : 'Аренда';
+        const title = slot.slot_details?.title || 'Без названия';
+        const time = `${slot.start_time}-${slot.end_time}`;
+        const description = slot.slot_details?.description ? `\nОписание: ${slot.slot_details.description}` : '';
+        const clientInfo = slot.slot_details?.user_name ? `\nКлиент: ${slot.slot_details.user_name}` : '';
+        
+        return `• ${type}: ${title}\n  Время: ${time}${description}${clientInfo}`;
+      }).join('\n\n');
+
+      toast.error(
+        `Выбранное время пересекается с существующими слотами:\n\n${overlappingDetails}\n\nПожалуйста, выберите другое время.`,
+        { duration: 8000 } // Увеличиваем время показа уведомления
+      );
       return;
     }
 
@@ -216,6 +231,7 @@ const createOrUpdateTimeSlot = async () => {
   }
 };
   
+
   
   const deleteTimeSlot = async (id: string, type?: string) => {
     if (type === 'event') {
