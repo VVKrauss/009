@@ -1,8 +1,5 @@
 import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
-import { utcToZonedTime, formatInTimeZone } from 'date-fns-tz';
-
-const BELGRADE_TIMEZONE = "Europe/Belgrade";
 
 /**
  * Formats a timestamp string to HH:MM format
@@ -26,9 +23,7 @@ export const formatTimeFromTimestamp = (timeString?: string): string => {
   try {
     const date = new Date(timeString);
     if (!isNaN(date.getTime())) {
-      // Convert to Belgrade timezone
-      const belgradeDatetime = utcToZonedTime(date, BELGRADE_TIMEZONE);
-      return format(belgradeDatetime, 'HH:mm', { locale: ru });
+      return format(date, 'HH:mm', { locale: ru });
     }
   } catch (e) {
     console.error('Error parsing timestamp:', timeString, e);
@@ -70,10 +65,7 @@ export const formatTimeRange = (startTime?: string, endTime?: string): string =>
  */
 export const formatRussianDate = (dateString: string, formatStr = 'd MMMM yyyy'): string => {
   try {
-    const date = parseISO(dateString);
-    // Convert to Belgrade timezone
-    const belgradeDatetime = utcToZonedTime(date, BELGRADE_TIMEZONE);
-    return format(belgradeDatetime, formatStr, { locale: ru });
+    return format(parseISO(dateString), formatStr, { locale: ru });
   } catch (error) {
     console.error('Error formatting date:', error);
     return dateString;
@@ -88,37 +80,9 @@ export const formatRussianDate = (dateString: string, formatStr = 'd MMMM yyyy')
 export const isPastEvent = (eventDate: string): boolean => {
   try {
     const eventDateTime = parseISO(eventDate);
-    // Convert to Belgrade timezone
-    const belgradeDatetime = utcToZonedTime(eventDateTime, BELGRADE_TIMEZONE);
-    const now = utcToZonedTime(new Date(), BELGRADE_TIMEZONE);
-    return belgradeDatetime < now;
+    return eventDateTime < new Date();
   } catch (e) {
     console.error('Error checking event date:', e);
     return false;
   }
-};
-
-/**
- * Formats a date and time in Belgrade timezone
- * @param dateString ISO date string
- * @param formatStr Format string for date-fns
- * @returns Formatted date and time string in Belgrade timezone
- */
-export const formatInBelgradeTimezone = (dateString: string, formatStr = 'yyyy-MM-dd HH:mm:ss'): string => {
-  try {
-    return formatInTimeZone(new Date(dateString), BELGRADE_TIMEZONE, formatStr, { locale: ru });
-  } catch (error) {
-    console.error('Error formatting in Belgrade timezone:', error);
-    return dateString;
-  }
-};
-
-/**
- * Converts a local date and time to Belgrade timezone
- * @param date Date object or string
- * @returns Date object in Belgrade timezone
- */
-export const toBelgradeTimezone = (date: Date | string): Date => {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return utcToZonedTime(dateObj, BELGRADE_TIMEZONE);
 };
