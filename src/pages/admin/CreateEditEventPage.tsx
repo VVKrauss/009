@@ -778,7 +778,6 @@ const CreateEditEventPage = () => {
         </form>
       </div>
 
-      {/* Custom CSS for animations */}
       <style jsx>{`
         @keyframes blob {
           0% { transform: translate(0px, 0px) scale(1); }
@@ -798,24 +797,9 @@ const CreateEditEventPage = () => {
         .animation-delay-4000 {
           animation-delay: 4s;
         }
-        
-        .group:hover .group-hover\\:scale-110 {
-          transform: scale(1.1);
-        }
-        
-        .hover\\:scale-102:hover {
-          transform: scale(1.02);
-        }
-        
-        .hover\\:scale-105:hover {
-          transform: scale(1.05);
-        }
-        
-        .active\\:scale-95:active {
-          transform: scale(0.95);
-        }
-        
-        .scale-105 {
-          transform: scale(1.05);
-        }
       `}</style>
+    </div>
+  );
+};
+
+export default CreateEditEventPage;
