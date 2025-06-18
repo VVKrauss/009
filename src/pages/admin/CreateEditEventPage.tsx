@@ -43,7 +43,7 @@ interface FestivalProgramItem {
 
 const TITLE_MAX_LENGTH = 70;
 const SHORT_DESC_MAX_LENGTH = 180;
-const DESC_MAX_LENGTH = 800;
+const DESC_MAX_LENGTH = 900;
 
 const CreateEditEventPage = () => {
   const { id } = useParams<{ id: string }>();
