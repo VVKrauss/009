@@ -168,7 +168,7 @@ const CreateEditEventPage = () => {
           // Convert timestamps to Belgrade timezone for display
 const eventDate = data.date ? format(utcToZonedTime(new Date(data.date), BELGRADE_TIMEZONE), 'yyyy-MM-dd') : '';
 const startTime = data.start_time ? formatInTimeZone(new Date(data.start_time), BELGRADE_TIMEZONE, 'HH:mm') : '';
-const endTime = data.end_time ? formatInTimeZone(new Date(data.end_time), BELGRADE_TIMEZONE, 'HH:mm') : '';
+const endTime = data.end_time ? formatInTimeZone(new Date(data.end_time), BELGRADE_TIMEZONE, 'HH:mm') : ''; 
 
           // Set preview URL if image exists
           if (data.bg_image) {
