@@ -27,10 +27,7 @@ interface TimeSlot {
 }
 
 const AdminCalendarPage = () => {
-  const [currentDate, setCurrentDate] = useState<Date>(() => {
-    const testDate = new Date(2025, 4, 27);
-    return testDate;
-  });
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,7 +165,10 @@ const AdminCalendarPage = () => {
             date: newSlotData.date,
             start_time: newSlotData.start_time,
             end_time: newSlotData.end_time,
-            slot_details: newSlotData.slot_details
+            slot_details: {
+              ...newSlotData.slot_details,
+              type: 'rent' // Всегда устанавливаем тип "аренда"
+            }
           }])
           .select();
 
@@ -686,24 +686,6 @@ const AdminCalendarPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Тип</label>
-                <select
-                  value={newSlotData.slot_details?.type}
-                  onChange={(e) => setNewSlotData({
-                    ...newSlotData,
-                    slot_details: {
-                      ...newSlotData.slot_details,
-                      type: e.target.value as 'event' | 'rent'
-                    }
-                  })}
-                  className="w-full p-2 border rounded-md dark:bg-dark-700 border-gray-300 dark:border-dark-600"
-                >
-                  <option value="rent">Аренда</option>
-                  <option value="event">Мероприятие</option>
-                </select>
-              </div>
-
-              <div>
                 <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Название</label>
                 <input
                   type="text"
@@ -716,7 +698,7 @@ const AdminCalendarPage = () => {
                     }
                   })}
                   className="w-full p-2 border rounded-md dark:bg-dark-700 border-gray-300 dark:border-dark-600"
-                  placeholder="Название мероприятия или аренды"
+                  placeholder="Название аренды"
                 />
               </div>
 
