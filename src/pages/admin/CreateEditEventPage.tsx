@@ -92,8 +92,8 @@ const CreateEditEventPage = () => {
     bg_image: null,
     original_bg_image: null,
     date: new Date().toISOString().split('T')[0],
-    start_time: '10:00',
-    end_time: '12:00',
+    start_time: '',
+    end_time: '',
     location: 'Science Hub',
     age_category: '0+',
     price: 0,
@@ -136,18 +136,58 @@ const CreateEditEventPage = () => {
     }
   };
 
-  const isValidTime = (time: string) => {
-    if (!time) return false;
-    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    return timeRegex.test(time);
+  const createTimestamp = (dateStr: string, timeStr: string) => {
+    if (!dateStr || !timeStr) return null;
+    return `${dateStr}T${timeStr}:00.000Z`;
   };
 
-  const createTimestamp = (dateStr: string, timeStr: string) => {
-    const [hours, minutes] = timeStr.split(':').map(Number);
-    const date = new Date(dateStr);
-    date.setHours(hours, minutes, 0, 0);
-    return date.toISOString();
+  const parseTimestamp = (timestamp: string) => {
+    if (!timestamp) return { date: '', time: '' };
+    
+    const date = new Date(timestamp);
+    return {
+      date: date.toISOString().split('T')[0],
+      time: date.toTimeString().slice(0, 5)
+    };
   };
+
+  const validateDateTime = (eventData: any) => {
+    const { date, start_time, end_time } = eventData;
+    
+    if (!date || !start_time || !end_time) {
+      return { isValid: false, message: 'Заполните дату и время' };
+    }
+    
+    const startDateTime = new Date(`${date}T${start_time}`);
+    const endDateTime = new Date(`${date}T${end_time}`);
+    
+    if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime())) {
+      return { isValid: false, message: 'Неверный формат даты или времени' };
+    }
+    
+    if (startDateTime >= endDateTime) {
+      return { isValid: false, message: 'Время окончания должно быть позже времени начала' };
+    }
+    
+    return { isValid: true, message: '' };
+  };
+
+  const parseEventTimes = (eventData: any) => {
+    const startParsed = parseTimestamp(eventData.start_time);
+    const endParsed = parseTimestamp(eventData.end_time);
+    
+    return {
+      ...eventData,
+      date: startParsed.date || new Date().toISOString().split('T')[0],
+      start_time: startParsed.time || '',
+      end_time: endParsed.time || '',
+    };
+  };
+
+  const handleFieldChange = (field: string, value: any) => {
+    setEventData(prev => ({ ...prev, [field]: value }));
+  };
+
 
   useEffect(() => {
     const initializeEvent = async () => {
@@ -192,37 +232,9 @@ const CreateEditEventPage = () => {
       if (error) throw error;
       
       if (data) {
-        // Parse timestamps from the database
-        let startTime = '10:00';
-        let endTime = '12:00';
-
-        if (data.start_time) {
-          try {
-            const startDate = new Date(data.start_time);
-            if (!isNaN(startDate.getTime())) {
-              startTime = startDate.toTimeString().slice(0, 5);
-            }
-          } catch (e) {
-            console.warn('Invalid start_time format:', data.start_time);
-          }
-        }
-
-        if (data.end_time) {
-          try {
-            const endDate = new Date(data.end_time);
-            if (!isNaN(endDate.getTime())) {
-              endTime = endDate.toTimeString().slice(0, 5);
-            }
-          } catch (e) {
-            console.warn('Invalid end_time format:', data.end_time);
-          }
-        }
-
         const eventDataFormatted = {
-          ...data,
+          ...parseEventTimes(data),
           short_description: data.short_description || '',
-          start_time: startTime,
-          end_time: endTime,
           festival_program: data.festival_program || [],
           payment_widget_id: data.payment_widget_id || '',
           widget_chooser: data.widget_chooser || false
@@ -271,23 +283,9 @@ const CreateEditEventPage = () => {
       return false;
     }
 
-    if (!eventData.date) {
-      toast.error('Выберите дату мероприятия');
-      return false;
-    }
-
-    if (!eventData.start_time || !eventData.end_time) {
-      toast.error('Укажите время начала и окончания');
-      return false;
-    }
-
-    if (!isValidTime(eventData.start_time)) {
-      toast.error('Неверный формат времени начала');
-      return false;
-    }
-
-    if (!isValidTime(eventData.end_time)) {
-      toast.error('Неверный формат времени окончания');
+    const timeValidation = validateDateTime(eventData);
+    if (!timeValidation.isValid) {
+      toast.error(timeValidation.message);
       return false;
     }
 
@@ -711,6 +709,7 @@ const CreateEditEventPage = () => {
     }));
   };
 
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -843,7 +842,7 @@ const CreateEditEventPage = () => {
               type="text"
               id="title"
               value={eventData.title || ''}
-              onChange={(e) => setEventData({ ...eventData, title: e.target.value })}
+              onChange={(e) => handleFieldChange('title', e.target.value)}
               className="form-input"
               maxLength={TITLE_MAX_LENGTH}
             />
@@ -862,7 +861,7 @@ const CreateEditEventPage = () => {
             <textarea
               id="short_description"
               value={eventData.short_description || ''}
-              onChange={(e) => setEventData({ ...eventData, short_description: e.target.value })}
+              onChange={(e) => handleFieldChange('short_description', e.target.value)}
               className="form-input"
               rows={2}
               maxLength={SHORT_DESC_MAX_LENGTH}
@@ -881,7 +880,7 @@ const CreateEditEventPage = () => {
             <textarea
               id="description"
               value={eventData.description || ''}
-              onChange={(e) => setEventData({ ...eventData, description: e.target.value })}
+              onChange={(e) => handleFieldChange('description', e.target.value)}
               className="form-input"
               rows={4}
               maxLength={DESC_MAX_LENGTH}
@@ -900,7 +899,7 @@ const CreateEditEventPage = () => {
             <select
               id="event_type"
               value={eventData.event_type || ''}
-              onChange={(e) => setEventData({ ...eventData, event_type: e.target.value })}
+              onChange={(e) => handleFieldChange('event_type', e.target.value)}
               className="form-input"
             >
               {eventTypes.map(type => (
@@ -919,7 +918,7 @@ const CreateEditEventPage = () => {
                 type="date"
                 id="date"
                 value={eventData.date || ''}
-                onChange={(e) => setEventData({ ...eventData, date: e.target.value })}
+                onChange={(e) => handleFieldChange('date', e.target.value)}
                 className="form-input"
               />
             </div>
@@ -932,7 +931,7 @@ const CreateEditEventPage = () => {
                 type="time"
                 id="start_time"
                 value={eventData.start_time || ''}
-                onChange={(e) => setEventData({ ...eventData, start_time: e.target.value })}
+                onChange={(e) => handleFieldChange('start_time', e.target.value)}
                 className="form-input"
               />
             </div>
@@ -945,7 +944,7 @@ const CreateEditEventPage = () => {
                 type="time"
                 id="end_time"
                 value={eventData.end_time || ''}
-                onChange={(e) => setEventData({ ...eventData, end_time: e.target.value })}
+                onChange={(e) => handleFieldChange('end_time', e.target.value)}
                 className="form-input"
               />
             </div>
@@ -961,7 +960,7 @@ const CreateEditEventPage = () => {
                 type="text"
                 id="location"
                 value={eventData.location || ''}
-                onChange={(e) => setEventData({ ...eventData, location: e.target.value })}
+                onChange={(e) => handleFieldChange('location', e.target.value)}
                 className="form-input"
               />
             </div>
@@ -974,7 +973,7 @@ const CreateEditEventPage = () => {
                 type="number"
                 id="max_registrations"
                 value={eventData.max_registrations || ''}
-                onChange={(e) => setEventData({ ...eventData, max_registrations: parseInt(e.target.value) || null })}
+                onChange={(e) => handleFieldChange('max_registrations', parseInt(e.target.value) || null)}
                 className="form-input"
                 min="0"
               />
@@ -990,7 +989,7 @@ const CreateEditEventPage = () => {
               <select
                 id="age_category"
                 value={eventData.age_category || ''}
-                onChange={(e) => setEventData({ ...eventData, age_category: e.target.value })}
+                onChange={(e) => handleFieldChange('age_category', e.target.value)}
                 className="form-input"
               >
                 {ageCategories.map(category => (
@@ -1028,7 +1027,7 @@ const CreateEditEventPage = () => {
               <select
                 id="status"
                 value={eventData.status || ''}
-                onChange={(e) => setEventData({ ...eventData, status: e.target.value })}
+                onChange={(e) => handleFieldChange('status', e.target.value)}
                 className="form-input"
               >
                 {statuses.map(status => (
@@ -1047,7 +1046,7 @@ const CreateEditEventPage = () => {
               <select
                 id="payment_type"
                 value={eventData.payment_type || ''}
-                onChange={(e) => setEventData({ ...eventData, payment_type: e.target.value })}
+                onChange={(e) => handleFieldChange('payment_type', e.target.value)}
                 className="form-input"
               >
                 {paymentTypes.map(type => (
@@ -1066,7 +1065,7 @@ const CreateEditEventPage = () => {
                     type="number"
                     id="price"
                     value={eventData.price || ''}
-                    onChange={(e) => setEventData({ ...eventData, price: parseFloat(e.target.value) || null })}
+                    onChange={(e) => handleFieldChange('price', parseFloat(e.target.value) || null)}
                     className="form-input"
                     min="0"
                     step="0.01"
@@ -1080,7 +1079,7 @@ const CreateEditEventPage = () => {
                   <select
                     id="currency"
                     value={eventData.currency || ''}
-                    onChange={(e) => setEventData({ ...eventData, currency: e.target.value })}
+                    onChange={(e) => handleFieldChange('currency', e.target.value)}
                     className="form-input"
                   >
                     {currencies.map(currency => (
@@ -1103,7 +1102,7 @@ const CreateEditEventPage = () => {
                   type="text"
                   id="couple_discount"
                   value={eventData.couple_discount || ''}
-                  onChange={(e) => setEventData({ ...eventData, couple_discount: e.target.value })}
+                  onChange={(e) => handleFieldChange('couple_discount', e.target.value)}
                   className="form-input"
                   placeholder="Укажите условия скидки для пар"
                 />
@@ -1158,7 +1157,7 @@ const CreateEditEventPage = () => {
                       type="url"
                       id="payment_link"
                       value={eventData.payment_link || ''}
-                      onChange={(e) => setEventData({ ...eventData, payment_link: e.target.value })}
+                      onChange={(e) => handleFieldChange('payment_link', e.target.value)}
                       className="form-input"
                       placeholder="https://"
                     />
@@ -1171,7 +1170,7 @@ const CreateEditEventPage = () => {
                     <textarea
                       id="payment_widget_id"
                       value={eventData.payment_widget_id || ''}
-                      onChange={(e) => setEventData({ ...eventData, payment_widget_id: e.target.value })}
+                      onChange={(e) => handleFieldChange('payment_widget_id', e.target.value)}
                       className="form-input h-32"
                       placeholder='<a href="#" data-oblak-widget data-event-id="ID">Buy ticket</a>'
                     />
@@ -1194,7 +1193,7 @@ const CreateEditEventPage = () => {
                 type="url"
                 id="video_url"
                 value={eventData.video_url || ''}
-                onChange={(e) => setEventData({ ...eventData, video_url: e.target.value })}
+                onChange={(e) => handleFieldChange('video_url', e.target.value)}
                 className="form-input"
                 placeholder="https://"
               />
@@ -1208,7 +1207,7 @@ const CreateEditEventPage = () => {
                 type="url"
                 id="photo_gallery"
                 value={eventData.photo_gallery || ''}
-                onChange={(e) => setEventData({ ...eventData, photo_gallery: e.target.value })}
+                onChange={(e) => handleFieldChange('photo_gallery', e.target.value)}
                 className="form-input"
                 placeholder="https://"
               />
