@@ -2,11 +2,10 @@ import { format, parseISO } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { utcToZonedTime, formatInTimeZone } from 'date-fns-tz';
 
-// Define Belgrade timezone
-const BELGRADE_TIMEZONE = 'Europe/Belgrade';
+const BELGRADE_TIMEZONE = "Europe/Belgrade";
 
 /**
- * Formats a timestamp string to HH:MM format in Belgrade timezone
+ * Formats a timestamp string to HH:MM format
  * @param timeString The timestamp string to format
  * @returns Formatted time string
  */
@@ -23,11 +22,11 @@ export const formatTimeFromTimestamp = (timeString?: string): string => {
     return timeString.substring(0, 5);
   }
 
-  // Try to parse as ISO date and convert to Belgrade time
+  // Try to parse as ISO date
   try {
-    const date = parseISO(timeString);
+    const date = new Date(timeString);
     if (!isNaN(date.getTime())) {
-      // Convert UTC time to Belgrade time
+      // Convert to Belgrade timezone
       const belgradeDatetime = utcToZonedTime(date, BELGRADE_TIMEZONE);
       return format(belgradeDatetime, 'HH:mm', { locale: ru });
     }
@@ -72,8 +71,9 @@ export const formatTimeRange = (startTime?: string, endTime?: string): string =>
 export const formatRussianDate = (dateString: string, formatStr = 'd MMMM yyyy'): string => {
   try {
     const date = parseISO(dateString);
-    // Format the date in Belgrade timezone
-    return formatInTimeZone(date, BELGRADE_TIMEZONE, formatStr, { locale: ru });
+    // Convert to Belgrade timezone
+    const belgradeDatetime = utcToZonedTime(date, BELGRADE_TIMEZONE);
+    return format(belgradeDatetime, formatStr, { locale: ru });
   } catch (error) {
     console.error('Error formatting date:', error);
     return dateString;
@@ -88,11 +88,10 @@ export const formatRussianDate = (dateString: string, formatStr = 'd MMMM yyyy')
 export const isPastEvent = (eventDate: string): boolean => {
   try {
     const eventDateTime = parseISO(eventDate);
-    // Compare using Belgrade timezone
-    const now = new Date();
-    const belgradeNow = utcToZonedTime(now, BELGRADE_TIMEZONE);
-    const belgradeEventTime = utcToZonedTime(eventDateTime, BELGRADE_TIMEZONE);
-    return belgradeEventTime < belgradeNow;
+    // Convert to Belgrade timezone
+    const belgradeDatetime = utcToZonedTime(eventDateTime, BELGRADE_TIMEZONE);
+    const now = utcToZonedTime(new Date(), BELGRADE_TIMEZONE);
+    return belgradeDatetime < now;
   } catch (e) {
     console.error('Error checking event date:', e);
     return false;
@@ -100,44 +99,26 @@ export const isPastEvent = (eventDate: string): boolean => {
 };
 
 /**
- * Converts a local time string to a Belgrade timezone ISO string
- * @param dateStr Date string in YYYY-MM-DD format
- * @param timeStr Time string in HH:MM format
- * @returns ISO string representing the time in Belgrade timezone
+ * Formats a date and time in Belgrade timezone
+ * @param dateString ISO date string
+ * @param formatStr Format string for date-fns
+ * @returns Formatted date and time string in Belgrade timezone
  */
-export const createBelgradeTimestamp = (dateStr: string, timeStr: string): string | null => {
-  if (!dateStr || !timeStr) return null;
-  
+export const formatInBelgradeTimezone = (dateString: string, formatStr = 'yyyy-MM-dd HH:mm:ss'): string => {
   try {
-    // Create a date object in the local timezone
-    const localDate = new Date(`${dateStr}T${timeStr}:00`);
-    
-    // Format the date in Belgrade timezone
-    return formatInTimeZone(localDate, BELGRADE_TIMEZONE, "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+    return formatInTimeZone(new Date(dateString), BELGRADE_TIMEZONE, formatStr, { locale: ru });
   } catch (error) {
-    console.error('Error creating Belgrade timestamp:', error);
-    return null;
+    console.error('Error formatting in Belgrade timezone:', error);
+    return dateString;
   }
 };
 
 /**
- * Parses a UTC timestamp to Belgrade timezone date and time components
- * @param timestamp UTC timestamp string
- * @returns Object with date (YYYY-MM-DD) and time (HH:MM) in Belgrade timezone
+ * Converts a local date and time to Belgrade timezone
+ * @param date Date object or string
+ * @returns Date object in Belgrade timezone
  */
-export const parseBelgradeTimestamp = (timestamp: string): { date: string; time: string } => {
-  if (!timestamp) return { date: '', time: '' };
-  
-  try {
-    const date = parseISO(timestamp);
-    const belgradeDate = utcToZonedTime(date, BELGRADE_TIMEZONE);
-    
-    return {
-      date: format(belgradeDate, 'yyyy-MM-dd'),
-      time: format(belgradeDate, 'HH:mm')
-    };
-  } catch (error) {
-    console.error('Error parsing Belgrade timestamp:', error);
-    return { date: '', time: '' };
-  }
+export const toBelgradeTimezone = (date: Date | string): Date => {
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  return utcToZonedTime(dateObj, BELGRADE_TIMEZONE);
 };
