@@ -143,60 +143,80 @@ const AdminCalendarPage = () => {
     setNewSlotModal(true);
   };
 
-  const createOrUpdateTimeSlot = async () => {
-    try {
-      if (!newSlotData.date || !newSlotData.start_time || !newSlotData.end_time) {
-        toast.error('Заполните все обязательные поля');
-        return;
-      }
 
-      const startAt = new Date(`${newSlotData.date}T${newSlotData.start_time}:00Z`).toISOString();
-      const endAt = new Date(`${newSlotData.date}T${newSlotData.end_time}:00Z`).toISOString();
-
-      if (editingSlot) {
-        const { data, error } = await supabase
-          .from('time_slots_table')
-          .update({
-            date: newSlotData.date,
-            start_time: newSlotData.start_time,
-            end_time: newSlotData.end_time,
-            start_at: startAt,
-            end_at: endAt,
-            slot_details: newSlotData.slot_details
-          })
-          .eq('id', editingSlot.id)
-          .select();
-
-        if (error) throw error;
-        toast.success('Слот успешно обновлен');
-      } else {
-        const { data, error } = await supabase
-          .from('time_slots_table')
-          .insert([{
-            date: newSlotData.date,
-            start_time: newSlotData.start_time,
-            end_time: newSlotData.end_time,
-            start_at: startAt,
-            end_at: endAt,
-            slot_details: {
-              ...newSlotData.slot_details,
-              type: 'rent'
-            }
-          }])
-          .select();
-
-        if (error) throw error;
-        toast.success('Слот успешно создан');
-      }
-      
-      setNewSlotModal(false);
-      fetchTimeSlots();
-    } catch (err) {
-      console.error('Error saving time slot:', err);
-      toast.error(editingSlot ? 'Ошибка обновления слота' : 'Ошибка создания слота');
+const createOrUpdateTimeSlot = async () => {
+  try {
+    if (!newSlotData.date || !newSlotData.start_time || !newSlotData.end_time) {
+      toast.error('Заполните все обязательные поля');
+      return;
     }
-  };
 
+    const startAt = new Date(`${newSlotData.date}T${newSlotData.start_time}:00Z`).toISOString();
+    const endAt = new Date(`${newSlotData.date}T${newSlotData.end_time}:00Z`).toISOString();
+
+    // Проверка на пересечение временных интервалов
+    const { data: overlappingSlots, error: overlapError } = await supabase
+      .from('time_slots_table')
+      .select('*')
+      .or(`and(start_at.lte.${endAt},end_at.gte.${startAt})`)
+      .neq('id', editingSlot?.id || ''); // Исключаем текущий слот при редактировании
+
+    if (overlapError) throw overlapError;
+
+    if (overlappingSlots && overlappingSlots.length > 0) {
+      const overlappingInfo = overlappingSlots.map(slot => 
+        `${slot.start_time}-${slot.end_time}: ${slot.slot_details?.title || 'Слот'}`
+      ).join('\n');
+      
+      toast.error(`Время уже занято другими слотами:\n${overlappingInfo}`);
+      return;
+    }
+
+    if (editingSlot) {
+      const { data, error } = await supabase
+        .from('time_slots_table')
+        .update({
+          date: newSlotData.date,
+          start_time: newSlotData.start_time,
+          end_time: newSlotData.end_time,
+          start_at: startAt,
+          end_at: endAt,
+          slot_details: newSlotData.slot_details
+        })
+        .eq('id', editingSlot.id)
+        .select();
+
+      if (error) throw error;
+      toast.success('Слот успешно обновлен');
+    } else {
+      const { data, error } = await supabase
+        .from('time_slots_table')
+        .insert([{
+          date: newSlotData.date,
+          start_time: newSlotData.start_time,
+          end_time: newSlotData.end_time,
+          start_at: startAt,
+          end_at: endAt,
+          slot_details: {
+            ...newSlotData.slot_details,
+            type: 'rent'
+          }
+        }])
+        .select();
+
+      if (error) throw error;
+      toast.success('Слот успешно создан');
+    }
+    
+    setNewSlotModal(false);
+    fetchTimeSlots();
+  } catch (err) {
+    console.error('Error saving time slot:', err);
+    toast.error(editingSlot ? 'Ошибка обновления слота' : 'Ошибка создания слота');
+  }
+};
+  
+  
   const deleteTimeSlot = async (id: string, type?: string) => {
     if (type === 'event') {
       toast.error('Мероприятия можно удалять только через страницу управления мероприятиями');
