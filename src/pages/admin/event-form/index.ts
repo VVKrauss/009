@@ -20,4 +20,3 @@ export type { TimeSlot, TimeSlotValidationResult } from './types/time-slots';
 // Export utils
 export { validateEventForm } from './utils/validation';
 export { uploadImage, getImageUrl } from './utils/image';
-export { checkTimeSlotAvailability } from './hooks/useTimeSlots';
