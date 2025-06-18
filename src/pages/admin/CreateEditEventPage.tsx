@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
 import { toast } from 'react-hot-toast';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Save, 
   Trash2, 
@@ -23,7 +24,10 @@ import {
   FileText,
   Video,
   Camera,
-  Loader2
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  Settings
 } from 'lucide-react';
 import Cropper from 'react-cropper';
 import 'cropperjs/dist/cropper.css';
@@ -54,6 +58,20 @@ const isValidUrl = (url: string) => {
     return false;
   }
 };
+
+// Toggle switch component
+const ToggleSwitch = ({ checked, onChange, name }: { checked: boolean, onChange: (e: React.ChangeEvent<HTMLInputElement>) => void, name: string }) => (
+  <label className="relative inline-flex items-center cursor-pointer">
+    <input 
+      type="checkbox" 
+      className="sr-only peer" 
+      checked={checked}
+      onChange={onChange}
+      name={name}
+    />
+    <div className={`w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-dark-600 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-dark-700 peer-checked:bg-primary-600`}></div>
+  </label>
+);
 
 const CreateEditEventPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -148,7 +166,7 @@ const CreateEditEventPage = () => {
           if (error) throw error;
 
           // Convert timestamps to Belgrade timezone for display
-          const eventDate = data.date ? format(utcToZonedTime(new Date(data.date), BELGRADE_TIMEZONE), 'yyyy-MM-dd') : '';
+          const eventDate = data.date ? format(utcToZonedTime(new Date(data.date), BELGRADE_TIMEZONE, 'yyyy-MM-dd') : '';
           const startTime = data.start_time ? formatInTimeZone(new Date(data.start_time), BELGRADE_TIMEZONE, 'HH:mm') : '';
           const endTime = data.end_time ? formatInTimeZone(new Date(data.end_time), BELGRADE_TIMEZONE, 'HH:mm') : '';
 
@@ -515,26 +533,39 @@ const CreateEditEventPage = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+        <motion.div
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+          className="rounded-full h-12 w-12 border-b-2 border-primary-600"
+        ></motion.div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-semibold">
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <motion.div 
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="flex justify-between items-center mb-8"
+      >
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
           {isEditMode ? 'Редактирование мероприятия' : 'Создание мероприятия'}
         </h1>
         <div className="flex gap-4">
-          <button
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="button"
             onClick={() => navigate('/admin/events')}
             className="px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
           >
             Отмена
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="button"
             onClick={handleSubmit}
             disabled={saving}
@@ -551,21 +582,26 @@ const CreateEditEventPage = () => {
                 Сохранить
               </>
             )}
-          </button>
+          </motion.button>
         </div>
-      </div>
+      </motion.div>
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Basic Information */}
-        <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="bg-white dark:bg-dark-800 rounded-xl shadow-lg p-6"
+        >
+          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 text-gray-800 dark:text-white">
             <Info className="h-5 w-5 text-primary-600" />
             Основная информация
           </h2>
           
           <div className="space-y-6">
             <div className="form-group">
-              <label htmlFor="title" className="block font-medium mb-2">
+              <label htmlFor="title" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 Название мероприятия <span className="text-red-500">*</span>
               </label>
               <input
@@ -574,18 +610,24 @@ const CreateEditEventPage = () => {
                 name="title"
                 value={formData.title || ''}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 rounded-md border ${
+                className={`w-full px-4 py-3 rounded-lg border ${
                   errors.title ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
-                } dark:bg-dark-800`}
+                } dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all`}
                 placeholder="Введите название мероприятия"
               />
               {errors.title && (
-                <p className="mt-1 text-sm text-red-500">{errors.title}</p>
+                <motion.p 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-1 text-sm text-red-500"
+                >
+                  {errors.title}
+                </motion.p>
               )}
             </div>
 
             <div className="form-group">
-              <label htmlFor="short_description" className="block font-medium mb-2">
+              <label htmlFor="short_description" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 Краткое описание
               </label>
               <textarea
@@ -594,13 +636,13 @@ const CreateEditEventPage = () => {
                 value={formData.short_description || ''}
                 onChange={handleChange}
                 rows={2}
-                className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 placeholder="Краткое описание для карточки мероприятия"
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="description" className="block font-medium mb-2">
+              <label htmlFor="description" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 Полное описание
               </label>
               <textarea
@@ -609,14 +651,14 @@ const CreateEditEventPage = () => {
                 value={formData.description || ''}
                 onChange={handleChange}
                 rows={6}
-                className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 placeholder="Подробное описание мероприятия"
               />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="form-group">
-                <label htmlFor="event_type" className="block font-medium mb-2">
+                <label htmlFor="event_type" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Тип мероприятия
                 </label>
                 <select
@@ -624,7 +666,7 @@ const CreateEditEventPage = () => {
                   name="event_type"
                   value={formData.event_type || ''}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 >
                   {eventTypes.map(type => (
                     <option key={type} value={type}>{type}</option>
@@ -633,7 +675,7 @@ const CreateEditEventPage = () => {
               </div>
 
               <div className="form-group">
-                <label htmlFor="age_category" className="block font-medium mb-2">
+                <label htmlFor="age_category" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Возрастная категория
                 </label>
                 <select
@@ -641,7 +683,7 @@ const CreateEditEventPage = () => {
                   name="age_category"
                   value={formData.age_category || ''}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 >
                   {ageCategories.map(category => (
                     <option key={category} value={category}>{category}</option>
@@ -651,26 +693,30 @@ const CreateEditEventPage = () => {
             </div>
 
             <div className="form-group">
-              <label className="block font-medium mb-2">
+              <label className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 Языки
               </label>
               <div className="flex flex-wrap gap-3">
                 {languages.map(lang => (
-                  <label key={lang} className="flex items-center gap-2 cursor-pointer">
+                  <motion.label 
+                    whileHover={{ scale: 1.05 }}
+                    key={lang} 
+                    className="flex items-center gap-2 cursor-pointer px-3 py-2 bg-gray-100 dark:bg-dark-700 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-600 transition-colors"
+                  >
                     <input
                       type="checkbox"
                       checked={(formData.languages || []).includes(lang)}
                       onChange={() => handleMultiSelectChange('languages', lang)}
                       className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
                     />
-                    <span>{lang}</span>
-                  </label>
+                    <span className="text-gray-700 dark:text-gray-300">{lang}</span>
+                  </motion.label>
                 ))}
               </div>
             </div>
 
             <div className="form-group">
-              <label className="block font-medium mb-2">
+              <label className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 Изображение
               </label>
               <input
@@ -682,7 +728,11 @@ const CreateEditEventPage = () => {
               />
               
               {showCropper && imageFile ? (
-                <div className="space-y-4">
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="space-y-4"
+                >
                   <Cropper
                     src={URL.createObjectURL(imageFile)}
                     style={{ height: 400, width: '100%' }}
@@ -694,87 +744,115 @@ const CreateEditEventPage = () => {
                     cropBoxMovable={true}
                     cropBoxResizable={true}
                     onInitialized={(instance) => setCropper(instance)}
-                    className="max-w-full"
+                    className="max-w-full rounded-lg"
                   />
                   
                   <div className="flex justify-end gap-3">
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       type="button"
                       onClick={() => setShowCropper(false)}
                       className="px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
                     >
                       <X className="h-5 w-5 mr-2 inline-block" />
                       Отмена
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
                       type="button"
                       onClick={handleCrop}
                       className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
                     >
                       <Check className="h-5 w-5 mr-2 inline-block" />
                       Обрезать и сохранить
-                    </button>
+                    </motion.button>
                   </div>
-                </div>
+                </motion.div>
               ) : previewUrl ? (
-                <div className="relative">
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="relative group"
+                >
                   <img
                     src={previewUrl}
                     alt="Preview"
-                    className="w-full h-48 object-cover rounded-lg"
+                    className="w-full h-48 object-cover rounded-lg shadow-md"
+                  />
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                    className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"
                   />
                   <div className="absolute bottom-2 right-2 flex gap-2">
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       className="p-2 bg-white/90 hover:bg-white text-dark-800 rounded-full shadow-lg"
                       title="Изменить изображение"
                     >
                       <Upload className="h-5 w-5" />
-                    </button>
-                    <button
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
                       type="button"
                       onClick={handleRemoveImage}
                       className="p-2 bg-red-600/90 hover:bg-red-600 text-white rounded-full shadow-lg"
                       title="Удалить изображение"
                     >
                       <X className="h-5 w-5" />
-                    </button>
+                    </motion.button>
                   </div>
-                </div>
+                </motion.div>
               ) : (
-                <div className="border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg p-8 text-center">
+                <motion.div 
+                  whileHover={{ scale: 1.005 }}
+                  className="border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg p-8 text-center"
+                >
                   <div className="flex flex-col items-center">
                     <div className="mb-4 p-3 bg-gray-100 dark:bg-dark-700 rounded-full">
                       <ImageIcon className="h-6 w-6 text-gray-500 dark:text-gray-400" />
                     </div>
-                    <button
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors"
                     >
                       Загрузить изображение
-                    </button>
+                    </motion.button>
                     <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                       Рекомендуемый размер: 1200x400px
                     </p>
                   </div>
-                </div>
+                </motion.div>
               )}
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Date and Time */}
-        <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+          className="bg-white dark:bg-dark-800 rounded-xl shadow-lg p-6"
+        >
+          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 text-gray-800 dark:text-white">
             <Calendar className="h-5 w-5 text-primary-600" />
             Дата и время
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="form-group">
-              <label htmlFor="date" className="block font-medium mb-2">
+              <label htmlFor="date" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 Дата <span className="text-red-500">*</span>
               </label>
               <input
@@ -783,17 +861,23 @@ const CreateEditEventPage = () => {
                 name="date"
                 value={formData.date || ''}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 rounded-md border ${
+                className={`w-full px-4 py-3 rounded-lg border ${
                   errors.date ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
-                } dark:bg-dark-800`}
+                } dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all`}
               />
               {errors.date && (
-                <p className="mt-1 text-sm text-red-500">{errors.date}</p>
+                <motion.p 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-1 text-sm text-red-500"
+                >
+                  {errors.date}
+                </motion.p>
               )}
             </div>
 
             <div className="form-group">
-              <label htmlFor="start_time" className="block font-medium mb-2">
+              <label htmlFor="start_time" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 Время начала <span className="text-red-500">*</span>
               </label>
               <input
@@ -802,17 +886,23 @@ const CreateEditEventPage = () => {
                 name="start_time"
                 value={formData.start_time || ''}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 rounded-md border ${
+                className={`w-full px-4 py-3 rounded-lg border ${
                   errors.start_time ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
-                } dark:bg-dark-800`}
+                } dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all`}
               />
               {errors.start_time && (
-                <p className="mt-1 text-sm text-red-500">{errors.start_time}</p>
+                <motion.p 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-1 text-sm text-red-500"
+                >
+                  {errors.start_time}
+                </motion.p>
               )}
             </div>
 
             <div className="form-group">
-              <label htmlFor="end_time" className="block font-medium mb-2">
+              <label htmlFor="end_time" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 Время окончания <span className="text-red-500">*</span>
               </label>
               <input
@@ -821,18 +911,24 @@ const CreateEditEventPage = () => {
                 name="end_time"
                 value={formData.end_time || ''}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 rounded-md border ${
+                className={`w-full px-4 py-3 rounded-lg border ${
                   errors.end_time ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
-                } dark:bg-dark-800`}
+                } dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all`}
               />
               {errors.end_time && (
-                <p className="mt-1 text-sm text-red-500">{errors.end_time}</p>
+                <motion.p 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-1 text-sm text-red-500"
+                >
+                  {errors.end_time}
+                </motion.p>
               )}
             </div>
           </div>
 
           <div className="form-group mt-6">
-            <label htmlFor="location" className="block font-medium mb-2">
+            <label htmlFor="location" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
               Место проведения <span className="text-red-500">*</span>
             </label>
             <input
@@ -841,32 +937,47 @@ const CreateEditEventPage = () => {
               name="location"
               value={formData.location || ''}
               onChange={handleChange}
-              className={`w-full px-4 py-2 rounded-md border ${
+              className={`w-full px-4 py-3 rounded-lg border ${
                 errors.location ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
-              } dark:bg-dark-800`}
+              } dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all`}
               placeholder="Адрес или название места"
             />
             {errors.location && (
-              <p className="mt-1 text-sm text-red-500">{errors.location}</p>
+              <motion.p 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-1 text-sm text-red-500"
+              >
+                {errors.location}
+              </motion.p>
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* Payment Information */}
-        <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3 }}
+          className="bg-white dark:bg-dark-800 rounded-xl shadow-lg p-6"
+        >
+          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 text-gray-800 dark:text-white">
             <DollarSign className="h-5 w-5 text-primary-600" />
             Информация о стоимости
           </h2>
           
           <div className="space-y-6">
             <div className="form-group">
-              <label className="block font-medium mb-2">
+              <label className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 Тип оплаты
               </label>
               <div className="flex flex-wrap gap-3">
                 {paymentTypes.map(type => (
-                  <label key={type} className="flex items-center gap-2 cursor-pointer">
+                  <motion.label 
+                    whileHover={{ scale: 1.05 }}
+                    key={type} 
+                    className="flex items-center gap-2 cursor-pointer px-3 py-2 bg-gray-100 dark:bg-dark-700 rounded-lg hover:bg-gray-200 dark:hover:bg-dark-600 transition-colors"
+                  >
                     <input
                       type="radio"
                       name="payment_type"
@@ -875,12 +986,12 @@ const CreateEditEventPage = () => {
                       onChange={handleChange}
                       className="rounded-full border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
                     />
-                    <span>
+                    <span className="text-gray-700 dark:text-gray-300">
                       {type === 'free' ? 'Бесплатно' : 
                        type === 'donation' ? 'Донейшн' : 
                        'Платно'}
                     </span>
-                  </label>
+                  </motion.label>
                 ))}
               </div>
             </div>
@@ -888,7 +999,7 @@ const CreateEditEventPage = () => {
             {formData.payment_type === 'cost' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="form-group">
-                  <label htmlFor="price" className="block font-medium mb-2">
+                  <label htmlFor="price" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                     Стоимость <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -899,17 +1010,23 @@ const CreateEditEventPage = () => {
                     onChange={handleChange}
                     min="0"
                     step="1"
-                    className={`w-full px-4 py-2 rounded-md border ${
+                    className={`w-full px-4 py-3 rounded-lg border ${
                       errors.price ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
-                    } dark:bg-dark-800`}
+                    } dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all`}
                   />
                   {errors.price && (
-                    <p className="mt-1 text-sm text-red-500">{errors.price}</p>
+                    <motion.p 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-1 text-sm text-red-500"
+                    >
+                      {errors.price}
+                    </motion.p>
                   )}
                 </div>
 
                 <div className="form-group">
-                  <label htmlFor="currency" className="block font-medium mb-2">
+                  <label htmlFor="currency" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                     Валюта
                   </label>
                   <select
@@ -917,7 +1034,7 @@ const CreateEditEventPage = () => {
                     name="currency"
                     value={formData.currency || ''}
                     onChange={handleChange}
-                    className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                    className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                   >
                     {currencies.map(currency => (
                       <option key={currency} value={currency}>{currency}</option>
@@ -928,7 +1045,7 @@ const CreateEditEventPage = () => {
             )}
 
             <div className="form-group">
-              <label htmlFor="payment_link" className="block font-medium mb-2">
+              <label htmlFor="payment_link" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 Ссылка на оплату
               </label>
               <input
@@ -937,18 +1054,24 @@ const CreateEditEventPage = () => {
                 name="payment_link"
                 value={formData.payment_link || ''}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 rounded-md border ${
+                className={`w-full px-4 py-3 rounded-lg border ${
                   errors.payment_link ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
-                } dark:bg-dark-800`}
+                } dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all`}
                 placeholder="https://..."
               />
               {errors.payment_link && (
-                <p className="mt-1 text-sm text-red-500">{errors.payment_link}</p>
+                <motion.p 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-1 text-sm text-red-500"
+                >
+                  {errors.payment_link}
+                </motion.p>
               )}
             </div>
 
             <div className="form-group">
-              <label htmlFor="payment_widget_id" className="block font-medium mb-2">
+              <label htmlFor="payment_widget_id" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 ID виджета оплаты
               </label>
               <input
@@ -957,41 +1080,46 @@ const CreateEditEventPage = () => {
                 name="payment_widget_id"
                 value={formData.payment_widget_id || ''}
                 onChange={handleChange}
-                className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                 placeholder="ID виджета (если используется)"
               />
             </div>
 
-            <div className="form-group">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="widget_chooser"
-                  checked={formData.widget_chooser || false}
-                  onChange={handleCheckboxChange}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
-                />
-                <span>Использовать виджет вместо ссылки</span>
-              </label>
+            <div className="form-group flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-700 rounded-lg">
+              <span className="text-gray-700 dark:text-gray-300">Использовать виджет вместо ссылки</span>
+              <ToggleSwitch 
+                checked={formData.widget_chooser || false} 
+                onChange={handleCheckboxChange}
+                name="widget_chooser"
+              />
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Speakers */}
-        <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
-          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.4 }}
+          className="bg-white dark:bg-dark-800 rounded-xl shadow-lg p-6"
+        >
+          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 text-gray-800 dark:text-white">
             <Users className="h-5 w-5 text-primary-600" />
             Спикеры
           </h2>
           
           <div className="space-y-6">
             <div className="form-group">
-              <label className="block font-medium mb-2">
+              <label className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 Выберите спикеров
               </label>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {speakers.map(speaker => (
-                  <label key={speaker.id} className="flex items-center gap-2 cursor-pointer p-2 border border-gray-200 dark:border-dark-700 rounded-md hover:bg-gray-50 dark:hover:bg-dark-700">
+                  <motion.label 
+                    whileHover={{ scale: 1.02 }}
+                    key={speaker.id} 
+                    className="flex items-center gap-2 cursor-pointer p-3 border border-gray-200 dark:border-dark-700 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
+                  >
                     <input
                       type="checkbox"
                       checked={selectedSpeakers.includes(speaker.id)}
@@ -1010,32 +1138,33 @@ const CreateEditEventPage = () => {
                           <Users className="h-4 w-4 text-gray-500 dark:text-gray-400" />
                         </div>
                       )}
-                      <span>{speaker.name}</span>
+                      <span className="text-gray-700 dark:text-gray-300">{speaker.name}</span>
                     </div>
-                  </label>
+                  </motion.label>
                 ))}
               </div>
             </div>
 
-            <div className="form-group">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  name="hide_speakers_gallery"
-                  checked={formData.hide_speakers_gallery || false}
-                  onChange={handleCheckboxChange}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
-                />
-                <span>Скрыть галерею спикеров на странице мероприятия</span>
-              </label>
+            <div className="form-group flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-700 rounded-lg">
+              <span className="text-gray-700 dark:text-gray-300">Скрыть галерею спикеров на странице мероприятия</span>
+              <ToggleSwitch 
+                checked={formData.hide_speakers_gallery || false} 
+                onChange={handleCheckboxChange}
+                name="hide_speakers_gallery"
+              />
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* Festival Program (only for Festival event type) */}
         {formData.event_type === 'Festival' && (
-          <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, delay: 0.5 }}
+            className="bg-white dark:bg-dark-800 rounded-xl shadow-lg p-6"
+          >
+            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2 text-gray-800 dark:text-white">
               <Calendar className="h-5 w-5 text-primary-600" />
               Программа фестиваля
             </h2>
@@ -1044,10 +1173,16 @@ const CreateEditEventPage = () => {
               {festivalProgram.length > 0 ? (
                 <div className="space-y-4">
                   {festivalProgram.map((item, index) => (
-                    <div key={index} className="border border-gray-200 dark:border-dark-700 rounded-lg p-4">
+                    <motion.div 
+                      key={index}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="border border-gray-200 dark:border-dark-700 rounded-lg p-4 hover:shadow-md transition-shadow"
+                    >
                       <div className="flex justify-between items-start">
                         <div>
-                          <h3 className="font-medium">{item.title}</h3>
+                          <h3 className="font-medium text-gray-800 dark:text-white">{item.title}</h3>
                           <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                             {item.start_time} - {item.end_time}
                           </div>
@@ -1058,43 +1193,55 @@ const CreateEditEventPage = () => {
                           )}
                         </div>
                         <div className="flex gap-2">
-                          <button
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
                             type="button"
                             onClick={() => handleEditProgramItem(index)}
                             className="p-1 hover:bg-gray-100 dark:hover:bg-dark-700 rounded"
                           >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
+                            <FileText className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+                          </motion.button>
+                          <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.9 }}
                             type="button"
                             onClick={() => handleDeleteProgramItem(index)}
                             className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 rounded"
                           >
                             <Trash2 className="h-4 w-4" />
-                          </button>
+                          </motion.button>
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-6 border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg">
+                <motion.div 
+                  whileHover={{ scale: 1.005 }}
+                  className="text-center py-6 border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg"
+                >
                   <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-2" />
                   <p className="text-gray-500 dark:text-gray-400">
                     Нет добавленных пунктов программы
                   </p>
-                </div>
+                </motion.div>
               )}
 
               {showFestivalProgramForm ? (
-                <div className="border border-gray-200 dark:border-dark-700 rounded-lg p-4">
-                  <h3 className="font-medium mb-4">
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="border border-gray-200 dark:border-dark-700 rounded-lg p-4 overflow-hidden"
+                >
+                  <h3 className="font-medium mb-4 text-gray-800 dark:text-white">
                     {editingProgramItemIndex !== null ? 'Редактирование пункта программы' : 'Добавление пункта программы'}
                   </h3>
                   
                   <div className="space-y-4">
                     <div className="form-group">
-                      <label htmlFor="program_title" className="block font-medium mb-2">
+                      <label htmlFor="program_title" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                         Название <span className="text-red-500">*</span>
                       </label>
                       <input
@@ -1103,14 +1250,14 @@ const CreateEditEventPage = () => {
                         name="title"
                         value={programItemForm.title}
                         onChange={handleProgramItemChange}
-                        className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                         placeholder="Название пункта программы"
                       />
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="form-group">
-                        <label htmlFor="program_start_time" className="block font-medium mb-2">
+                        <label htmlFor="program_start_time" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                           Время начала <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -1119,12 +1266,12 @@ const CreateEditEventPage = () => {
                           name="start_time"
                           value={programItemForm.start_time}
                           onChange={handleProgramItemChange}
-                          className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                         />
                       </div>
 
                       <div className="form-group">
-                        <label htmlFor="program_end_time" className="block font-medium mb-2">
+                        <label htmlFor="program_end_time" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                           Время окончания <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -1133,13 +1280,13 @@ const CreateEditEventPage = () => {
                           name="end_time"
                           value={programItemForm.end_time}
                           onChange={handleProgramItemChange}
-                          className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                          className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                         />
                       </div>
                     </div>
 
                     <div className="form-group">
-                      <label htmlFor="program_description" className="block font-medium mb-2">
+                      <label htmlFor="program_description" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                         Описание
                       </label>
                       <textarea
@@ -1148,13 +1295,13 @@ const CreateEditEventPage = () => {
                         value={programItemForm.description}
                         onChange={handleProgramItemChange}
                         rows={3}
-                        className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                         placeholder="Описание пункта программы"
                       />
                     </div>
 
                     <div className="form-group">
-                      <label htmlFor="program_lecturer" className="block font-medium mb-2">
+                      <label htmlFor="program_lecturer" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                         Спикер
                       </label>
                       <select
@@ -1162,7 +1309,7 @@ const CreateEditEventPage = () => {
                         name="lecturer_id"
                         value={programItemForm.lecturer_id}
                         onChange={handleProgramItemChange}
-                        className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                       >
                         <option value="">Выберите спикера</option>
                         {speakers.map(speaker => (
@@ -1172,7 +1319,9 @@ const CreateEditEventPage = () => {
                     </div>
 
                     <div className="flex justify-end gap-3">
-                      <button
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         type="button"
                         onClick={() => {
                           setShowFestivalProgramForm(false);
@@ -1189,218 +1338,246 @@ const CreateEditEventPage = () => {
                         className="px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
                       >
                         Отмена
-                      </button>
-                      <button
+                      </motion.button>
+                      <motion.button
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
                         type="button"
                         onClick={handleAddProgramItem}
                         className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
                       >
                         {editingProgramItemIndex !== null ? 'Сохранить' : 'Добавить'}
-                      </button>
+                      </motion.button>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               ) : (
-                <button
+                <motion.button
+                  whileHover={{ scale: 1.005 }}
+                  whileTap={{ scale: 0.995 }}
                   type="button"
                   onClick={() => setShowFestivalProgramForm(true)}
                   className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <Plus className="h-5 w-5" />
                   Добавить пункт программы
-                </button>
+                </motion.button>
               )}
             </div>
-          </div>
+          </motion.div>
         )}
 
         {/* Advanced Settings */}
-        <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
-          <button
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.6 }}
+          className="bg-white dark:bg-dark-800 rounded-xl shadow-lg p-6"
+        >
+          <motion.button
+            whileHover={{ scale: 1.005 }}
             type="button"
             onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
             className="flex items-center justify-between w-full text-left"
           >
-            <h2 className="text-xl font-semibold flex items-center gap-2">
+            <h2 className="text-xl font-semibold flex items-center gap-2 text-gray-800 dark:text-white">
               <Settings className="h-5 w-5 text-primary-600" />
               Дополнительные настройки
             </h2>
-            <ChevronDown className={`h-5 w-5 transition-transform ${showAdvancedSettings ? 'rotate-180' : ''}`} />
-          </button>
+            {showAdvancedSettings ? (
+              <ChevronUp className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+            ) : (
+              <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+            )}
+          </motion.button>
           
-          {showAdvancedSettings && (
-            <div className="mt-6 space-y-6">
-              <div className="form-group">
-                <label htmlFor="status" className="block font-medium mb-2">
-                  Статус мероприятия
-                </label>
-                <select
-                  id="status"
-                  name="status"
-                  value={formData.status || ''}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
-                >
-                  {statuses.map(status => (
-                    <option key={status} value={status}>
-                      {status === 'active' ? 'Активное' : 
-                       status === 'draft' ? 'Черновик' : 
-                       'Прошедшее'}
-                    </option>
-                  ))}
-                </select>
-              </div>
+          <AnimatePresence>
+            {showAdvancedSettings && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="overflow-hidden"
+              >
+                <div className="mt-6 space-y-6">
+                  <div className="form-group">
+                    <label htmlFor="status" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      Статус мероприятия
+                    </label>
+                    <select
+                      id="status"
+                      name="status"
+                      value={formData.status || ''}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                    >
+                      {statuses.map(status => (
+                        <option key={status} value={status}>
+                          {status === 'active' ? 'Активное' : 
+                           status === 'draft' ? 'Черновик' : 
+                           'Прошедшее'}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div className="form-group">
-                <label htmlFor="max_registrations" className="block font-medium mb-2">
-                  Максимальное количество участников
-                </label>
-                <input
-                  type="number"
-                  id="max_registrations"
-                  name="max_registrations"
-                  value={formData.registrations?.max_regs || ''}
-                  onChange={(e) => {
-                    const value = e.target.value ? parseInt(e.target.value) : null;
-                    setFormData(prev => ({
-                      ...prev,
-                      registrations: {
-                        ...prev.registrations!,
-                        max_regs: value
-                      }
-                    }));
-                  }}
-                  min="0"
-                  className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
-                  placeholder="Оставьте пустым для неограниченного количества"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="video_url" className="block font-medium mb-2">
-                  Ссылка на видео
-                </label>
-                <input
-                  type="url"
-                  id="video_url"
-                  name="video_url"
-                  value={formData.video_url || ''}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-2 rounded-md border ${
-                    errors.video_url ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
-                  } dark:bg-dark-800`}
-                  placeholder="https://youtube.com/..."
-                />
-                {errors.video_url && (
-                  <p className="mt-1 text-sm text-red-500">{errors.video_url}</p>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="couple_discount"
-                    checked={formData.couple_discount !== undefined}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setFormData(prev => ({ ...prev, couple_discount: '10' }));
-                      } else {
-                        setFormData(prev => {
-                          const { couple_discount, ...rest } = prev;
-                          return rest;
-                        });
-                      }
-                    }}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
-                  />
-                  <span>Скидка для пар</span>
-                </label>
-                
-                {formData.couple_discount !== undefined && (
-                  <div className="mt-2">
+                  <div className="form-group">
+                    <label htmlFor="max_registrations" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      Максимальное количество участников
+                    </label>
                     <input
                       type="number"
-                      name="couple_discount"
-                      value={formData.couple_discount || ''}
+                      id="max_registrations"
+                      name="max_registrations"
+                      value={formData.registrations?.max_regs || ''}
+                      onChange={(e) => {
+                        const value = e.target.value ? parseInt(e.target.value) : null;
+                        setFormData(prev => ({
+                          ...prev,
+                          registrations: {
+                            ...prev.registrations!,
+                            max_regs: value
+                          }
+                        }));
+                      }}
+                      min="0"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                      placeholder="Оставьте пустым для неограниченного количества"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="video_url" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      Ссылка на видео
+                    </label>
+                    <input
+                      type="url"
+                      id="video_url"
+                      name="video_url"
+                      value={formData.video_url || ''}
+                      onChange={handleChange}
+                      className={`w-full px-4 py-3 rounded-lg border ${
+                        errors.video_url ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
+                      } dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all`}
+                      placeholder="https://youtube.com/..."
+                    />
+                    {errors.video_url && (
+                      <motion.p 
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-1 text-sm text-red-500"
+                      >
+                        {errors.video_url}
+                      </motion.p>
+                    )}
+                  </div>
+
+                  <div className="form-group flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-700 rounded-lg">
+                    <span className="text-gray-700 dark:text-gray-300">Скидка для пар</span>
+                    <div className="flex items-center gap-4">
+                      <ToggleSwitch 
+                        checked={formData.couple_discount !== undefined} 
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData(prev => ({ ...prev, couple_discount: '10' }));
+                          } else {
+                            setFormData(prev => {
+                              const { couple_discount, ...rest } = prev;
+                              return rest;
+                            });
+                          }
+                        }}
+                        name="couple_discount_toggle"
+                      />
+                      {formData.couple_discount !== undefined && (
+                        <div className="flex items-center">
+                          <input
+                            type="number"
+                            name="couple_discount"
+                            value={formData.couple_discount || ''}
+                            onChange={handleChange}
+                            min="1"
+                            max="100"
+                            className="w-20 px-3 py-2 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                          />
+                          <span className="ml-2 text-gray-700 dark:text-gray-300">%</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="form-group flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-700 rounded-lg">
+                    <span className="text-gray-700 dark:text-gray-300">Детский билет за полцены</span>
+                    <ToggleSwitch 
+                      checked={formData.child_half_price || false} 
+                      onChange={handleCheckboxChange}
+                      name="child_half_price"
+                    />
+                  </div>
+
+                  <div className="form-group flex items-center justify-between p-3 bg-gray-50 dark:bg-dark-700 rounded-lg">
+                    <span className="text-gray-700 dark:text-gray-300">Включить регистрацию</span>
+                    <ToggleSwitch 
+                      checked={formData.registration_enabled !== false} 
+                      onChange={handleCheckboxChange}
+                      name="registration_enabled"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="registration_deadline" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      Дедлайн регистрации
+                    </label>
+                    <input
+                      type="datetime-local"
+                      id="registration_deadline"
+                      name="registration_deadline"
+                      value={formData.registration_deadline || ''}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label htmlFor="registration_limit_per_user" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                      Лимит регистраций на одного пользователя
+                    </label>
+                    <input
+                      type="number"
+                      id="registration_limit_per_user"
+                      name="registration_limit_per_user"
+                      value={formData.registration_limit_per_user || 5}
                       onChange={handleChange}
                       min="1"
-                      max="100"
-                      className="w-24 px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                      className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 dark:bg-dark-800 focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all"
                     />
-                    <span className="ml-2">%</span>
                   </div>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="child_half_price"
-                    checked={formData.child_half_price || false}
-                    onChange={handleCheckboxChange}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
-                  />
-                  <span>Детский билет за полцены</span>
-                </label>
-              </div>
-
-              <div className="form-group">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="registration_enabled"
-                    checked={formData.registration_enabled !== false}
-                    onChange={handleCheckboxChange}
-                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
-                  />
-                  <span>Включить регистрацию</span>
-                </label>
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="registration_deadline" className="block font-medium mb-2">
-                  Дедлайн регистрации
-                </label>
-                <input
-                  type="datetime-local"
-                  id="registration_deadline"
-                  name="registration_deadline"
-                  value={formData.registration_deadline || ''}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
-                />
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="registration_limit_per_user" className="block font-medium mb-2">
-                  Лимит регистраций на одного пользователя
-                </label>
-                <input
-                  type="number"
-                  id="registration_limit_per_user"
-                  name="registration_limit_per_user"
-                  value={formData.registration_limit_per_user || 5}
-                  onChange={handleChange}
-                  min="1"
-                  className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
-                />
-              </div>
-            </div>
-          )}
-        </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
 
         {/* Submit Button */}
-        <div className="flex justify-end gap-4">
-          <button
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.7 }}
+          className="flex justify-end gap-4"
+        >
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="button"
             onClick={() => navigate('/admin/events')}
             className="px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
           >
             Отмена
-          </button>
-          <button
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
             type="submit"
             disabled={saving}
             className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
@@ -1416,43 +1593,11 @@ const CreateEditEventPage = () => {
                 Сохранить
               </>
             )}
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       </form>
     </div>
   );
 };
-
-// Additional components
-const Settings = ({ className = "" }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
-
-const ChevronDown = ({ className = "" }) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round" 
-    className={className}
-  >
-    <polyline points="6 9 12 15 18 9" />
-  </svg>
-);
 
 export default CreateEditEventPage;
