@@ -222,24 +222,23 @@ const AdminEvents = () => {
     }
   };
 
-
   // Проверяет, нужно ли показывать информацию о регистрациях
-      const shouldShowRegistrations = (event: Event): boolean => {
-        const currentCount = getCurrentRegistrationCount(event);
-        const maxRegs = getMaxRegistrations(event);
-        
-        return (
-          currentCount > 0 || // Есть регистрации
-          maxRegs !== null || // Установлен лимит
-          event.payment_type !== 'free' || // Платное мероприятие
-          event.status === 'active' // Активное мероприятие
-        );
-      };
-      
-      // Проверяет, есть ли система регистраций в мероприятии
-    const hasRegistrationSystem = (event: Event): boolean => {
-        return !!(event.registrations || event.registrations_list || event.current_registration_count !== undefined);
-      };
+  const shouldShowRegistrations = (event: Event): boolean => {
+    const currentCount = getCurrentRegistrationCount(event);
+    const maxRegs = getMaxRegistrations(event);
+    
+    return (
+      currentCount > 0 || // Есть регистрации
+      maxRegs !== null || // Установлен лимит
+      event.payment_type !== 'free' || // Платное мероприятие
+      event.status === 'active' // Активное мероприятие
+    );
+  };
+
+  // Проверяет, есть ли система регистраций в мероприятии
+  const hasRegistrationSystem = (event: Event): boolean => {
+    return !!(event.registrations || event.registrations_list || event.current_registration_count !== undefined);
+  };
 
   const tabs = [
     { id: 'active', label: 'Активные', count: events.filter(e => e.status === 'active').length },
@@ -498,27 +497,47 @@ const AdminEvents = () => {
                         </div>
                       )}
                       
-                      {maxRegistrations && maxRegistrations > 0 && (
+                      {/* Информация о регистрациях */}
+                      {shouldShowRegistrations(event) && (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between text-sm">
                             <div className="flex items-center text-gray-600 dark:text-gray-300">
                               <div className="flex items-center justify-center w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3">
                                 <Users className="w-4 h-4 text-primary-600 dark:text-primary-400" />
                               </div>
-                              <span className="font-medium">Регистрации</span>
+                              <span className="font-medium">
+                                {hasRegistrationSystem(event) ? 'Регистрации' : 'Участие'}
+                              </span>
                             </div>
                             <span className="font-bold text-gray-900 dark:text-white">
-                              {currentRegistrationCount}/{maxRegistrations}
+                              {currentRegistrationCount}
+                              {maxRegistrations && maxRegistrations > 0 ? `/${maxRegistrations}` : ''}
                             </span>
                           </div>
-                          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-                            <div 
-                              className="h-2 bg-gradient-to-r from-primary-400 to-primary-600 rounded-full transition-all duration-500"
-                              style={{ 
-                                width: `${Math.min(fillPercentage, 100)}%` 
-                              }}
-                            ></div>
-                          </div>
+                          
+                          {/* Прогресс-бар только при наличии лимита */}
+                          {maxRegistrations && maxRegistrations > 0 && (
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+                              <div 
+                                className="h-2 bg-gradient-to-r from-primary-400 to-primary-600 rounded-full transition-all duration-500"
+                                style={{ width: `${Math.min(fillPercentage, 100)}%` }}
+                              ></div>
+                            </div>
+                          )}
+                          
+                          {/* Статус для неограниченных регистраций */}
+                          {(!maxRegistrations || maxRegistrations === 0) && currentRegistrationCount > 0 && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Без ограничений
+                            </div>
+                          )}
+                          
+                          {/* Показываем если система регистраций не настроена */}
+                          {!hasRegistrationSystem(event) && (
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Регистрация не требуется
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
