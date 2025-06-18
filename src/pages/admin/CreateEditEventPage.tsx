@@ -18,6 +18,7 @@ import imageCompression from 'browser-image-compression';
 import Cropper from 'react-cropper';
 import 'cropperjs/dist/cropper.css';
 import { Event, eventTypes, paymentTypes, languages, ageCategories, currencies, statuses } from './constants';
+import { createBelgradeTimestamp, parseBelgradeTimestamp } from '../../utils/dateTimeUtils';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -136,21 +137,6 @@ const CreateEditEventPage = () => {
     }
   };
 
-  const createTimestamp = (dateStr: string, timeStr: string) => {
-    if (!dateStr || !timeStr) return null;
-    return `${dateStr}T${timeStr}:00.000Z`;
-  };
-
-  const parseTimestamp = (timestamp: string) => {
-    if (!timestamp) return { date: '', time: '' };
-    
-    const date = new Date(timestamp);
-    return {
-      date: date.toISOString().split('T')[0],
-      time: date.toTimeString().slice(0, 5)
-    };
-  };
-
   const validateDateTime = (eventData: any) => {
     const { date, start_time, end_time } = eventData;
     
@@ -173,8 +159,9 @@ const CreateEditEventPage = () => {
   };
 
   const parseEventTimes = (eventData: any) => {
-    const startParsed = parseTimestamp(eventData.start_time);
-    const endParsed = parseTimestamp(eventData.end_time);
+    // Use the new utility function to parse timestamps in Belgrade timezone
+    const startParsed = parseBelgradeTimestamp(eventData.start_time);
+    const endParsed = parseBelgradeTimestamp(eventData.end_time);
     
     return {
       ...eventData,
@@ -342,8 +329,9 @@ const CreateEditEventPage = () => {
         widget_chooser: usePaymentWidget,
         bg_image: imagePaths ? imagePaths.croppedPath : eventData.bg_image,
         original_bg_image: imagePaths ? imagePaths.originalPath : eventData.original_bg_image,
-        start_time: createTimestamp(eventData.date!, eventData.start_time!),
-        end_time: createTimestamp(eventData.date!, eventData.end_time!),
+        // Use the new utility function to create timestamps in Belgrade timezone
+        start_time: createBelgradeTimestamp(eventData.date!, eventData.start_time!),
+        end_time: createBelgradeTimestamp(eventData.date!, eventData.end_time!),
         festival_program: (eventData.festival_program?.length || 0) > 0 ? eventData.festival_program : null
       };
 
@@ -925,7 +913,7 @@ const CreateEditEventPage = () => {
 
             <div className="form-group">
               <label htmlFor="start_time" className="block font-medium mb-2">
-                Время начала
+                Время начала (по Белграду)
               </label>
               <input
                 type="time"
@@ -938,7 +926,7 @@ const CreateEditEventPage = () => {
 
             <div className="form-group">
               <label htmlFor="end_time" className="block font-medium mb-2">
-                Время окончания
+                Время окончания (по Белграду)
               </label>
               <input
                 type="time"
