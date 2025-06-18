@@ -16,6 +16,8 @@ interface TimeSlot {
   date: string;
   start_time: string;
   end_time: string;
+  start_at: string;
+  end_at: string;
   slot_details: {
     type?: 'event' | 'rent';
     title?: string;
@@ -102,10 +104,15 @@ const AdminCalendarPage = () => {
     const startTime = `${hour.toString().padStart(2, '0')}:00`;
     const endTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
     
+    const startAt = new Date(`${formattedDate}T${startTime}:00Z`).toISOString();
+    const endAt = new Date(`${formattedDate}T${endTime}:00Z`).toISOString();
+    
     setNewSlotData({
       date: formattedDate,
       start_time: startTime,
       end_time: endTime,
+      start_at: startAt,
+      end_at: endAt,
       slot_details: {
         type: 'rent',
         title: '',
@@ -124,6 +131,8 @@ const AdminCalendarPage = () => {
       date: slot.date,
       start_time: slot.start_time,
       end_time: slot.end_time,
+      start_at: slot.start_at,
+      end_at: slot.end_at,
       slot_details: {
         type: slot.slot_details.type,
         title: slot.slot_details.title,
@@ -141,39 +150,42 @@ const AdminCalendarPage = () => {
         return;
       }
 
+      const startAt = new Date(`${newSlotData.date}T${newSlotData.start_time}:00Z`).toISOString();
+      const endAt = new Date(`${newSlotData.date}T${newSlotData.end_time}:00Z`).toISOString();
+
       if (editingSlot) {
-        // Обновление существующего слота
         const { data, error } = await supabase
           .from('time_slots_table')
           .update({
             date: newSlotData.date,
             start_time: newSlotData.start_time,
             end_time: newSlotData.end_time,
+            start_at: startAt,
+            end_at: endAt,
             slot_details: newSlotData.slot_details
           })
           .eq('id', editingSlot.id)
           .select();
 
         if (error) throw error;
-        
         toast.success('Слот успешно обновлен');
       } else {
-        // Создание нового слота
         const { data, error } = await supabase
           .from('time_slots_table')
           .insert([{
             date: newSlotData.date,
             start_time: newSlotData.start_time,
             end_time: newSlotData.end_time,
+            start_at: startAt,
+            end_at: endAt,
             slot_details: {
               ...newSlotData.slot_details,
-              type: 'rent' // Всегда устанавливаем тип "аренда"
+              type: 'rent'
             }
           }])
           .select();
 
         if (error) throw error;
-        
         toast.success('Слот успешно создан');
       }
       
@@ -202,7 +214,6 @@ const AdminCalendarPage = () => {
         .eq('id', id);
 
       if (error) throw error;
-      
       toast.success('Слот удален');
       fetchTimeSlots();
     } catch (err) {
@@ -308,7 +319,6 @@ const AdminCalendarPage = () => {
       end: addDays(weekStart, 6) 
     });
 
-    // Группируем слоты по бронированиям (одинаковым названиям в один день)
     const groupedSlots = timeSlots.reduce((acc, slot) => {
       const date = slot.date;
       const title = slot.slot_details.title || 'Без названия';
@@ -438,7 +448,6 @@ const AdminCalendarPage = () => {
     const dayKey = format(currentDate, 'yyyy-MM-dd');
     const daySlots = timeSlots.filter(slot => slot.date === dayKey);
 
-    // Группируем слоты по бронированиям (одинаковым названиям)
     const groupedSlots = daySlots.reduce((acc, slot) => {
       const title = slot.slot_details.title || 'Без названия';
       const key = title;
@@ -613,10 +622,16 @@ const AdminCalendarPage = () => {
             <button
               onClick={() => {
                 setEditingSlot(null);
+                const currentDateFormatted = format(currentDate, 'yyyy-MM-dd');
+                const startAt = new Date(`${currentDateFormatted}T10:00:00Z`).toISOString();
+                const endAt = new Date(`${currentDateFormatted}T11:00:00Z`).toISOString();
+                
                 setNewSlotData({
-                  date: format(currentDate, 'yyyy-MM-dd'),
+                  date: currentDateFormatted,
                   start_time: '10:00',
                   end_time: '11:00',
+                  start_at: startAt,
+                  end_at: endAt,
                   slot_details: {
                     type: 'rent',
                     title: '',
