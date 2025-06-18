@@ -11,7 +11,7 @@ import NotFoundPage from './pages/NotFoundPage';
 import AdminLayout from './components/admin/AdminLayout';
 import AdminHomeHeader from './pages/admin/AdminHomeHeader';
 import AdminEvents from './pages/admin/AdminEvents';
-import CreateEditEventPage from './pages/admin/CreateEditEventPage';
+import { CreateEditEventPage } from './pages/admin/event-form';
 import AdminSpeakers from './pages/admin/AdminSpeakers';
 import AdminRent from './pages/admin/AdminRent';
 import AdminCoworking from './pages/admin/AdminCoworking';
