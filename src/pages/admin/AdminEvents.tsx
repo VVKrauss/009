@@ -224,22 +224,22 @@ const AdminEvents = () => {
 
 
   // Проверяет, нужно ли показывать информацию о регистрациях
-const shouldShowRegistrations = (event: Event): boolean => {
-  const currentCount = getCurrentRegistrationCount(event);
-  const maxRegs = getMaxRegistrations(event);
-  
-  return (
-    currentCount > 0 || // Есть регистрации
-    maxRegs !== null || // Установлен лимит
-    event.payment_type !== 'free' || // Платное мероприятие
-    event.status === 'active' // Активное мероприятие
-  );
-};
-
-// Проверяет, есть ли система регистраций в мероприятии
-const hasRegistrationSystem = (event: Event): boolean => {
-  return !!(event.registrations || event.registrations_list || event.current_registration_count !== undefined);
-};
+      const shouldShowRegistrations = (event: Event): boolean => {
+        const currentCount = getCurrentRegistrationCount(event);
+        const maxRegs = getMaxRegistrations(event);
+        
+        return (
+          currentCount > 0 || // Есть регистрации
+          maxRegs !== null || // Установлен лимит
+          event.payment_type !== 'free' || // Платное мероприятие
+          event.status === 'active' // Активное мероприятие
+        );
+      };
+      
+      // Проверяет, есть ли система регистраций в мероприятии
+      const hasRegistrationSystem = (event: Event): boolean => {
+        return !!(event.registrations || event.registrations_list || event.current_registration_count !== undefined);
+      };
 
   const tabs = [
     { id: 'active', label: 'Активные', count: events.filter(e => e.status === 'active').length },
