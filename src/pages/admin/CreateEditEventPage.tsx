@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { createClient } from '@supabase/supabase-js';
+import { toast } from 'react-hot-toast';
 import { 
   Save, 
   Trash2, 
@@ -20,50 +23,52 @@ import {
   FileText,
   Video,
   Camera,
-  Loader2,
-  ArrowLeft,
-  Search,
-  User,
-  ChevronDown,
-  Edit
+  Loader2
 } from 'lucide-react';
+import Cropper from 'react-cropper';
+import 'cropperjs/dist/cropper.css';
+import { format, parseISO } from 'date-fns';
+import { ru } from 'date-fns/locale';
+import { formatInTimeZone, utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
+import { 
+  formatTimeFromTimestamp, 
+  formatTimeRange, 
+  formatRussianDate,
+  BELGRADE_TIMEZONE,
+  formatDateTimeForDatabase,
+  isValidTimeFormat
+} from '../../utils/dateTimeUtils';
+import { Event, eventTypes, paymentTypes, languages, ageCategories, currencies, statuses } from './constants';
 
-// Mock data - replace with your actual imports
-const eventTypes = [
-  'Lecture',
-  'Workshop', 
-  'Movie Discussion',
-  'Conversation Club',
-  'Festival',
-  'Stand-up',
-  'Concert',
-  'Excursion',
-  'Discussion',
-  'Swap',
-  'Quiz'
-];
-const paymentTypes = ['cost', 'free', 'donation'];
-const languages = ['Русский', 'Английский', 'Сербский'];
-const ageCategories = ['0+', '12+', '18+'];
-const currencies = ['RSD', 'EUR', 'RUB'];
-const statuses = ['draft', 'active', 'past'];
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
-const TITLE_MAX_LENGTH = 70;
-const SHORT_DESC_MAX_LENGTH = 180;
-const DESC_MAX_LENGTH = 800;
+// Helper function to validate URLs
+const isValidUrl = (url: string) => {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 const CreateEditEventPage = () => {
-  const isEditMode = false; // Replace with actual logic
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const isEditMode = !!id;
   
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Partial<Event>>({
     title: '',
     short_description: '',
     description: '',
     event_type: eventTypes[0],
     bg_image: null,
     original_bg_image: null,
-    date: new Date().toISOString().split('T')[0],
+    date: format(new Date(), 'yyyy-MM-dd'),
     start_time: '18:00',
     end_time: '20:00',
     location: '',
@@ -75,15 +80,6 @@ const CreateEditEventPage = () => {
     languages: [languages[0]],
     speakers: [],
     hide_speakers_gallery: true,
-    payment_link: '',
-    payment_widget_id: '',
-    widget_chooser: false,
-    video_url: '',
-    couple_discount: '',
-    child_half_price: false,
-    registration_enabled: true,
-    registration_deadline: '',
-    registration_limit_per_user: 5,
     registrations: {
       max_regs: null,
       current: 0,
@@ -96,19 +92,16 @@ const CreateEditEventPage = () => {
   // UI state
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [speakers, setSpeakers] = useState([
-    { id: '1', name: 'Анна Иванова', field_of_expertise: 'AI & Machine Learning', photos: [] },
-    { id: '2', name: 'Михаил Петров', field_of_expertise: 'Web Development', photos: [] },
-    { id: '3', name: 'Елена Сидорова', field_of_expertise: 'Data Science', photos: [] }
-  ]);
-  const [selectedSpeakers, setSelectedSpeakers] = useState([]);
-  const [imageFile, setImageFile] = useState(null);
+  const [speakers, setSpeakers] = useState<Array<{ id: string; name: string; photos: any[] }>>([]);
+  const [selectedSpeakers, setSelectedSpeakers] = useState<string[]>([]);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [cropper, setCropper] = useState<any>(null);
   const [showCropper, setShowCropper] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState(null);
-  const fileInputRef = useRef(null);
-  const [errors, setErrors] = useState({});
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [showAdvancedSettings, setShowAdvancedSettings] = useState(false);
-  const [festivalProgram, setFestivalProgram] = useState([]);
+  const [festivalProgram, setFestivalProgram] = useState<any[]>([]);
   const [showFestivalProgramForm, setShowFestivalProgramForm] = useState(false);
   const [programItemForm, setProgramItemForm] = useState({
     title: '',
@@ -118,22 +111,91 @@ const CreateEditEventPage = () => {
     image_url: '',
     lecturer_id: ''
   });
-  const [editingProgramItemIndex, setEditingProgramItemIndex] = useState(null);
-  const [speakerSearchQuery, setSpeakerSearchQuery] = useState('');
-  const [usePaymentWidget, setUsePaymentWidget] = useState(false);
+  const [editingProgramItemIndex, setEditingProgramItemIndex] = useState<number | null>(null);
 
-  // Helper functions
-  const isValidUrl = (url) => {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
+  // Fetch speakers on component mount
+  useEffect(() => {
+    const fetchSpeakers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('speakers')
+          .select('id, name, photos')
+          .eq('active', true);
+
+        if (error) throw error;
+        setSpeakers(data || []);
+      } catch (error) {
+        console.error('Error fetching speakers:', error);
+        toast.error('Ошибка при загрузке спикеров');
+      }
+    };
+
+    fetchSpeakers();
+  }, []);
+
+  // Fetch event data if in edit mode
+  useEffect(() => {
+    if (isEditMode) {
+      const fetchEvent = async () => {
+        try {
+          setLoading(true);
+          const { data, error } = await supabase
+            .from('events')
+            .select('*')
+            .eq('id', id)
+            .single();
+
+          if (error) throw error;
+
+          // Convert timestamps to Belgrade timezone for display
+          const eventDate = data.date ? format(utcToZonedTime(new Date(data.date), BELGRADE_TIMEZONE), 'yyyy-MM-dd') : '';
+          const startTime = data.start_time ? formatInTimeZone(new Date(data.start_time), BELGRADE_TIMEZONE, 'HH:mm') : '';
+          const endTime = data.end_time ? formatInTimeZone(new Date(data.end_time), BELGRADE_TIMEZONE, 'HH:mm') : '';
+
+          // Set preview URL if image exists
+          if (data.bg_image) {
+            setPreviewUrl(`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${data.bg_image}`);
+          }
+
+          // Handle speakers
+          if (data.speakers && Array.isArray(data.speakers)) {
+            setSelectedSpeakers(data.speakers);
+          }
+
+          // Handle festival program
+          if (data.festival_program && Array.isArray(data.festival_program)) {
+            setFestivalProgram(data.festival_program);
+          }
+
+          // Set form data with converted times
+          setFormData({
+            ...data,
+            date: eventDate,
+            start_time: startTime,
+            end_time: endTime,
+            // Ensure registrations has the correct structure
+            registrations: data.registrations || {
+              max_regs: data.max_registrations || null,
+              current: data.current_registration_count || 0,
+              current_adults: 0,
+              current_children: 0,
+              reg_list: data.registrations_list || []
+            }
+          });
+        } catch (error) {
+          console.error('Error fetching event:', error);
+          toast.error('Ошибка при загрузке мероприятия');
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchEvent();
     }
-  };
+  }, [id, isEditMode]);
 
   // Handle form input changes
-  const handleChange = (e) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     
     // Clear error for this field if it exists
@@ -149,15 +211,15 @@ const CreateEditEventPage = () => {
   };
 
   // Handle checkbox changes
-  const handleCheckboxChange = (e) => {
+  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, checked } = e.target;
     setFormData(prev => ({ ...prev, [name]: checked }));
   };
 
-  // Handle multi-select changes
-  const handleMultiSelectChange = (name, value) => {
+  // Handle multi-select changes (languages, speakers)
+  const handleMultiSelectChange = (name: string, value: string) => {
     setFormData(prev => {
-      const currentValues = prev[name] || [];
+      const currentValues = prev[name as keyof Event] as string[] || [];
       const newValues = currentValues.includes(value)
         ? currentValues.filter(v => v !== value)
         : [...currentValues, value];
@@ -166,7 +228,7 @@ const CreateEditEventPage = () => {
   };
 
   // Handle speaker selection
-  const handleSpeakerSelect = (speakerId) => {
+  const handleSpeakerSelect = (speakerId: string) => {
     setSelectedSpeakers(prev => 
       prev.includes(speakerId)
         ? prev.filter(id => id !== speakerId)
@@ -175,22 +237,106 @@ const CreateEditEventPage = () => {
   };
 
   // Handle image selection
-  const handleImageSelect = (e) => {
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
-    setImageFile(file);
-    setPreviewUrl(URL.createObjectURL(file));
-    setShowCropper(true);
+
+    try {
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Файл слишком большой. Максимальный размер 5MB.');
+        return;
+      }
+
+      setImageFile(file);
+      setShowCropper(true);
+    } catch (error) {
+      console.error('Error processing image:', error);
+      toast.error('Ошибка при обработке изображения');
+    }
   };
 
-  // Handle image crop
-  const handleCrop = () => {
-    setShowCropper(false);
-    alert('Изображение обрезано и сохранено!');
+  // Handle image cropping
+  const handleCrop = async () => {
+    if (!cropper || !imageFile) return;
+
+    try {
+      // Get cropped canvas
+      const croppedCanvas = cropper.getCroppedCanvas({
+        width: 1200,
+        height: 400,
+        fillColor: '#fff',
+        imageSmoothingEnabled: true,
+        imageSmoothingQuality: 'high',
+      });
+
+      // Convert canvas to blob
+      const croppedBlob = await new Promise<Blob>((resolve) => {
+        croppedCanvas.toBlob((b) => {
+          if (b) resolve(b);
+          else throw new Error('Failed to create blob');
+        }, 'image/jpeg', 0.9);
+      });
+
+      // Create file from blob
+      const croppedFile = new File([croppedBlob], imageFile.name, {
+        type: 'image/jpeg',
+        lastModified: Date.now(),
+      });
+
+      // Generate unique filenames
+      const timestamp = Date.now();
+      const fileExt = 'jpg';
+      const originalPath = `events/original_${timestamp}.${fileExt}`;
+      const croppedPath = `events/cropped_${timestamp}.${fileExt}`;
+
+      // Upload original image
+      const { error: originalError } = await supabase.storage
+        .from('images')
+        .upload(originalPath, imageFile, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (originalError) throw originalError;
+
+      // Upload cropped image
+      const { error: croppedError } = await supabase.storage
+        .from('images')
+        .upload(croppedPath, croppedFile, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (croppedError) throw croppedError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('images')
+        .getPublicUrl(croppedPath);
+
+      // Update form data
+      setFormData(prev => ({
+        ...prev,
+        bg_image: croppedPath,
+        original_bg_image: originalPath
+      }));
+
+      // Update preview URL
+      setPreviewUrl(urlData.publicUrl);
+      
+      // Reset cropper state
+      setShowCropper(false);
+      setImageFile(null);
+      
+      toast.success('Изображение успешно загружено');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Ошибка при загрузке изображения');
+    }
   };
 
-  // Handle image removal
+  // Handle removing the image
   const handleRemoveImage = () => {
     setPreviewUrl(null);
     setFormData(prev => ({
@@ -198,31 +344,144 @@ const CreateEditEventPage = () => {
       bg_image: null,
       original_bg_image: null
     }));
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+  };
+
+  // Validate form data
+  const validateForm = () => {
+    const newErrors: Record<string, string> = {};
+    
+    // Required fields
+    if (!formData.title?.trim()) {
+      newErrors.title = 'Название обязательно';
+    }
+    
+    if (!formData.date) {
+      newErrors.date = 'Дата обязательна';
+    }
+    
+    if (!formData.start_time) {
+      newErrors.start_time = 'Время начала обязательно';
+    } else if (!isValidTimeFormat(formData.start_time)) {
+      newErrors.start_time = 'Неверный формат времени (HH:MM)';
+    }
+    
+    if (!formData.end_time) {
+      newErrors.end_time = 'Время окончания обязательно';
+    } else if (!isValidTimeFormat(formData.end_time)) {
+      newErrors.end_time = 'Неверный формат времени (HH:MM)';
+    }
+    
+    if (formData.start_time && formData.end_time && formData.start_time >= formData.end_time) {
+      newErrors.end_time = 'Время окончания должно быть позже времени начала';
+    }
+    
+    if (!formData.location?.trim()) {
+      newErrors.location = 'Место проведения обязательно';
+    }
+    
+    if (formData.payment_type === 'cost' && (formData.price === undefined || formData.price < 0)) {
+      newErrors.price = 'Укажите корректную стоимость';
+    }
+    
+    if (formData.payment_link && !isValidUrl(formData.payment_link)) {
+      newErrors.payment_link = 'Неверный формат ссылки';
+    }
+    
+    if (formData.video_url && !isValidUrl(formData.video_url)) {
+      newErrors.video_url = 'Неверный формат ссылки';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  // Submit form
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      toast.error('Пожалуйста, исправьте ошибки в форме');
+      return;
+    }
+    
+    try {
+      setSaving(true);
+      
+      // Prepare data for saving
+      const eventData = { ...formData };
+      
+      // Convert date and times to UTC for storage
+      if (eventData.date && eventData.start_time) {
+        eventData.start_time = formatDateTimeForDatabase(eventData.date, eventData.start_time);
+      }
+      
+      if (eventData.date && eventData.end_time) {
+        eventData.end_time = formatDateTimeForDatabase(eventData.date, eventData.end_time);
+      }
+      
+      // Set speakers from selected speakers
+      eventData.speakers = selectedSpeakers;
+      
+      // Set festival program if applicable
+      if (eventData.event_type === 'Festival' && festivalProgram.length > 0) {
+        eventData.festival_program = festivalProgram;
+      }
+      
+      // Call the Edge Function to save the event
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/save-event`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            eventData,
+            isNew: !isEditMode
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save event');
+      }
+
+      toast.success(isEditMode ? 'Мероприятие обновлено' : 'Мероприятие создано');
+      navigate('/admin/events');
+    } catch (error) {
+      console.error('Error saving event:', error);
+      toast.error('Ошибка при сохранении мероприятия');
+    } finally {
+      setSaving(false);
     }
   };
 
-  // Handle festival program
-  const handleProgramItemChange = (e) => {
+  // Handle festival program item form
+  const handleProgramItemChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setProgramItemForm(prev => ({ ...prev, [name]: value }));
   };
 
+  // Add or update festival program item
   const handleAddProgramItem = () => {
     if (!programItemForm.title || !programItemForm.start_time || !programItemForm.end_time) {
-      alert('Заполните обязательные поля');
+      toast.error('Заполните обязательные поля');
       return;
     }
 
     if (editingProgramItemIndex !== null) {
+      // Update existing item
       const updatedProgram = [...festivalProgram];
       updatedProgram[editingProgramItemIndex] = programItemForm;
       setFestivalProgram(updatedProgram);
     } else {
+      // Add new item
       setFestivalProgram(prev => [...prev, programItemForm]);
     }
 
+    // Reset form
     setProgramItemForm({
       title: '',
       description: '',
@@ -235,63 +494,23 @@ const CreateEditEventPage = () => {
     setShowFestivalProgramForm(false);
   };
 
-  const handleEditProgramItem = (index) => {
+  // Edit festival program item
+  const handleEditProgramItem = (index: number) => {
     setProgramItemForm(festivalProgram[index]);
     setEditingProgramItemIndex(index);
     setShowFestivalProgramForm(true);
   };
 
-  const handleDeleteProgramItem = (index) => {
-    if (!window.confirm('Вы уверены, что хотите удалить этот пункт программы?')) {
-      return;
-    }
+  // Delete festival program item
+  const handleDeleteProgramItem = (index: number) => {
     setFestivalProgram(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Toggle functions
-  const toggleLanguage = (lang) => {
-    setFormData(prev => ({
-      ...prev,
-      languages: prev.languages.includes(lang)
-        ? prev.languages.filter(l => l !== lang)
-        : [...prev.languages, lang]
-    }));
+  // Get speaker name by ID
+  const getSpeakerName = (speakerId: string) => {
+    const speaker = speakers.find(s => s.id === speakerId);
+    return speaker ? speaker.name : 'Неизвестный спикер';
   };
-
-  const toggleSpeaker = (speakerId) => {
-    setSelectedSpeakers(prev => {
-      if (prev.includes(speakerId)) {
-        return prev.filter(id => id !== speakerId);
-      }
-      return [...prev, speakerId];
-    });
-  };
-
-  // Submit form
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setSaving(true);
-    
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    alert('Мероприятие сохранено!');
-    setSaving(false);
-  };
-
-  // Get selected speakers data
-  const selectedSpeakersData = speakers.filter(speaker => 
-    selectedSpeakers.includes(speaker.id)
-  );
-
-  // Filter speakers based on search
-  const filteredSpeakers = speakers.filter(speaker => {
-    const searchLower = speakerSearchQuery.toLowerCase();
-    return (
-      speaker.name.toLowerCase().includes(searchLower) ||
-      speaker.field_of_expertise.toLowerCase().includes(searchLower)
-    );
-  });
 
   if (loading) {
     return (
@@ -302,362 +521,391 @@ const CreateEditEventPage = () => {
   }
 
   return (
-    <div>
+    <div className="max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
+        <h1 className="text-2xl font-semibold">
+          {isEditMode ? 'Редактирование мероприятия' : 'Создание мероприятия'}
+        </h1>
+        <div className="flex gap-4">
           <button
-            onClick={() => alert('Назад')}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-full"
+            type="button"
+            onClick={() => navigate('/admin/events')}
+            className="px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
           >
-            <ArrowLeft className="h-6 w-6" />
+            Отмена
           </button>
-          <h2 className="text-2xl font-semibold">
-            {isEditMode ? 'Редактирование мероприятия' : 'Создание мероприятия'}
-          </h2>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={saving}
+            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Сохранение...
+              </>
+            ) : (
+              <>
+                <Save className="h-5 w-5" />
+                Сохранить
+              </>
+            )}
+          </button>
         </div>
-        {isEditMode && (
-          <button
-            onClick={() => {
-              if (window.confirm('Вы уверены, что хотите удалить это мероприятие?')) {
-                alert('Мероприятие удалено!');
-              }
-            }}
-            className="btn-outline text-red-600 border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
-          >
-            <Trash2 className="h-5 w-5" />
-            Удалить мероприятие
-          </button>
-        )}
       </div>
 
-      <div className="bg-white dark:bg-dark-800 rounded-lg shadow">
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          {/* Image upload section */}
-          <div className="form-group">
-            <label className="block font-medium mb-2">Изображение</label>
-            {showCropper && imageFile ? (
-              <div className="space-y-4">
-                <div className="w-full h-96 bg-gray-100 rounded-lg flex items-center justify-center">
-                  <div className="text-center">
-                    <Camera className="h-12 w-12 mx-auto text-gray-400 mb-2" />
-                    <p className="text-gray-500">Здесь будет cropper</p>
-                    <p className="text-sm text-gray-400">({imageFile.name})</p>
-                  </div>
-                </div>
-                <div className="flex justify-end gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowCropper(false)}
-                    className="btn-outline"
-                  >
-                    Отмена
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCrop}
-                    className="btn-primary"
-                  >
-                    Обрезать и сохранить
-                  </button>
-                </div>
-              </div>
-            ) : previewUrl ? (
-              <div className="relative">
-                <img
-                  src={previewUrl}
-                  alt="Preview"
-                  className="w-full h-48 object-cover rounded-lg"
-                />
-                <button
-                  type="button"
-                  onClick={handleRemoveImage}
-                  className="absolute top-2 right-2 p-2 bg-red-600 text-white rounded-full hover:bg-red-700"
-                >
-                  <Trash2 className="h-5 w-5" />
-                </button>
-              </div>
-            ) : (
-              <div className="border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg p-8 text-center">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageSelect}
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="btn-outline inline-flex items-center gap-2"
-                >
-                  <Upload className="h-5 w-5" />
-                  Загрузить изображение
-                </button>
-                <p className="mt-2 text-sm text-dark-500">
-                  Рекомендуемый размер: 1200x400px
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Basic information */}
-          <div className="form-group">
-            <label htmlFor="title" className="block font-medium mb-2">
-              Название ({formData.title.length}/{TITLE_MAX_LENGTH})
-            </label>
-            <input
-              type="text"
-              id="title"
-              name="title"
-              value={formData.title}
-              onChange={handleChange}
-              className="form-input"
-              maxLength={TITLE_MAX_LENGTH}
-            />
-            {formData.title.length >= TITLE_MAX_LENGTH && (
-              <p className="text-sm text-red-600 mt-1">
-                Максимальная длина достигнута
-              </p>
-            )}
-          </div>
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* Basic Information */}
+        <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+            <Info className="h-5 w-5 text-primary-600" />
+            Основная информация
+          </h2>
           
-          <div className="form-group">
-            <label htmlFor="short_description" className="block font-medium mb-2">
-              Короткое описание ({formData.short_description.length}/{SHORT_DESC_MAX_LENGTH})
-              <span className="text-sm text-gray-500 ml-2">(необязательное)</span>
-            </label>
-            <textarea
-              id="short_description"
-              name="short_description"
-              value={formData.short_description}
-              onChange={handleChange}
-              className="form-input"
-              rows={2}
-              maxLength={SHORT_DESC_MAX_LENGTH}
-            />
-            {formData.short_description.length >= SHORT_DESC_MAX_LENGTH && (
-              <p className="text-sm text-red-600 mt-1">
-                Максимальная длина достигнута
-              </p>
-            )}
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="description" className="block font-medium mb-2">
-              Описание ({formData.description.length}/{DESC_MAX_LENGTH})
-            </label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              className="form-input"
-              rows={4}
-              maxLength={DESC_MAX_LENGTH}
-            />
-            {formData.description.length >= DESC_MAX_LENGTH && (
-              <p className="text-sm text-red-600 mt-1">
-                Максимальная длина достигнута
-              </p>
-            )}
-          </div>
-
-          <div className="form-group">
-            <label htmlFor="event_type" className="block font-medium mb-2">
-              Тип мероприятия
-            </label>
-            <select
-              id="event_type"
-              name="event_type"
-              value={formData.event_type}
-              onChange={handleChange}
-              className="form-input"
-            >
-              {eventTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Date and time */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="space-y-6">
             <div className="form-group">
-              <label htmlFor="date" className="block font-medium mb-2">
-                Дата
-              </label>
-              <input
-                type="date"
-                id="date"
-                name="date"
-                value={formData.date}
-                onChange={handleChange}
-                className="form-input"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="start_time" className="block font-medium mb-2">
-                Время начала
-              </label>
-              <input
-                type="time"
-                id="start_time"
-                name="start_time"
-                value={formData.start_time}
-                onChange={handleChange}
-                className="form-input"
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="end_time" className="block font-medium mb-2">
-                Время окончания
-              </label>
-              <input
-                type="time"
-                id="end_time"
-                name="end_time"
-                value={formData.end_time}
-                onChange={handleChange}
-                className="form-input"
-              />
-            </div>
-          </div>
-
-          {/* Location and capacity */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="form-group">
-              <label htmlFor="location" className="block font-medium mb-2">
-                Место проведения
+              <label htmlFor="title" className="block font-medium mb-2">
+                Название мероприятия <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                id="location"
-                name="location"
-                value={formData.location}
+                id="title"
+                name="title"
+                value={formData.title || ''}
                 onChange={handleChange}
-                className="form-input"
+                className={`w-full px-4 py-2 rounded-md border ${
+                  errors.title ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
+                } dark:bg-dark-800`}
+                placeholder="Введите название мероприятия"
+              />
+              {errors.title && (
+                <p className="mt-1 text-sm text-red-500">{errors.title}</p>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="short_description" className="block font-medium mb-2">
+                Краткое описание
+              </label>
+              <textarea
+                id="short_description"
+                name="short_description"
+                value={formData.short_description || ''}
+                onChange={handleChange}
+                rows={2}
+                className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                placeholder="Краткое описание для карточки мероприятия"
               />
             </div>
 
             <div className="form-group">
-              <label htmlFor="max_registrations" className="block font-medium mb-2">
-                Максимум участников
+              <label htmlFor="description" className="block font-medium mb-2">
+                Полное описание
               </label>
-              <input
-                type="number"
-                id="max_registrations"
-                value={formData.registrations?.max_regs || ''}
-                onChange={(e) => {
-                  const value = e.target.value ? parseInt(e.target.value) : null;
-                  setFormData(prev => ({
-                    ...prev,
-                    registrations: {
-                      ...prev.registrations,
-                      max_regs: value
-                    }
-                  }));
-                }}
-                className="form-input"
-                min="0"
+              <textarea
+                id="description"
+                name="description"
+                value={formData.description || ''}
+                onChange={handleChange}
+                rows={6}
+                className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                placeholder="Подробное описание мероприятия"
               />
             </div>
-          </div>
 
-          {/* Categories and languages */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="form-group">
-              <label htmlFor="age_category" className="block font-medium mb-2">
-                Возрастная категория
-              </label>
-              <select
-                id="age_category"
-                name="age_category"
-                value={formData.age_category}
-                onChange={handleChange}
-                className="form-input"
-              >
-                {ageCategories.map(category => (
-                  <option key={category} value={category}>{category}</option>
-                ))}
-              </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="form-group">
+                <label htmlFor="event_type" className="block font-medium mb-2">
+                  Тип мероприятия
+                </label>
+                <select
+                  id="event_type"
+                  name="event_type"
+                  value={formData.event_type || ''}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                >
+                  {eventTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="age_category" className="block font-medium mb-2">
+                  Возрастная категория
+                </label>
+                <select
+                  id="age_category"
+                  name="age_category"
+                  value={formData.age_category || ''}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                >
+                  {ageCategories.map(category => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="form-group">
               <label className="block font-medium mb-2">
                 Языки
               </label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-3">
                 {languages.map(lang => (
-                  <button
-                    key={lang}
-                    type="button"
-                    onClick={() => toggleLanguage(lang)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                      formData.languages.includes(lang)
-                        ? 'bg-primary-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600'
-                    }`}
-                  >
-                    {lang}
-                  </button>
+                  <label key={lang} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={(formData.languages || []).includes(lang)}
+                      onChange={() => handleMultiSelectChange('languages', lang)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
+                    />
+                    <span>{lang}</span>
+                  </label>
                 ))}
               </div>
             </div>
 
             <div className="form-group">
-              <label htmlFor="status" className="block font-medium mb-2">
-                Статус
+              <label className="block font-medium mb-2">
+                Изображение
               </label>
-              <select
-                id="status"
-                name="status"
-                value={formData.status}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageSelect}
+                accept="image/*"
+                className="hidden"
+              />
+              
+              {showCropper && imageFile ? (
+                <div className="space-y-4">
+                  <Cropper
+                    src={URL.createObjectURL(imageFile)}
+                    style={{ height: 400, width: '100%' }}
+                    aspectRatio={3}
+                    guides={true}
+                    viewMode={1}
+                    dragMode="move"
+                    scalable={true}
+                    cropBoxMovable={true}
+                    cropBoxResizable={true}
+                    onInitialized={(instance) => setCropper(instance)}
+                    className="max-w-full"
+                  />
+                  
+                  <div className="flex justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowCropper(false)}
+                      className="px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
+                    >
+                      <X className="h-5 w-5 mr-2 inline-block" />
+                      Отмена
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCrop}
+                      className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
+                    >
+                      <Check className="h-5 w-5 mr-2 inline-block" />
+                      Обрезать и сохранить
+                    </button>
+                  </div>
+                </div>
+              ) : previewUrl ? (
+                <div className="relative">
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    className="w-full h-48 object-cover rounded-lg"
+                  />
+                  <div className="absolute bottom-2 right-2 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2 bg-white/90 hover:bg-white text-dark-800 rounded-full shadow-lg"
+                      title="Изменить изображение"
+                    >
+                      <Upload className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleRemoveImage}
+                      className="p-2 bg-red-600/90 hover:bg-red-600 text-white rounded-full shadow-lg"
+                      title="Удалить изображение"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg p-8 text-center">
+                  <div className="flex flex-col items-center">
+                    <div className="mb-4 p-3 bg-gray-100 dark:bg-dark-700 rounded-full">
+                      <ImageIcon className="h-6 w-6 text-gray-500 dark:text-gray-400" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors"
+                    >
+                      Загрузить изображение
+                    </button>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      Рекомендуемый размер: 1200x400px
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Date and Time */}
+        <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+            <Calendar className="h-5 w-5 text-primary-600" />
+            Дата и время
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="form-group">
+              <label htmlFor="date" className="block font-medium mb-2">
+                Дата <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                id="date"
+                name="date"
+                value={formData.date || ''}
                 onChange={handleChange}
-                className="form-input"
-              >
-                {statuses.map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
+                className={`w-full px-4 py-2 rounded-md border ${
+                  errors.date ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
+                } dark:bg-dark-800`}
+              />
+              {errors.date && (
+                <p className="mt-1 text-sm text-red-500">{errors.date}</p>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="start_time" className="block font-medium mb-2">
+                Время начала <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="time"
+                id="start_time"
+                name="start_time"
+                value={formData.start_time || ''}
+                onChange={handleChange}
+                className={`w-full px-4 py-2 rounded-md border ${
+                  errors.start_time ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
+                } dark:bg-dark-800`}
+              />
+              {errors.start_time && (
+                <p className="mt-1 text-sm text-red-500">{errors.start_time}</p>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="end_time" className="block font-medium mb-2">
+                Время окончания <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="time"
+                id="end_time"
+                name="end_time"
+                value={formData.end_time || ''}
+                onChange={handleChange}
+                className={`w-full px-4 py-2 rounded-md border ${
+                  errors.end_time ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
+                } dark:bg-dark-800`}
+              />
+              {errors.end_time && (
+                <p className="mt-1 text-sm text-red-500">{errors.end_time}</p>
+              )}
             </div>
           </div>
 
-          {/* Payment information */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="form-group mt-6">
+            <label htmlFor="location" className="block font-medium mb-2">
+              Место проведения <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="location"
+              name="location"
+              value={formData.location || ''}
+              onChange={handleChange}
+              className={`w-full px-4 py-2 rounded-md border ${
+                errors.location ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
+              } dark:bg-dark-800`}
+              placeholder="Адрес или название места"
+            />
+            {errors.location && (
+              <p className="mt-1 text-sm text-red-500">{errors.location}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Payment Information */}
+        <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+            <DollarSign className="h-5 w-5 text-primary-600" />
+            Информация о стоимости
+          </h2>
+          
+          <div className="space-y-6">
             <div className="form-group">
-              <label htmlFor="payment_type" className="block font-medium mb-2">
+              <label className="block font-medium mb-2">
                 Тип оплаты
               </label>
-              <select
-                id="payment_type"
-                name="payment_type"
-                value={formData.payment_type}
-                onChange={handleChange}
-                className="form-input"
-              >
+              <div className="flex flex-wrap gap-3">
                 {paymentTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
+                  <label key={type} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="payment_type"
+                      value={type}
+                      checked={formData.payment_type === type}
+                      onChange={handleChange}
+                      className="rounded-full border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
+                    />
+                    <span>
+                      {type === 'free' ? 'Бесплатно' : 
+                       type === 'donation' ? 'Донейшн' : 
+                       'Платно'}
+                    </span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
 
             {formData.payment_type === 'cost' && (
-              <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="form-group">
                   <label htmlFor="price" className="block font-medium mb-2">
-                    Стоимость
+                    Стоимость <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="number"
                     id="price"
                     name="price"
-                    value={formData.price || ''}
+                    value={formData.price || 0}
                     onChange={handleChange}
-                    className="form-input"
                     min="0"
-                    step="0.01"
+                    step="1"
+                    className={`w-full px-4 py-2 rounded-md border ${
+                      errors.price ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
+                    } dark:bg-dark-800`}
                   />
+                  {errors.price && (
+                    <p className="mt-1 text-sm text-red-500">{errors.price}</p>
+                  )}
                 </div>
 
                 <div className="form-group">
@@ -667,578 +915,544 @@ const CreateEditEventPage = () => {
                   <select
                     id="currency"
                     name="currency"
-                    value={formData.currency}
+                    value={formData.currency || ''}
                     onChange={handleChange}
-                    className="form-input"
+                    className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
                   >
                     {currencies.map(currency => (
                       <option key={currency} value={currency}>{currency}</option>
                     ))}
                   </select>
                 </div>
-              </>
+              </div>
             )}
-          </div>
 
-          {/* Additional payment options */}
-          {formData.payment_type === 'cost' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="form-group">
-                <label htmlFor="couple_discount" className="block font-medium mb-2">
-                  Скидка для пар
-                </label>
-                <input
-                  type="text"
-                  id="couple_discount"
-                  name="couple_discount"
-                  value={formData.couple_discount || ''}
-                  onChange={handleChange}
-                  className="form-input"
-                  placeholder="Укажите условия скидки для пар"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="flex items-center justify-between">
-                  <span className="font-medium">Детям 50% скидка</span>
-                  <button
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, child_half_price: !prev.child_half_price }))}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                      formData.child_half_price ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        formData.child_half_price ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </label>
-              </div>
-
-              <div className="form-group col-span-2">
-                <label className="flex items-center justify-between mb-2">
-                  <span className="font-medium">Использовать виджет оплаты</span>
-                  <button
-                    type="button"
-                    onClick={() => setUsePaymentWidget(!usePaymentWidget)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                      usePaymentWidget ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-                    }`}
-                  >
-                    <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                        usePaymentWidget ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
-                  </button>
-                </label>
-                <p className="text-sm text-gray-500 mb-2">
-                  Тумблер только сохраняет предпочтение, оба поля будут сохранены
-                </p>
-
-                <div className="space-y-4">
-                  <div>
-                    <label htmlFor="payment_link" className="block font-medium mb-2">
-                      Ссылка для оплаты
-                    </label>
-                    <input
-                      type="url"
-                      id="payment_link"
-                      name="payment_link"
-                      value={formData.payment_link || ''}
-                      onChange={handleChange}
-                      className="form-input"
-                      placeholder="https://"
-                    />
-                  </div>
-
-                  <div>
-                    <label htmlFor="payment_widget_id" className="block font-medium mb-2">
-                      Код виджета оплаты
-                    </label>
-                    <textarea
-                      id="payment_widget_id"
-                      name="payment_widget_id"
-                      value={formData.payment_widget_id || ''}
-                      onChange={handleChange}
-                      className="form-input h-32"
-                      placeholder='<a href="#" data-oblak-widget data-event-id="ID">Buy ticket</a>'
-                    />
-                    <p className="text-sm text-gray-500 mt-1">
-                      Вставьте полный HTML-код виджета
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Media links */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="form-group">
-              <label htmlFor="video_url" className="block font-medium mb-2">
-                Ссылка на видео
+              <label htmlFor="payment_link" className="block font-medium mb-2">
+                Ссылка на оплату
               </label>
               <input
                 type="url"
-                id="video_url"
-                name="video_url"
-                value={formData.video_url || ''}
+                id="payment_link"
+                name="payment_link"
+                value={formData.payment_link || ''}
                 onChange={handleChange}
-                className="form-input"
-                placeholder="https://"
+                className={`w-full px-4 py-2 rounded-md border ${
+                  errors.payment_link ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
+                } dark:bg-dark-800`}
+                placeholder="https://..."
+              />
+              {errors.payment_link && (
+                <p className="mt-1 text-sm text-red-500">{errors.payment_link}</p>
+              )}
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="payment_widget_id" className="block font-medium mb-2">
+                ID виджета оплаты
+              </label>
+              <input
+                type="text"
+                id="payment_widget_id"
+                name="payment_widget_id"
+                value={formData.payment_widget_id || ''}
+                onChange={handleChange}
+                className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                placeholder="ID виджета (если используется)"
               />
             </div>
-          </div>
 
-          {/* Speakers section */}
-          <div className="form-group">
-            <div className="flex justify-between items-center mb-4">
-              <label className="block font-medium">Спикеры</label>
-              <div className="flex items-center gap-2">
-                <span className="text-sm">Скрыть галерею</span>
-                <button
-                  type="button"
-                  onClick={() => setFormData(prev => ({ ...prev, hide_speakers_gallery: !prev.hide_speakers_gallery }))}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${
-                    formData.hide_speakers_gallery ? 'bg-gray-200 dark:bg-dark-600' : 'bg-primary-600'
-                  }`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      formData.hide_speakers_gallery ? 'translate-x-1' : 'translate-x-6'
-                    }`}
-                  />
-                </button>
-                <span className="text-sm">Показать галерею</span>
+            <div className="form-group">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="widget_chooser"
+                  checked={formData.widget_chooser || false}
+                  onChange={handleCheckboxChange}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
+                />
+                <span>Использовать виджет вместо ссылки</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Speakers */}
+        <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
+          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+            <Users className="h-5 w-5 text-primary-600" />
+            Спикеры
+          </h2>
+          
+          <div className="space-y-6">
+            <div className="form-group">
+              <label className="block font-medium mb-2">
+                Выберите спикеров
+              </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {speakers.map(speaker => (
+                  <label key={speaker.id} className="flex items-center gap-2 cursor-pointer p-2 border border-gray-200 dark:border-dark-700 rounded-md hover:bg-gray-50 dark:hover:bg-dark-700">
+                    <input
+                      type="checkbox"
+                      checked={selectedSpeakers.includes(speaker.id)}
+                      onChange={() => handleSpeakerSelect(speaker.id)}
+                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
+                    />
+                    <div className="flex items-center gap-2">
+                      {speaker.photos?.[0]?.url ? (
+                        <img
+                          src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos[0].url}`}
+                          alt={speaker.name}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 bg-gray-200 dark:bg-dark-600 rounded-full flex items-center justify-center">
+                          <Users className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                        </div>
+                      )}
+                      <span>{speaker.name}</span>
+                    </div>
+                  </label>
+                ))}
               </div>
             </div>
 
-            {/* Selected speakers list */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">Выбранные спикеры:</label>
-              {selectedSpeakersData.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {selectedSpeakersData.map(speaker => (
-                    <div 
-                      key={speaker.id}
-                      className="flex items-center gap-2 bg-gray-100 dark:bg-dark-700 px-3 py-1 rounded-full text-sm"
-                    >
-                      <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
-                        <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-dark-600">
-                          <User className="w-3 h-3 text-gray-500 dark:text-gray-400" />
+            <div className="form-group">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  name="hide_speakers_gallery"
+                  checked={formData.hide_speakers_gallery || false}
+                  onChange={handleCheckboxChange}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
+                />
+                <span>Скрыть галерею спикеров на странице мероприятия</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Festival Program (only for Festival event type) */}
+        {formData.event_type === 'Festival' && (
+          <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-primary-600" />
+              Программа фестиваля
+            </h2>
+            
+            <div className="space-y-6">
+              {festivalProgram.length > 0 ? (
+                <div className="space-y-4">
+                  {festivalProgram.map((item, index) => (
+                    <div key={index} className="border border-gray-200 dark:border-dark-700 rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h3 className="font-medium">{item.title}</h3>
+                          <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            {item.start_time} - {item.end_time}
+                          </div>
+                          {item.lecturer_id && (
+                            <div className="text-sm text-primary-600 dark:text-primary-400 mt-1">
+                              Спикер: {getSpeakerName(item.lecturer_id)}
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditProgramItem(index)}
+                            className="p-1 hover:bg-gray-100 dark:hover:bg-dark-700 rounded"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteProgramItem(index)}
+                            className="p-1 hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 rounded"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
                         </div>
                       </div>
-                      <span className="truncate max-w-[100px]">{speaker.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => toggleSpeaker(speaker.id)}
-                        className="text-gray-500 hover:text-red-500"
-                      >
-                        <X className="w-3 h-3" />
-                      </button>
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-sm text-gray-500 dark:text-dark-400">Спикеры не выбраны</p>
+                <div className="text-center py-6 border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg">
+                  <Calendar className="h-12 w-12 mx-auto text-gray-400 mb-2" />
+                  <p className="text-gray-500 dark:text-gray-400">
+                    Нет добавленных пунктов программы
+                  </p>
+                </div>
               )}
-            </div>
 
-            {!formData.hide_speakers_gallery && (
-              <>
-                {/* Search input */}
-                <div className="relative mb-4">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Поиск по имени или специализации..."
-                    value={speakerSearchQuery}
-                    onChange={(e) => setSpeakerSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 rounded-md border border-gray-300 dark:border-dark-600"
-                  />
-                </div>
+              {showFestivalProgramForm ? (
+                <div className="border border-gray-200 dark:border-dark-700 rounded-lg p-4">
+                  <h3 className="font-medium mb-4">
+                    {editingProgramItemIndex !== null ? 'Редактирование пункта программы' : 'Добавление пункта программы'}
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div className="form-group">
+                      <label htmlFor="program_title" className="block font-medium mb-2">
+                        Название <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        id="program_title"
+                        name="title"
+                        value={programItemForm.title}
+                        onChange={handleProgramItemChange}
+                        className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                        placeholder="Название пункта программы"
+                      />
+                    </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {filteredSpeakers.map(speaker => {
-                    const isSelected = selectedSpeakers.includes(speaker.id);
-                    return (
-                      <div
-                        key={speaker.id}
-                        onClick={() => toggleSpeaker(speaker.id)}
-                        className={`flex items-center gap-2 p-1 pr-2 rounded-full border transition-all cursor-pointer ${
-                          isSelected
-                            ? 'border-primary-600 bg-primary-100 dark:bg-primary-900/20'
-                            : 'border-gray-200 dark:border-dark-600 hover:border-primary-400 dark:hover:border-primary-500'
-                        }`}
-                      >
-                        <div className="relative w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
-                          <div className="w-full h-full flex items-center justify-center bg-gray-200 dark:bg-dark-600">
-                            <User className="w-3 h-3 text-gray-500 dark:text-gray-400" />
-                          </div>
-                          {isSelected && (
-                            <div className="absolute -top-1 -right-1 bg-primary-600 rounded-full p-0.5">
-                              <Check className="w-2 h-2 text-white" />
-                            </div>
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs font-medium truncate max-w-[100px]">{speaker.name}</p>
-                          <p className="text-[10px] text-gray-500 dark:text-dark-400 truncate max-w-[100px]">
-                            {speaker.field_of_expertise}
-                          </p>
-                        </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="form-group">
+                        <label htmlFor="program_start_time" className="block font-medium mb-2">
+                          Время начала <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="time"
+                          id="program_start_time"
+                          name="start_time"
+                          value={programItemForm.start_time}
+                          onChange={handleProgramItemChange}
+                          className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                        />
                       </div>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
 
-          {/* Festival program section */}
-          {formData.event_type === 'Festival' && (
-            <div className="form-group">
-              <div className="flex justify-between items-center mb-4">
-                <label className="block font-medium">Программа фестиваля</label>
+                      <div className="form-group">
+                        <label htmlFor="program_end_time" className="block font-medium mb-2">
+                          Время окончания <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="time"
+                          id="program_end_time"
+                          name="end_time"
+                          value={programItemForm.end_time}
+                          onChange={handleProgramItemChange}
+                          className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="program_description" className="block font-medium mb-2">
+                        Описание
+                      </label>
+                      <textarea
+                        id="program_description"
+                        name="description"
+                        value={programItemForm.description}
+                        onChange={handleProgramItemChange}
+                        rows={3}
+                        className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                        placeholder="Описание пункта программы"
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label htmlFor="program_lecturer" className="block font-medium mb-2">
+                        Спикер
+                      </label>
+                      <select
+                        id="program_lecturer"
+                        name="lecturer_id"
+                        value={programItemForm.lecturer_id}
+                        onChange={handleProgramItemChange}
+                        className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                      >
+                        <option value="">Выберите спикера</option>
+                        {speakers.map(speaker => (
+                          <option key={speaker.id} value={speaker.id}>{speaker.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="flex justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowFestivalProgramForm(false);
+                          setEditingProgramItemIndex(null);
+                          setProgramItemForm({
+                            title: '',
+                            description: '',
+                            start_time: '',
+                            end_time: '',
+                            image_url: '',
+                            lecturer_id: ''
+                          });
+                        }}
+                        className="px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddProgramItem}
+                        className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
+                      >
+                        {editingProgramItemIndex !== null ? 'Сохранить' : 'Добавить'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 <button
                   type="button"
-                  onClick={() => {
-                    setProgramItemForm({
-                      title: '',
-                      description: '',
-                      start_time: '',
-                      end_time: '',
-                      image_url: '',
-                      lecturer_id: ''
-                    });
-                    setEditingProgramItemIndex(null);
-                    setShowFestivalProgramForm(true);
-                  }}
-                  className="btn-outline flex items-center gap-2"
+                  onClick={() => setShowFestivalProgramForm(true)}
+                  className="w-full py-3 border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors flex items-center justify-center gap-2"
                 >
                   <Plus className="h-5 w-5" />
                   Добавить пункт программы
                 </button>
-              </div>
-
-              {/* Current program items list */}
-              <div className="space-y-4 mb-6">
-                {festivalProgram.map((item, index) => (
-                  <div key={index} className="border rounded-lg p-4 flex justify-between items-start">
-                    <div>
-                      <h4 className="font-medium">{item.title}</h4>
-                      <p className="text-sm text-gray-600 dark:text-dark-400">{item.description}</p>
-                      <div className="text-xs mt-2">
-                        <span>{item.start_time}</span>
-                        <span> - </span>
-                        <span>{item.end_time}</span>
-                      </div>
-                      {item.lecturer_id && (
-                        <div className="text-xs text-primary-600 mt-1">
-                          Спикер: {speakers.find(s => s.id === item.lecturer_id)?.name || 'Неизвестный спикер'}
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleEditProgramItem(index)}
-                        className="p-1 text-gray-500 hover:text-primary-600"
-                      >
-                        <Edit className="h-5 w-5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteProgramItem(index)}
-                        className="p-1 text-gray-500 hover:text-red-600"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Program item form */}
-              {showFestivalProgramForm && (
-                <div className="border rounded-lg p-6 space-y-4">
-                  <h4 className="font-medium">
-                    {editingProgramItemIndex !== null ? 'Редактирование пункта программы' : 'Добавление пункта программы'}
-                  </h4>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="form-group">
-                      <label className="block font-medium mb-2">Название</label>
-                      <input
-                        type="text"
-                        name="title"
-                        value={programItemForm.title}
-                        onChange={handleProgramItemChange}
-                        className="form-input"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="block font-medium mb-2">Спикер</label>
-                      <select
-                        name="lecturer_id"
-                        value={programItemForm.lecturer_id}
-                        onChange={handleProgramItemChange}
-                        className="form-input"
-                      >
-                        <option value="">Выберите спикера</option>
-                        {speakers.map(speaker => (
-                          <option key={speaker.id} value={speaker.id}>
-                            {speaker.name} ({speaker.field_of_expertise})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="block font-medium mb-2">Описание</label>
-                    <textarea
-                      name="description"
-                      value={programItemForm.description}
-                      onChange={handleProgramItemChange}
-                      className="form-input"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="form-group">
-                      <label className="block font-medium mb-2">Время начала</label>
-                      <input
-                        type="time"
-                        name="start_time"
-                        value={programItemForm.start_time}
-                        onChange={handleProgramItemChange}
-                        className="form-input"
-                      />
-                    </div>
-
-                    <div className="form-group">
-                      <label className="block font-medium mb-2">Время окончания</label>
-                      <input
-                        type="time"
-                        name="end_time"
-                        value={programItemForm.end_time}
-                        onChange={handleProgramItemChange}
-                        className="form-input"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowFestivalProgramForm(false)}
-                      className="btn-outline mr-4"
-                    >
-                      Отмена
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAddProgramItem}
-                      className="btn-primary"
-                    >
-                      {editingProgramItemIndex !== null ? 'Обновить пункт' : 'Добавить пункт'}
-                    </button>
-                  </div>
-                </div>
               )}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Advanced Settings */}
-          <div className="form-group">
-            <button
-              type="button"
-              onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
-              className="flex items-center justify-between w-full text-left p-4 bg-gray-50 dark:bg-dark-700 rounded-lg hover:bg-gray-100 dark:hover:bg-dark-600 transition-colors"
-            >
-              <h3 className="font-medium">Дополнительные настройки</h3>
-              <ChevronDown className={`h-5 w-5 transition-transform ${showAdvancedSettings ? 'rotate-180' : ''}`} />
-            </button>
-            
-            {showAdvancedSettings && (
-              <div className="mt-4 space-y-6 p-4 border border-gray-200 dark:border-dark-600 rounded-lg">
-                <div className="form-group">
-                  <label htmlFor="registration_deadline" className="block font-medium mb-2">
-                    Дедлайн регистрации
-                  </label>
-                  <input
-                    type="datetime-local"
-                    id="registration_deadline"
-                    name="registration_deadline"
-                    value={formData.registration_deadline}
-                    onChange={handleChange}
-                    className="form-input"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label htmlFor="registration_limit_per_user" className="block font-medium mb-2">
-                    Лимит регистраций на одного пользователя
-                  </label>
-                  <input
-                    type="number"
-                    id="registration_limit_per_user"
-                    name="registration_limit_per_user"
-                    value={formData.registration_limit_per_user}
-                    onChange={handleChange}
-                    min="1"
-                    className="form-input"
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="registration_enabled"
-                      checked={formData.registration_enabled}
-                      onChange={handleCheckboxChange}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
-                    />
-                    <span>Включить регистрацию</span>
-                  </label>
-                </div>
+        {/* Advanced Settings */}
+        <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
+          <button
+            type="button"
+            onClick={() => setShowAdvancedSettings(!showAdvancedSettings)}
+            className="flex items-center justify-between w-full text-left"
+          >
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+              <Settings className="h-5 w-5 text-primary-600" />
+              Дополнительные настройки
+            </h2>
+            <ChevronDown className={`h-5 w-5 transition-transform ${showAdvancedSettings ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {showAdvancedSettings && (
+            <div className="mt-6 space-y-6">
+              <div className="form-group">
+                <label htmlFor="status" className="block font-medium mb-2">
+                  Статус мероприятия
+                </label>
+                <select
+                  id="status"
+                  name="status"
+                  value={formData.status || ''}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                >
+                  {statuses.map(status => (
+                    <option key={status} value={status}>
+                      {status === 'active' ? 'Активное' : 
+                       status === 'draft' ? 'Черновик' : 
+                       'Прошедшее'}
+                    </option>
+                  ))}
+                </select>
               </div>
-            )}
-          </div>
 
-          {/* Form actions */}
-          <div className="flex justify-between pt-6 border-t border-gray-200 dark:border-dark-700">
-            {isEditMode && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (window.confirm('Вы уверены, что хотите удалить это мероприятие?')) {
-                    alert('Мероприятие удалено!');
-                  }
-                }}
-                className="btn-outline text-red-600 border-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
-              >
-                <Trash2 className="h-5 w-5" />
-                Удалить мероприятие
-              </button>
-            )}
-            <div className="flex gap-4 ml-auto">
-              <button
-                type="button"
-                onClick={() => alert('Отмена')}
-                className="btn-outline"
-              >
-                Отмена
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="btn-primary"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                    Сохранение...
-                  </>
-                ) : (
-                  'Сохранить'
+              <div className="form-group">
+                <label htmlFor="max_registrations" className="block font-medium mb-2">
+                  Максимальное количество участников
+                </label>
+                <input
+                  type="number"
+                  id="max_registrations"
+                  name="max_registrations"
+                  value={formData.registrations?.max_regs || ''}
+                  onChange={(e) => {
+                    const value = e.target.value ? parseInt(e.target.value) : null;
+                    setFormData(prev => ({
+                      ...prev,
+                      registrations: {
+                        ...prev.registrations!,
+                        max_regs: value
+                      }
+                    }));
+                  }}
+                  min="0"
+                  className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                  placeholder="Оставьте пустым для неограниченного количества"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="video_url" className="block font-medium mb-2">
+                  Ссылка на видео
+                </label>
+                <input
+                  type="url"
+                  id="video_url"
+                  name="video_url"
+                  value={formData.video_url || ''}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 rounded-md border ${
+                    errors.video_url ? 'border-red-500' : 'border-gray-300 dark:border-dark-600'
+                  } dark:bg-dark-800`}
+                  placeholder="https://youtube.com/..."
+                />
+                {errors.video_url && (
+                  <p className="mt-1 text-sm text-red-500">{errors.video_url}</p>
                 )}
-              </button>
-            </div>
-          </div>
-        </form>
-      </div>
+              </div>
 
-      {/* Add CSS classes */}
-      <style jsx>{`
-        .form-input {
-          width: 100%;
-          padding: 8px 12px;
-          border: 1px solid #d1d5db;
-          border-radius: 6px;
-          font-size: 14px;
-          transition: border-color 0.2s;
-        }
-        
-        .form-input:focus {
-          outline: none;
-          border-color: #3b82f6;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-        }
-        
-        .btn-primary {
-          background-color: #3b82f6;
-          color: white;
-          padding: 8px 16px;
-          border-radius: 6px;
-          border: none;
-          font-weight: 500;
-          cursor: pointer;
-          transition: background-color 0.2s;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-        }
-        
-        .btn-primary:hover:not(:disabled) {
-          background-color: #2563eb;
-        }
-        
-        .btn-primary:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        
-        .btn-outline {
-          background-color: transparent;
-          color: #374151;
-          padding: 8px 16px;
-          border: 1px solid #d1d5db;
-          border-radius: 6px;
-          font-weight: 500;
-          cursor: pointer;
-          transition: all 0.2s;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-        }
-        
-        .btn-outline:hover {
-          background-color: #f9fafb;
-          border-color: #9ca3af;
-        }
-        
-        .form-group {
-          margin-bottom: 16px;
-        }
-        
-        @media (prefers-color-scheme: dark) {
-          .form-input {
-            background-color: #374151;
-            border-color: #4b5563;
-            color: white;
-          }
-          
-          .btn-outline {
-            color: #d1d5db;
-            border-color: #4b5563;
-          }
-          
-          .btn-outline:hover {
-            background-color: #374151;
-            border-color: #6b7280;
-          }
-        }
-      `}</style>
+              <div className="form-group">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="couple_discount"
+                    checked={formData.couple_discount !== undefined}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setFormData(prev => ({ ...prev, couple_discount: '10' }));
+                      } else {
+                        setFormData(prev => {
+                          const { couple_discount, ...rest } = prev;
+                          return rest;
+                        });
+                      }
+                    }}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
+                  />
+                  <span>Скидка для пар</span>
+                </label>
+                
+                {formData.couple_discount !== undefined && (
+                  <div className="mt-2">
+                    <input
+                      type="number"
+                      name="couple_discount"
+                      value={formData.couple_discount || ''}
+                      onChange={handleChange}
+                      min="1"
+                      max="100"
+                      className="w-24 px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                    />
+                    <span className="ml-2">%</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="child_half_price"
+                    checked={formData.child_half_price || false}
+                    onChange={handleCheckboxChange}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
+                  />
+                  <span>Детский билет за полцены</span>
+                </label>
+              </div>
+
+              <div className="form-group">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    name="registration_enabled"
+                    checked={formData.registration_enabled !== false}
+                    onChange={handleCheckboxChange}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-600 dark:bg-dark-700"
+                  />
+                  <span>Включить регистрацию</span>
+                </label>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="registration_deadline" className="block font-medium mb-2">
+                  Дедлайн регистрации
+                </label>
+                <input
+                  type="datetime-local"
+                  id="registration_deadline"
+                  name="registration_deadline"
+                  value={formData.registration_deadline || ''}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="registration_limit_per_user" className="block font-medium mb-2">
+                  Лимит регистраций на одного пользователя
+                </label>
+                <input
+                  type="number"
+                  id="registration_limit_per_user"
+                  name="registration_limit_per_user"
+                  value={formData.registration_limit_per_user || 5}
+                  onChange={handleChange}
+                  min="1"
+                  className="w-full px-4 py-2 rounded-md border border-gray-300 dark:border-dark-600 dark:bg-dark-800"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Submit Button */}
+        <div className="flex justify-end gap-4">
+          <button
+            type="button"
+            onClick={() => navigate('/admin/events')}
+            className="px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors disabled:opacity-50 flex items-center gap-2"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Сохранение...
+              </>
+            ) : (
+              <>
+                <Save className="h-5 w-5" />
+                Сохранить
+              </>
+            )}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };
+
+// Additional components
+const Settings = ({ className = "" }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+    <circle cx="12" cy="12" r="3" />
+  </svg>
+);
+
+const ChevronDown = ({ className = "" }) => (
+  <svg 
+    xmlns="http://www.w3.org/2000/svg" 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round" 
+    className={className}
+  >
+    <polyline points="6 9 12 15 18 9" />
+  </svg>
+);
 
 export default CreateEditEventPage;
