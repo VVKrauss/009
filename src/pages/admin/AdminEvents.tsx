@@ -237,7 +237,7 @@ const AdminEvents = () => {
       };
       
       // Проверяет, есть ли система регистраций в мероприятии
-      const hasRegistrationSystem = (event: Event): boolean => {
+    const hasRegistrationSystem = (event: Event): boolean => {
         return !!(event.registrations || event.registrations_list || event.current_registration_count !== undefined);
       };
 
