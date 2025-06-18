@@ -41,8 +41,8 @@ interface FestivalProgramItem {
   lecturer_id: string;
 }
 
-const TITLE_MAX_LENGTH = 50;
-const SHORT_DESC_MAX_LENGTH = 150;
+const TITLE_MAX_LENGTH = 70;
+const SHORT_DESC_MAX_LENGTH = 180;
 const DESC_MAX_LENGTH = 800;
 
 const CreateEditEventPage = () => {
