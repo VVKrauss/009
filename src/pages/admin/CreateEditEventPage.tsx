@@ -41,6 +41,8 @@ import {
   SHORT_DESC_MAX_LENGTH,
   DESC_MAX_LENGTH
 } from './constants';
+import EventSpeakersSection from '../../components/admin/EventSpeakersSection';
+import EventFestivalProgramSection from '../../components/admin/EventFestivalProgramSection';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -138,8 +140,6 @@ const defaultEventData: EventData = {
   registration_limit_per_user: 5
 };
 
-
-
 const CreateEditEventPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -148,36 +148,13 @@ const CreateEditEventPage = () => {
   const [saving, setSaving] = useState(false);
   const [isNew, setIsNew] = useState(true);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [speakers, setSpeakers] = useState<Speaker[]>([]);
   
   // Image upload states
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [cropper, setCropper] = useState<Cropper | null>(null);
   const [showCropper, setShowCropper] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
-  // Speakers states
-  const [speakers, setSpeakers] = useState<Speaker[]>([]);
-  const [selectedSpeakers, setSelectedSpeakers] = useState<Speaker[]>([]);
-  const [speakersLoading, setSpeakersLoading] = useState(false);
-  const [speakersError, setSpeakersError] = useState<string | null>(null);
-  const [speakerSearchQuery, setSpeakerSearchQuery] = useState('');
-  
-  // Festival program states
-  const [editingProgramIndex, setEditingProgramIndex] = useState<number | null>(null);
-  const [showProgramForm, setShowProgramForm] = useState(false);
-  const [currentProgramItem, setCurrentProgramItem] = useState<FestivalProgramItem>({
-    title: '',
-    description: '',
-    image_url: '',
-    start_time: '',
-    end_time: '',
-    lecturer_id: ''
-  });
-  const [programImageFile, setProgramImageFile] = useState<File | null>(null);
-  const [programCropper, setProgramCropper] = useState<Cropper | null>(null);
-  const [showProgramCropper, setShowProgramCropper] = useState(false);
-  const [programPreviewUrl, setProgramPreviewUrl] = useState<string | null>(null);
-  const programFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (id && id !== 'new') {
@@ -190,18 +167,6 @@ const CreateEditEventPage = () => {
     
     fetchSpeakers();
   }, [id]);
-
-  useEffect(() => {
-    // Update selected speakers when eventData.speakers or speakers list changes
-    if (eventData.speakers && eventData.speakers.length > 0 && speakers.length > 0) {
-      const selected = speakers.filter(speaker => 
-        eventData.speakers.includes(speaker.id)
-      );
-      setSelectedSpeakers(selected);
-    } else {
-      setSelectedSpeakers([]);
-    }
-  }, [eventData.speakers, speakers]);
 
   const fetchEvent = async (eventId: string) => {
     try {
@@ -232,9 +197,6 @@ const CreateEditEventPage = () => {
 
   const fetchSpeakers = async () => {
     try {
-      setSpeakersLoading(true);
-      setSpeakersError(null);
-      
       const { data, error } = await supabase
         .from('speakers')
         .select('*')
@@ -245,9 +207,7 @@ const CreateEditEventPage = () => {
       setSpeakers(data || []);
     } catch (error) {
       console.error('Error fetching speakers:', error);
-      setSpeakersError('Ошибка при загрузке спикеров');
-    } finally {
-      setSpeakersLoading(false);
+      toast.error('Ошибка при загрузке спикеров');
     }
   };
 
@@ -491,151 +451,39 @@ const CreateEditEventPage = () => {
     }
   };
 
-  const toggleSpeaker = (speaker: Speaker) => {
+  const handleSpeakerToggle = (speakerId: string) => {
     setEventData(prev => {
       const speakerIds = prev.speakers || [];
       
-      if (speakerIds.includes(speaker.id)) {
+      if (speakerIds.includes(speakerId)) {
         return {
           ...prev,
-          speakers: speakerIds.filter(id => id !== speaker.id)
+          speakers: speakerIds.filter(id => id !== speakerId)
         };
       } else {
         return {
           ...prev,
-          speakers: [...speakerIds, speaker.id]
+          speakers: [...speakerIds, speakerId]
         };
       }
     });
   };
 
-  const handleAddProgramItem = () => {
-    if (!currentProgramItem.title || !currentProgramItem.start_time || !currentProgramItem.end_time) {
-      toast.error('Заполните обязательные поля программы');
-      return;
-    }
-
-    setEventData(prev => {
-      const updatedProgram = [...(prev.festival_program || [])];
-      
-      if (editingProgramIndex !== null) {
-        updatedProgram[editingProgramIndex] = currentProgramItem;
-      } else {
-        updatedProgram.push(currentProgramItem);
-      }
-      
-      return {
-        ...prev,
-        festival_program: updatedProgram
-      };
-    });
-
-    setCurrentProgramItem({
-      title: '',
-      description: '',
-      image_url: '',
-      start_time: '',
-      end_time: '',
-      lecturer_id: ''
-    });
-    setEditingProgramIndex(null);
-    setShowProgramForm(false);
-    setProgramPreviewUrl(null);
+  const handleHideSpeakersGalleryChange = (hide: boolean) => {
+    setEventData(prev => ({
+      ...prev,
+      hide_speakers_gallery: hide
+    }));
   };
 
-  const handleEditProgramItem = (index: number) => {
-    if (!eventData.festival_program) return;
-    
-    setCurrentProgramItem(eventData.festival_program[index]);
-    setEditingProgramIndex(index);
-    setShowProgramForm(true);
-    
-    if (eventData.festival_program[index].image_url) {
-      setProgramPreviewUrl(`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${eventData.festival_program[index].image_url}`);
-    } else {
-      setProgramPreviewUrl(null);
-    }
+  const handleFestivalProgramChange = (program: FestivalProgramItem[]) => {
+    setEventData(prev => ({
+      ...prev,
+      festival_program: program
+    }));
   };
 
-  const handleDeleteProgramItem = (index: number) => {
-    setEventData(prev => {
-      const updatedProgram = [...(prev.festival_program || [])];
-      updatedProgram.splice(index, 1);
-      
-      return {
-        ...prev,
-        festival_program: updatedProgram
-      };
-    });
-  };
-
-  const handleProgramImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setProgramImageFile(file);
-      setShowProgramCropper(true);
-    }
-  };
-
-  const handleProgramCrop = async () => {
-    if (!programCropper || !programImageFile) return;
-
-    try {
-      // Get cropped canvas
-      const croppedCanvas = programCropper.getCroppedCanvas({
-        width: 800,
-        height: 600
-      });
-
-      // Convert canvas to blob
-      const croppedBlob = await new Promise<Blob>((resolve) => {
-        croppedCanvas.toBlob((blob) => {
-          if (blob) resolve(blob);
-        }, 'image/jpeg', 0.9);
-      });
-
-      // Create file from blob
-      const croppedFile = new File([croppedBlob], programImageFile.name, {
-        type: 'image/jpeg'
-      });
-
-      // Generate unique filename
-      const timestamp = Date.now();
-      const fileExt = 'jpg';
-      const filePath = `program-images/${timestamp}.${fileExt}`;
-
-      // Upload cropped image
-      const { error } = await supabase.storage
-        .from('images')
-        .upload(filePath, croppedFile);
-
-      if (error) throw error;
-
-      // Update program item
-      setCurrentProgramItem(prev => ({
-        ...prev,
-        image_url: filePath
-      }));
-
-      // Set preview URL
-      setProgramPreviewUrl(`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${filePath}`);
-
-      setShowProgramCropper(false);
-      setProgramImageFile(null);
-      toast.success('Изображение успешно загружено');
-    } catch (error) {
-      console.error('Error uploading program image:', error);
-      toast.error('Ошибка при загрузке изображения');
-    }
-  };
-
-  const filteredSpeakers = speakers.filter(speaker => 
-    speaker.name.toLowerCase().includes(speakerSearchQuery.toLowerCase()) ||
-    speaker.field_of_expertise.toLowerCase().includes(speakerSearchQuery.toLowerCase())
-  );
-
-
-return (
+  return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-dark-900 dark:via-dark-900 dark:to-dark-800 py-8 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Заголовок */}
@@ -1298,469 +1146,21 @@ return (
           </div>
 
           {/* Спикеры */}
-          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center">
-                <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 rounded-xl mr-4">
-                  <Users className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-                </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Спикеры</h2>
-                  <p className="text-gray-500 dark:text-gray-400">Выберите спикеров мероприятия</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center">
-                <label className="flex items-center cursor-pointer">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={eventData.hide_speakers_gallery || false}
-                      onChange={(e) => setEventData({...eventData, hide_speakers_gallery: e.target.checked})}
-                      className="sr-only"
-                    />
-                    <div className={`w-11 h-6 rounded-full shadow-inner transition-colors duration-200 ${
-                      eventData.hide_speakers_gallery ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
-                    }`}>
-                      <div className={`w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-200 ${
-                        eventData.hide_speakers_gallery ? 'translate-x-6' : 'translate-x-1'
-                      } mt-1`}></div>
-                    </div>
-                  </div>
-                  <span className="ml-3 text-gray-700 dark:text-gray-300">Скрыть галерею спикеров</span>
-                </label>
-              </div>
-            </div>
-            
-            <div className="space-y-6">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Поиск спикеров..."
-                  value={speakerSearchQuery}
-                  onChange={(e) => setSpeakerSearchQuery(e.target.value)}
-                  className="w-full p-4 pl-12 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
-                />
-                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              </div>
-              
-              {!eventData.hide_speakers_gallery && (
-                <>
-                  {speakersLoading ? (
-                    <div className="text-center py-8">
-                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                      <p className="mt-4 text-gray-500 dark:text-gray-400">Загрузка спикеров...</p>
-                    </div>
-                  ) : speakersError ? (
-                    <div className="text-center py-8 text-red-500">
-                      {speakersError}
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                        {filteredSpeakers.map(speaker => (
-                          <div
-                            key={speaker.id}
-                            onClick={() => toggleSpeaker(speaker)}
-                            className={`p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
-                              eventData.speakers.includes(speaker.id)
-                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 dark:border-primary-500'
-                                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                            }`}
-                          >
-                            <div className="flex items-center">
-                              <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 mr-2 flex-shrink-0">
-                                {speaker.photos?.[0]?.url ? (
-                                  <img
-                                    src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos[0].url}`}
-                                    alt={speaker.name}
-                                    className="w-full h-full object-cover"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center">
-                                    <User className="w-5 h-5 text-gray-400" />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">{speaker.name}</h3>
-                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{speaker.field_of_expertise}</p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      
-                      {selectedSpeakers.length > 0 && (
-                        <div className="mt-6">
-                          <h3 className="font-medium text-gray-900 dark:text-white mb-3">Выбранные спикеры:</h3>
-                          <div className="flex flex-wrap gap-2">
-                            {selectedSpeakers.map(speaker => (
-                              <div
-                                key={speaker.id}
-                                className="flex items-center gap-2 bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 px-3 py-1.5 rounded-full"
-                              >
-                                <span className="text-sm">{speaker.name}</span>
-                                <button
-                                  type="button"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleSpeaker(speaker);
-                                  }}
-                                  className="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
+          <EventSpeakersSection 
+            selectedSpeakerIds={eventData.speakers}
+            hideSpeakersGallery={eventData.hide_speakers_gallery || false}
+            onSpeakerToggle={handleSpeakerToggle}
+            onHideGalleryChange={handleHideSpeakersGalleryChange}
+          />
 
           {/* Программа фестиваля */}
           {eventData.event_type === 'Festival' && (
-            <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center">
-                  <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-pink-100 to-pink-200 dark:from-pink-900/30 dark:to-pink-800/30 rounded-xl mr-4">
-                    <Calendar className="w-6 h-6 text-pink-600 dark:text-pink-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Программа фестиваля</h2>
-                    <p className="text-gray-500 dark:text-gray-400">Добавьте пункты программы</p>
-                  </div>
-                </div>
-                
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCurrentProgramItem({
-                      title: '',
-                      description: '',
-                      image_url: '',
-                      start_time: '',
-                      end_time: '',
-                      lecturer_id: ''
-                    });
-                    setEditingProgramIndex(null);
-                    setShowProgramForm(true);
-                    setProgramPreviewUrl(null);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-                >
-                  <Plus className="h-5 w-5" />
-                  Добавить пункт
-                </button>
-              </div>
-              
-              {showProgramForm ? (
-                <div className="bg-gray-50 dark:bg-dark-700 rounded-xl p-6 mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    {editingProgramIndex !== null ? 'Редактирование пункта программы' : 'Новый пункт программы'}
-                  </h3>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        Название <span className="text-red-500">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={currentProgramItem.title}
-                        onChange={(e) => setCurrentProgramItem({...currentProgramItem, title: e.target.value})}
-                        className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
-                        placeholder="Название пункта программы"
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                          Время начала <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="time"
-                          value={currentProgramItem.start_time}
-                          onChange={(e) => setCurrentProgramItem({...currentProgramItem, start_time: e.target.value})}
-                          className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
-                        />
-                      </div>
-                      
-                      <div>
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                          Время окончания <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="time"
-                          value={currentProgramItem.end_time}
-                          onChange={(e) => setCurrentProgramItem({...currentProgramItem, end_time: e.target.value})}
-                          className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
-                        />
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        Описание
-                      </label>
-                      <textarea
-                        value={currentProgramItem.description}
-                        onChange={(e) => setCurrentProgramItem({...currentProgramItem, description: e.target.value})}
-                        rows={3}
-                        className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
-                        placeholder="Описание пункта программы"
-                      />
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        Спикер
-                      </label>
-                      <select
-                        value={currentProgramItem.lecturer_id}
-                        onChange={(e) => setCurrentProgramItem({...currentProgramItem, lecturer_id: e.target.value})}
-                        className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
-                      >
-                        <option value="">Выберите спикера</option>
-                        {speakers.map(speaker => (
-                          <option key={speaker.id} value={speaker.id}>{speaker.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                    
-                    <div>
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                        Изображение
-                      </label>
-                      
-                      {showProgramCropper && programImageFile ? (
-                        <div className="space-y-4">
-                          <Cropper
-                            src={URL.createObjectURL(programImageFile)}
-                            style={{ height: 300, width: '100%' }}
-                            aspectRatio={4/3}
-                            guides={true}
-                            viewMode={1}
-                            dragMode="move"
-                            scalable={true}
-                            cropBoxMovable={true}
-                            cropBoxResizable={true}
-                            onInitialized={(instance) => setProgramCropper(instance)}
-                            className="max-w-full"
-                          />
-                          
-                          <div className="flex justify-end gap-3">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setShowProgramCropper(false);
-                                setProgramImageFile(null);
-                              }}
-                              className="px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-md hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
-                            >
-                              <X className="h-4 w-4 mr-2 inline-block" />
-                              Отмена
-                            </button>
-                            <button
-                              type="button"
-                              onClick={handleProgramCrop}
-                              className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
-                            >
-                              <Check className="h-4 w-4 mr-2 inline-block" />
-                              Сохранить
-                            </button>
-                          </div>
-                        </div>
-                      ) : programPreviewUrl ? (
-                        <div className="relative">
-                          <img
-                            src={programPreviewUrl}
-                            alt="Preview"
-                            className="w-full h-48 object-cover rounded-lg"
-                          />
-                          <div className="absolute bottom-2 right-2 flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => programFileInputRef.current?.click()}
-                              className="p-2 bg-white/90 hover:bg-white text-dark-800 rounded-full shadow-lg"
-                              title="Изменить изображение"
-                            >
-                              <Edit className="h-5 w-5" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setCurrentProgramItem({...currentProgramItem, image_url: ''});
-                                setProgramPreviewUrl(null);
-                              }}
-                              className="p-2 bg-red-600/90 hover:bg-red-600 text-white rounded-full shadow-lg"
-                              title="Удалить изображение"
-                            >
-                              <Trash className="h-5 w-5" />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg p-6 text-center">
-                          <input
-                            ref={programFileInputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={handleProgramImageSelect}
-                            className="hidden"
-                          />
-                          <div className="flex flex-col items-center">
-                            <div className="mb-3 p-2 bg-gray-100 dark:bg-dark-700 rounded-full">
-                              <ImageIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => programFileInputRef.current?.click()}
-                              className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors text-sm"
-                            >
-                              Загрузить изображение
-                            </button>
-                            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                              Рекомендуемый размер: 800x600px
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                    
-                    <div className="flex justify-end gap-3 pt-4">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowProgramForm(false);
-                          setCurrentProgramItem({
-                            title: '',
-                            description: '',
-                            image_url: '',
-                            start_time: '',
-                            end_time: '',
-                            lecturer_id: ''
-                          });
-                          setProgramPreviewUrl(null);
-                        }}
-                        className="px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-md hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
-                      >
-                        Отмена
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleAddProgramItem}
-                        className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
-                      >
-                        {editingProgramIndex !== null ? 'Сохранить изменения' : 'Добавить пункт'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-              
-              {eventData.festival_program && eventData.festival_program.length > 0 ? (
-                <div className="space-y-4">
-                  {eventData.festival_program.map((item, index) => {
-                    const speaker = speakers.find(s => s.id === item.lecturer_id);
-                    
-                    return (
-                      <div 
-                        key={index}
-                        className="bg-gray-50 dark:bg-dark-700 rounded-xl p-4 border border-gray-200 dark:border-dark-600"
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-start gap-4">
-                            {item.image_url && (
-                              <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                                <img
-                                  src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${item.image_url}`}
-                                  alt={item.title}
-                                  className="w-full h-full object-cover"
-                                />
-                              </div>
-                            )}
-                            
-                            <div>
-                              <h3 className="font-semibold text-gray-900 dark:text-white">{item.title}</h3>
-                              <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mt-1">
-                                <div className="flex items-center">
-                                  <Clock className="h-4 w-4 mr-1" />
-                                  <span>{item.start_time} - {item.end_time}</span>
-                                </div>
-                                {speaker && (
-                                  <div className="flex items-center">
-                                    <Users className="h-4 w-4 mr-1" />
-                                    <span>{speaker.name}</span>
-                                  </div>
-                                )}
-                              </div>
-                              {item.description && (
-                                <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 line-clamp-2">
-                                  {item.description}
-                                </p>
-                              )}
-                            </div>
-                          </div>
-                          
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleEditProgramItem(index)}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteProgramItem(index)}
-                              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 bg-gray-50 dark:bg-dark-700 rounded-xl">
-                  <div className="w-16 h-16 bg-gray-200 dark:bg-dark-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Calendar className="h-8 w-8 text-gray-400 dark:text-gray-500" />
-                  </div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Нет пунктов программы</h3>
-                  <p className="text-gray-500 dark:text-gray-400 mb-4">
-                    Добавьте пункты, чтобы создать программу фестиваля
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setCurrentProgramItem({
-                        title: '',
-                        description: '',
-                        image_url: '',
-                        start_time: '',
-                        end_time: '',
-                        lecturer_id: ''
-                      });
-                      setEditingProgramIndex(null);
-                      setShowProgramForm(true);
-                    }}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-                  >
-                    <Plus className="h-5 w-5" />
-                    Добавить первый пункт
-                  </button>
-                </div>
-              )}
-            </div>
+            <EventFestivalProgramSection 
+              eventType={eventData.event_type}
+              festivalProgram={eventData.festival_program}
+              allSpeakers={speakers}
+              onFestivalProgramChange={handleFestivalProgramChange}
+            />
           )}
 
           {/* Дополнительные настройки */}
