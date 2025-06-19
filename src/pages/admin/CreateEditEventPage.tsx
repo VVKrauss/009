@@ -22,7 +22,8 @@ import {
   Trash,
   ChevronUp,
   ChevronDown,
-  Info
+  Info,
+  User
 } from 'lucide-react';
 import Cropper from 'react-cropper';
 import 'cropperjs/dist/cropper.css';
@@ -99,6 +100,8 @@ type EventData = {
     current_children: number;
     reg_list: any[];
   };
+  registration_enabled?: boolean;
+  registration_limit_per_user?: number;
 };
 
 const defaultEventData: EventData = {
@@ -112,24 +115,30 @@ const defaultEventData: EventData = {
   date: new Date().toISOString().split('T')[0],
   start_time: '18:00',
   end_time: '20:00',
-  location: '',
+  location: 'Science Hub',
   age_category: ageCategories[0],
-  price: null,
+  price: 1200,
   price_comment: '',
   currency: currencies[0],
   status: 'draft',
-  payment_type: 'free',
+  payment_type: 'cost',
   languages: [languages[0]],
   speakers: [],
-  hide_speakers_gallery: false,
+  hide_speakers_gallery: true,
+  couple_discount: '20',
+  child_half_price: true,
   registrations: {
-    max_regs: null,
+    max_regs: 40,
     current: 0,
     current_adults: 0,
     current_children: 0,
     reg_list: []
-  }
+  },
+  registration_enabled: true,
+  registration_limit_per_user: 5
 };
+
+
 
 const CreateEditEventPage = () => {
   const { id } = useParams<{ id: string }>();
@@ -242,6 +251,23 @@ const CreateEditEventPage = () => {
     }
   };
 
+  const scrollToFirstError = () => {
+    const firstErrorElement = document.querySelector('.border-red-500');
+    if (firstErrorElement) {
+      firstErrorElement.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+      
+      // Focus on the element if it's an input
+      if (firstErrorElement instanceof HTMLInputElement || 
+          firstErrorElement instanceof HTMLTextAreaElement || 
+          firstErrorElement instanceof HTMLSelectElement) {
+        setTimeout(() => firstErrorElement.focus(), 300);
+      }
+    }
+  };
+
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
     
@@ -317,6 +343,12 @@ const CreateEditEventPage = () => {
     
     if (!validateForm()) {
       toast.error('Пожалуйста, исправьте ошибки в форме');
+      
+      // Focus on first error if event is active
+      if (eventData.status === 'active') {
+        setTimeout(scrollToFirstError, 100);
+      }
+      
       return;
     }
     
@@ -602,7 +634,8 @@ const CreateEditEventPage = () => {
     speaker.field_of_expertise.toLowerCase().includes(speakerSearchQuery.toLowerCase())
   );
 
-  return (
+
+return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-dark-900 dark:via-dark-900 dark:to-dark-800 py-8 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Заголовок */}
@@ -633,13 +666,45 @@ const CreateEditEventPage = () => {
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Основная информация */}
           <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
-            <div className="flex items-center mb-6">
-              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-xl mr-4">
-                <Info className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-xl mr-4">
+                  <Info className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Основная информация</h2>
+                  <p className="text-gray-500 dark:text-gray-400">Заголовок, описание и тип мероприятия</p>
+                </div>
               </div>
+              {/* Статус мероприятия */}
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Основная информация</h2>
-                <p className="text-gray-500 dark:text-gray-400">Заголовок, описание и тип мероприятия</p>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Статус мероприятия <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  {statuses.map((status) => (
+                    <label
+                      key={status}
+                      className={`flex items-center justify-center px-4 py-2 border-2 rounded-lg cursor-pointer transition-all duration-200 text-sm ${
+                        eventData.status === status
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 dark:border-primary-500'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="status"
+                        value={status}
+                        checked={eventData.status === status}
+                        onChange={() => setEventData({...eventData, status: status})}
+                        className="sr-only"
+                      />
+                      <span className="font-medium">
+                        {status === 'active' ? 'Активно' : status === 'draft' ? 'Черновик' : 'Прошедшее'}
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
             
@@ -1077,13 +1142,22 @@ const CreateEditEventPage = () => {
                   
                   <div className="flex items-center">
                     <label className="flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={eventData.child_half_price || false}
-                        onChange={(e) => setEventData({...eventData, child_half_price: e.target.checked})}
-                        className="form-checkbox h-5 w-5 text-primary-600 rounded border-gray-300 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-                      />
-                      <span className="ml-2 text-gray-700 dark:text-gray-300">Детский билет за полцены</span>
+                      <div className="relative">
+                        <input
+                          type="checkbox"
+                          checked={eventData.child_half_price || false}
+                          onChange={(e) => setEventData({...eventData, child_half_price: e.target.checked})}
+                          className="sr-only"
+                        />
+                        <div className={`w-11 h-6 rounded-full shadow-inner transition-colors duration-200 ${
+                          eventData.child_half_price ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
+                        }`}>
+                          <div className={`w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-200 ${
+                            eventData.child_half_price ? 'translate-x-6' : 'translate-x-1'
+                          } mt-1`}></div>
+                        </div>
+                      </div>
+                      <span className="ml-3 text-gray-700 dark:text-gray-300">Детский билет за полцены</span>
                     </label>
                   </div>
                 </div>
@@ -1125,13 +1199,22 @@ const CreateEditEventPage = () => {
               {eventData.payment_type === 'cost' && eventData.payment_link && eventData.payment_widget_id && (
                 <div className="flex items-center">
                   <label className="flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={eventData.widget_chooser || false}
-                      onChange={(e) => setEventData({...eventData, widget_chooser: e.target.checked})}
-                      className="form-checkbox h-5 w-5 text-primary-600 rounded border-gray-300 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-                    />
-                    <span className="ml-2 text-gray-700 dark:text-gray-300">Показывать выбор способа оплаты</span>
+                    <div className="relative">
+                      <input
+                        type="checkbox"
+                        checked={eventData.widget_chooser || false}
+                        onChange={(e) => setEventData({...eventData, widget_chooser: e.target.checked})}
+                        className="sr-only"
+                      />
+                      <div className={`w-11 h-6 rounded-full shadow-inner transition-colors duration-200 ${
+                        eventData.widget_chooser ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
+                      }`}>
+                        <div className={`w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-200 ${
+                          eventData.widget_chooser ? 'translate-x-6' : 'translate-x-1'
+                        } mt-1`}></div>
+                      </div>
+                    </div>
+                    <span className="ml-3 text-gray-700 dark:text-gray-300">Показывать выбор способа оплаты</span>
                   </label>
                 </div>
               )}
@@ -1179,29 +1262,23 @@ const CreateEditEventPage = () => {
               
               <div className="flex items-center">
                 <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={eventData.registration_enabled !== false}
-                    onChange={(e) => setEventData({...eventData, registration_enabled: e.target.checked})}
-                    className="form-checkbox h-5 w-5 text-primary-600 rounded border-gray-300 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-                  />
-                  <span className="ml-2 text-gray-700 dark:text-gray-300">Разрешить регистрацию</span>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={eventData.registration_enabled !== false}
+                      onChange={(e) => setEventData({...eventData, registration_enabled: e.target.checked})}
+                      className="sr-only"
+                    />
+                    <div className={`w-11 h-6 rounded-full shadow-inner transition-colors duration-200 ${
+                      eventData.registration_enabled !== false ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}>
+                      <div className={`w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-200 ${
+                        eventData.registration_enabled !== false ? 'translate-x-6' : 'translate-x-1'
+                      } mt-1`}></div>
+                    </div>
+                  </div>
+                  <span className="ml-3 text-gray-700 dark:text-gray-300">Разрешить регистрацию</span>
                 </label>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Дедлайн регистрации
-                </label>
-                <input
-                  type="datetime-local"
-                  value={eventData.registration_deadline || ''}
-                  onChange={(e) => setEventData({...eventData, registration_deadline: e.target.value})}
-                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
-                />
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  Оставьте пустым, чтобы разрешить регистрацию до начала мероприятия
-                </p>
               </div>
               
               <div>
@@ -1235,13 +1312,22 @@ const CreateEditEventPage = () => {
               
               <div className="flex items-center">
                 <label className="flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={eventData.hide_speakers_gallery || false}
-                    onChange={(e) => setEventData({...eventData, hide_speakers_gallery: e.target.checked})}
-                    className="form-checkbox h-5 w-5 text-primary-600 rounded border-gray-300 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
-                  />
-                  <span className="ml-2 text-gray-700 dark:text-gray-300">Скрыть галерею спикеров</span>
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={eventData.hide_speakers_gallery || false}
+                      onChange={(e) => setEventData({...eventData, hide_speakers_gallery: e.target.checked})}
+                      className="sr-only"
+                    />
+                    <div className={`w-11 h-6 rounded-full shadow-inner transition-colors duration-200 ${
+                      eventData.hide_speakers_gallery ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}>
+                      <div className={`w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-200 ${
+                        eventData.hide_speakers_gallery ? 'translate-x-6' : 'translate-x-1'
+                      } mt-1`}></div>
+                    </div>
+                  </div>
+                  <span className="ml-3 text-gray-700 dark:text-gray-300">Скрыть галерею спикеров</span>
                 </label>
               </div>
             </div>
@@ -1258,75 +1344,79 @@ const CreateEditEventPage = () => {
                 <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               </div>
               
-              {speakersLoading ? (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
-                  <p className="mt-4 text-gray-500 dark:text-gray-400">Загрузка спикеров...</p>
-                </div>
-              ) : speakersError ? (
-                <div className="text-center py-8 text-red-500">
-                  {speakersError}
-                </div>
-              ) : (
+              {!eventData.hide_speakers_gallery && (
                 <>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredSpeakers.map(speaker => (
-                      <div
-                        key={speaker.id}
-                        onClick={() => toggleSpeaker(speaker)}
-                        className={`p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
-                          eventData.speakers.includes(speaker.id)
-                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 dark:border-primary-500'
-                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                        }`}
-                      >
-                        <div className="flex items-center">
-                          <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 mr-3">
-                            {speaker.photos?.[0]?.url ? (
-                              <img
-                                src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos[0].url}`}
-                                alt={speaker.name}
-                                className="w-full h-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center">
-                                <User className="w-6 h-6 text-gray-400" />
-                              </div>
-                            )}
-                          </div>
-                          <div>
-                            <h3 className="font-medium text-gray-900 dark:text-white">{speaker.name}</h3>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">{speaker.field_of_expertise}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  {selectedSpeakers.length > 0 && (
-                    <div className="mt-6">
-                      <h3 className="font-medium text-gray-900 dark:text-white mb-3">Выбранные спикеры:</h3>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedSpeakers.map(speaker => (
+                  {speakersLoading ? (
+                    <div className="text-center py-8">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+                      <p className="mt-4 text-gray-500 dark:text-gray-400">Загрузка спикеров...</p>
+                    </div>
+                  ) : speakersError ? (
+                    <div className="text-center py-8 text-red-500">
+                      {speakersError}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {filteredSpeakers.map(speaker => (
                           <div
                             key={speaker.id}
-                            className="flex items-center gap-2 bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 px-3 py-1.5 rounded-full"
+                            onClick={() => toggleSpeaker(speaker)}
+                            className={`p-3 border-2 rounded-lg cursor-pointer transition-all duration-200 ${
+                              eventData.speakers.includes(speaker.id)
+                                ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 dark:border-primary-500'
+                                : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                            }`}
                           >
-                            <span>{speaker.name}</span>
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleSpeaker(speaker);
-                              }}
-                              className="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
+                            <div className="flex items-center">
+                              <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 mr-2 flex-shrink-0">
+                                {speaker.photos?.[0]?.url ? (
+                                  <img
+                                    src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos[0].url}`}
+                                    alt={speaker.name}
+                                    className="w-full h-full object-cover"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center">
+                                    <User className="w-5 h-5 text-gray-400" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">{speaker.name}</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{speaker.field_of_expertise}</p>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
-                    </div>
+                      
+                      {selectedSpeakers.length > 0 && (
+                        <div className="mt-6">
+                          <h3 className="font-medium text-gray-900 dark:text-white mb-3">Выбранные спикеры:</h3>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedSpeakers.map(speaker => (
+                              <div
+                                key={speaker.id}
+                                className="flex items-center gap-2 bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 px-3 py-1.5 rounded-full"
+                              >
+                                <span className="text-sm">{speaker.name}</span>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleSpeaker(speaker);
+                                  }}
+                                  className="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </>
               )}
@@ -1681,41 +1771,11 @@ const CreateEditEventPage = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Дополнительные настройки</h2>
-                <p className="text-gray-500 dark:text-gray-400">Статус и дополнительные ссылки</p>
+                <p className="text-gray-500 dark:text-gray-400">Видео и фотогалерея</p>
               </div>
             </div>
             
             <div className="space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                  Статус мероприятия <span className="text-red-500">*</span>
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {statuses.map((status) => (
-                    <label
-                      key={status}
-                      className={`flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
-                        eventData.status === status
-                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 dark:border-primary-500'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="status"
-                        value={status}
-                        checked={eventData.status === status}
-                        onChange={() => setEventData({...eventData, status: status})}
-                        className="sr-only"
-                      />
-                      <span className="font-medium">
-                        {status === 'active' ? 'Активно' : status === 'draft' ? 'Черновик' : 'Прошедшее'}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-              
               <div>
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Ссылка на видео
