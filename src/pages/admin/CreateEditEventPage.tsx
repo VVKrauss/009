@@ -11,561 +11,307 @@ import {
   Clock, 
   MapPin, 
   Users, 
-  Globe, 
+  DollarSign, 
   Tag, 
-  DollarSign,
-  Link2 as LinkIcon,
-  Image,
+  Globe, 
+  Search,
   Upload,
+  Image as ImageIcon,
   Check,
-  Info,
-  AlertTriangle,
-  FileText,
-  Video,
-  Camera,
-  Loader2,
-  Settings,
-  ChevronDown,
   Edit,
-  Sparkles
+  Trash,
+  ChevronUp,
+  ChevronDown,
+  Info
 } from 'lucide-react';
 import Cropper from 'react-cropper';
 import 'cropperjs/dist/cropper.css';
-import { format, parseISO } from 'date-fns';
-import { ru } from 'date-fns/locale';
-import { formatInTimeZone, utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
+import { formatInTimeZone } from 'date-fns-tz';
+import { BELGRADE_TIMEZONE, formatDateTimeForDatabase, isValidTimeFormat } from '../../utils/dateTimeUtils';
+import { isValidUrl } from './utils';
 import { 
-  formatTimeFromTimestamp, 
-  formatTimeRange, 
-  formatRussianDate,
-  BELGRADE_TIMEZONE,
-  formatDateTimeForDatabase,
-  isValidTimeFormat
-} from '../../utils/dateTimeUtils';
-import { Event, eventTypes, paymentTypes, languages, ageCategories, currencies, statuses } from './constants';
+  eventTypes, 
+  paymentTypes, 
+  languages, 
+  ageCategories, 
+  currencies, 
+  statuses,
+  TITLE_MAX_LENGTH,
+  SHORT_DESC_MAX_LENGTH,
+  DESC_MAX_LENGTH
+} from './constants';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
-// Modern Toggle Component
-const Toggle = ({ checked, onChange, disabled = false, label, description }) => (
-  <div className="flex items-center justify-between">
-    <div className="flex-1">
-      <label className="text-sm font-medium text-gray-900 dark:text-gray-100">
-        {label}
-      </label>
-      {description && (
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          {description}
-        </p>
-      )}
-    </div>
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      disabled={disabled}
-      className={`
-        relative inline-flex h-6 w-11 items-center rounded-full transition-all duration-300 ease-in-out
-        ${checked 
-          ? 'bg-gradient-to-r from-blue-500 to-purple-600 shadow-lg shadow-blue-500/25' 
-          : 'bg-gray-200 dark:bg-gray-700'
-        }
-        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-        hover:scale-105 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-900
-      `}
-    >
-      <span
-        className={`
-          inline-block h-4 w-4 transform rounded-full bg-white transition-all duration-300 ease-in-out
-          ${checked ? 'translate-x-6 shadow-lg' : 'translate-x-1 shadow-sm'}
-        `}
-      />
-    </button>
-  </div>
-);
-
-// Modern Radio Group Component
-const RadioGroup = ({ options, value, onChange, name }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-    {options.map((option) => (
-      <label
-        key={option.value}
-        className={`
-          relative flex cursor-pointer rounded-xl border-2 p-4 transition-all duration-300 hover:scale-105
-          ${value === option.value
-            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-lg shadow-blue-500/25'
-            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-          }
-        `}
-      >
-        <input
-          type="radio"
-          name={name}
-          value={option.value}
-          checked={value === option.value}
-          onChange={(e) => onChange(e.target.value)}
-          className="sr-only"
-        />
-        <div className="flex items-center space-x-3">
-          <div
-            className={`
-              flex h-5 w-5 items-center justify-center rounded-full border-2 transition-all duration-300
-              ${value === option.value
-                ? 'border-blue-500 bg-blue-500'
-                : 'border-gray-300 dark:border-gray-600'
-              }
-            `}
-          >
-            {value === option.value && (
-              <div className="h-2 w-2 rounded-full bg-white animate-pulse" />
-            )}
-          </div>
-          <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-            {option.label}
-          </span>
-        </div>
-      </label>
-    ))}
-  </div>
-);
-
-// Modern Checkbox Group Component
-const CheckboxGroup = ({ options, values, onChange, columns = 3 }) => (
-  <div className={`grid grid-cols-1 sm:grid-cols-${columns} gap-3`}>
-    {options.map((option) => (
-      <label
-        key={option}
-        className={`
-          flex items-center space-x-3 cursor-pointer p-3 rounded-lg border transition-all duration-300 hover:scale-105
-          ${values.includes(option)
-            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-lg shadow-blue-500/25'
-            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-          }
-        `}
-      >
-        <div
-          className={`
-            flex h-5 w-5 items-center justify-center rounded border-2 transition-all duration-300
-            ${values.includes(option)
-              ? 'border-blue-500 bg-blue-500'
-              : 'border-gray-300 dark:border-gray-600'
-            }
-          `}
-        >
-          {values.includes(option) && (
-            <Check className="h-3 w-3 text-white animate-in fade-in duration-300" />
-          )}
-        </div>
-        <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-          {option}
-        </span>
-        <input
-          type="checkbox"
-          checked={values.includes(option)}
-          onChange={() => onChange(option)}
-          className="sr-only"
-        />
-      </label>
-    ))}
-  </div>
-);
-
-// Animated Section Component
-const AnimatedSection = ({ title, icon: Icon, children, defaultOpen = true, gradient = false }) => {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
-
-  return (
-    <div className={`
-      rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-500 hover:shadow-xl
-      ${gradient 
-        ? 'bg-gradient-to-br from-white via-blue-50 to-purple-50 dark:from-gray-800 dark:via-blue-900/10 dark:to-purple-900/10' 
-        : 'bg-white dark:bg-gray-800'
-      }
-    `}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-6 text-left flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-all duration-300"
-      >
-        <div className="flex items-center space-x-3">
-          <div className={`
-            p-2 rounded-lg transition-all duration-300
-            ${gradient 
-              ? 'bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg shadow-blue-500/25' 
-              : 'bg-blue-100 dark:bg-blue-900/30'
-            }
-          `}>
-            <Icon className={`h-5 w-5 ${gradient ? 'text-white' : 'text-blue-600 dark:text-blue-400'}`} />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-            {title}
-          </h2>
-        </div>
-        <ChevronDown 
-          className={`h-5 w-5 text-gray-500 transition-transform duration-300 ${
-            isOpen ? 'rotate-180' : ''
-          }`} 
-        />
-      </button>
-      
-      <div className={`
-        transition-all duration-500 ease-in-out overflow-hidden
-        ${isOpen ? 'max-h-none opacity-100 pb-6' : 'max-h-0 opacity-0'}
-      `}>
-        <div className="px-6 space-y-6 animate-in slide-in-from-top duration-500">
-          {children}
-        </div>
-      </div>
-    </div>
-  );
+type Speaker = {
+  id: string;
+  name: string;
+  field_of_expertise: string;
+  photos: { url: string; isMain?: boolean }[];
+  active: boolean;
 };
 
-// Helper function to validate URLs
-const isValidUrl = (url: string) => {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
+type FestivalProgramItem = {
+  title: string;
+  description: string;
+  image_url: string;
+  start_time: string;
+  end_time: string;
+  lecturer_id: string;
+};
+
+type EventData = {
+  id: string;
+  title: string;
+  short_description: string;
+  description: string;
+  event_type: string;
+  bg_image: string | null;
+  original_bg_image: string | null;
+  date: string;
+  start_time: string;
+  end_time: string;
+  location: string;
+  age_category: string;
+  price: number | null;
+  price_comment: string;
+  currency: string;
+  status: string;
+  payment_type: string;
+  languages: string[];
+  speakers: string[];
+  hide_speakers_gallery?: boolean;
+  couple_discount?: string;
+  child_half_price?: boolean;
+  payment_link?: string;
+  payment_widget_id?: string;
+  widget_chooser?: boolean;
+  video_url?: string;
+  photo_gallery?: string;
+  festival_program?: FestivalProgramItem[];
+  registrations?: {
+    max_regs: number | null;
+    current: number;
+    current_adults: number;
+    current_children: number;
+    reg_list: any[];
+  };
+};
+
+const defaultEventData: EventData = {
+  id: crypto.randomUUID(),
+  title: '',
+  short_description: '',
+  description: '',
+  event_type: eventTypes[0],
+  bg_image: null,
+  original_bg_image: null,
+  date: new Date().toISOString().split('T')[0],
+  start_time: '18:00',
+  end_time: '20:00',
+  location: '',
+  age_category: ageCategories[0],
+  price: null,
+  price_comment: '',
+  currency: currencies[0],
+  status: 'draft',
+  payment_type: 'free',
+  languages: [languages[0]],
+  speakers: [],
+  hide_speakers_gallery: false,
+  registrations: {
+    max_regs: null,
+    current: 0,
+    current_adults: 0,
+    current_children: 0,
+    reg_list: []
   }
 };
 
 const CreateEditEventPage = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const isEditMode = !!id;
-  
-  // Form state
-  const [formData, setFormData] = useState<Partial<Event>>({
-    title: '',
-    short_description: '',
-    description: '',
-    event_type: eventTypes[0],
-    bg_image: null,
-    original_bg_image: null,
-    date: format(new Date(), 'yyyy-MM-dd'),
-    start_time: '18:00',
-    end_time: '20:00',
-    location: '',
-    age_category: ageCategories[0],
-    price: 0,
-    currency: currencies[0],
-    status: 'draft',
-    payment_type: 'free',
-    languages: [languages[0]],
-    speakers: [],
-    hide_speakers_gallery: true,
-    registrations: {
-      max_regs: null,
-      current: 0,
-      current_adults: 0,
-      current_children: 0,
-      reg_list: []
-    }
-  });
-  
-  // UI state
+  const [eventData, setEventData] = useState<EventData>(defaultEventData);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [speakers, setSpeakers] = useState<Array<{ id: string; name: string; photos: any[] }>>([]);
-  const [selectedSpeakers, setSelectedSpeakers] = useState<string[]>([]);
+  const [isNew, setIsNew] = useState(true);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  
+  // Image upload states
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [cropper, setCropper] = useState<any>(null);
+  const [cropper, setCropper] = useState<Cropper | null>(null);
   const [showCropper, setShowCropper] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [festivalProgram, setFestivalProgram] = useState<any[]>([]);
-  const [showFestivalProgramForm, setShowFestivalProgramForm] = useState(false);
-  const [programItemForm, setProgramItemForm] = useState({
+  
+  // Speakers states
+  const [speakers, setSpeakers] = useState<Speaker[]>([]);
+  const [selectedSpeakers, setSelectedSpeakers] = useState<Speaker[]>([]);
+  const [speakersLoading, setSpeakersLoading] = useState(false);
+  const [speakersError, setSpeakersError] = useState<string | null>(null);
+  const [speakerSearchQuery, setSpeakerSearchQuery] = useState('');
+  
+  // Festival program states
+  const [editingProgramIndex, setEditingProgramIndex] = useState<number | null>(null);
+  const [showProgramForm, setShowProgramForm] = useState(false);
+  const [currentProgramItem, setCurrentProgramItem] = useState<FestivalProgramItem>({
     title: '',
     description: '',
+    image_url: '',
     start_time: '',
     end_time: '',
-    image_url: '',
     lecturer_id: ''
   });
-  const [editingProgramItemIndex, setEditingProgramItemIndex] = useState<number | null>(null);
+  const [programImageFile, setProgramImageFile] = useState<File | null>(null);
+  const [programCropper, setProgramCropper] = useState<Cropper | null>(null);
+  const [showProgramCropper, setShowProgramCropper] = useState(false);
+  const [programPreviewUrl, setProgramPreviewUrl] = useState<string | null>(null);
+  const programFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch speakers on component mount
   useEffect(() => {
-    const fetchSpeakers = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('speakers')
-          .select('id, name, photos')
-          .eq('active', true);
-
-        if (error) throw error;
-        setSpeakers(data || []);
-      } catch (error) {
-        console.error('Error fetching speakers:', error);
-        toast.error('Ошибка при загрузке спикеров');
-      }
-    };
-
+    if (id && id !== 'new') {
+      setIsNew(false);
+      fetchEvent(id);
+    } else {
+      setIsNew(true);
+      setEventData(defaultEventData);
+    }
+    
     fetchSpeakers();
-  }, []);
+  }, [id]);
 
-  // Fetch event data if in edit mode
   useEffect(() => {
-    if (isEditMode) {
-      const fetchEvent = async () => {
-        try {
-          setLoading(true);
-          const { data, error } = await supabase
-            .from('events')
-            .select('*')
-            .eq('id', id)
-            .single();
+    // Update selected speakers when eventData.speakers or speakers list changes
+    if (eventData.speakers && eventData.speakers.length > 0 && speakers.length > 0) {
+      const selected = speakers.filter(speaker => 
+        eventData.speakers.includes(speaker.id)
+      );
+      setSelectedSpeakers(selected);
+    } else {
+      setSelectedSpeakers([]);
+    }
+  }, [eventData.speakers, speakers]);
 
-          if (error) throw error;
+  const fetchEvent = async (eventId: string) => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', eventId)
+        .single();
 
-          // Convert timestamps to Belgrade timezone for display
-          const eventDate = data.date ? format(utcToZonedTime(new Date(data.date), BELGRADE_TIMEZONE), 'yyyy-MM-dd') : '';
-          const startTime = data.start_time ? formatInTimeZone(new Date(data.start_time), BELGRADE_TIMEZONE, 'HH:mm') : '';
-          const endTime = data.end_time ? formatInTimeZone(new Date(data.end_time), BELGRADE_TIMEZONE, 'HH:mm') : '';
-
-          // Set preview URL if image exists
-          if (data.bg_image) {
-            setPreviewUrl(`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${data.bg_image}`);
-          }
-
-          // Handle speakers
-          if (data.speakers && Array.isArray(data.speakers)) {
-            setSelectedSpeakers(data.speakers);
-          }
-
-          // Handle festival program
-          if (data.festival_program && Array.isArray(data.festival_program)) {
-            setFestivalProgram(data.festival_program);
-          }
-
-          // Set form data with converted times
-          setFormData({
-            ...data,
-            date: eventDate,
-            start_time: startTime,
-            end_time: endTime,
-            // Ensure registrations has the correct structure
-            registrations: data.registrations || {
-              max_regs: data.max_registrations || null,
-              current: data.current_registration_count || 0,
-              current_adults: 0,
-              current_children: 0,
-              reg_list: data.registrations_list || []
-            }
-          });
-        } catch (error) {
-          console.error('Error fetching event:', error);
-          toast.error('Ошибка при загрузке мероприятия');
-        } finally {
-          setLoading(false);
-        }
+      if (error) throw error;
+      
+      // Format times for display in Belgrade timezone
+      const formattedData = {
+        ...data,
+        start_time: data.start_time ? formatInTimeZone(new Date(data.start_time), BELGRADE_TIMEZONE, 'HH:mm') : '18:00',
+        end_time: data.end_time ? formatInTimeZone(new Date(data.end_time), BELGRADE_TIMEZONE, 'HH:mm') : '20:00',
       };
-
-      fetchEvent();
-    }
-  }, [id, isEditMode]);
-
-  // Handle form input changes
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    
-    // Clear error for this field if it exists
-    if (errors[name]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-    
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  // Handle multi-select changes (languages)
-  const handleLanguageChange = (language: string) => {
-    setFormData(prev => {
-      const currentLanguages = prev.languages || [];
-      const newLanguages = currentLanguages.includes(language)
-        ? currentLanguages.filter(l => l !== language)
-        : [...currentLanguages, language];
-      return { ...prev, languages: newLanguages };
-    });
-  };
-
-  // Handle speaker selection
-  const handleSpeakerSelect = (speakerId: string) => {
-    setSelectedSpeakers(prev => 
-      prev.includes(speakerId)
-        ? prev.filter(id => id !== speakerId)
-        : [...prev, speakerId]
-    );
-  };
-
-  // Handle image selection
-  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    try {
-      // Check file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Файл слишком большой. Максимальный размер 5MB.');
-        return;
-      }
-
-      setImageFile(file);
-      setShowCropper(true);
-    } catch (error) {
-      console.error('Error processing image:', error);
-      toast.error('Ошибка при обработке изображения');
-    }
-  };
-
-  // Handle image cropping
-  const handleCrop = async () => {
-    if (!cropper || !imageFile) return;
-
-    try {
-      // Get cropped canvas
-      const croppedCanvas = cropper.getCroppedCanvas({
-        width: 1200,
-        height: 400,
-        fillColor: '#fff',
-        imageSmoothingEnabled: true,
-        imageSmoothingQuality: 'high',
-      });
-
-      // Convert canvas to blob
-      const croppedBlob = await new Promise<Blob>((resolve) => {
-        croppedCanvas.toBlob((b) => {
-          if (b) resolve(b);
-          else throw new Error('Failed to create blob');
-        }, 'image/jpeg', 0.9);
-      });
-
-      // Create file from blob
-      const croppedFile = new File([croppedBlob], imageFile.name, {
-        type: 'image/jpeg',
-        lastModified: Date.now(),
-      });
-
-      // Generate unique filenames
-      const timestamp = Date.now();
-      const fileExt = 'jpg';
-      const originalPath = `events/original_${timestamp}.${fileExt}`;
-      const croppedPath = `events/cropped_${timestamp}.${fileExt}`;
-
-      // Upload original image
-      const { error: originalError } = await supabase.storage
-        .from('images')
-        .upload(originalPath, imageFile, {
-          cacheControl: '3600',
-          upsert: false,
-        });
-
-      if (originalError) throw originalError;
-
-      // Upload cropped image
-      const { error: croppedError } = await supabase.storage
-        .from('images')
-        .upload(croppedPath, croppedFile, {
-          cacheControl: '3600',
-          upsert: false,
-        });
-
-      if (croppedError) throw croppedError;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('images')
-        .getPublicUrl(croppedPath);
-
-      // Update form data
-      setFormData(prev => ({
-        ...prev,
-        bg_image: croppedPath,
-        original_bg_image: originalPath
-      }));
-
-      // Update preview URL
-      setPreviewUrl(urlData.publicUrl);
       
-      // Reset cropper state
-      setShowCropper(false);
-      setImageFile(null);
-      
-      toast.success('Изображение успешно загружено');
+      setEventData(formattedData);
     } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Ошибка при загрузке изображения');
+      console.error('Error fetching event:', error);
+      toast.error('Ошибка при загрузке мероприятия');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Handle removing the image
-  const handleRemoveImage = () => {
-    setPreviewUrl(null);
-    setFormData(prev => ({
-      ...prev,
-      bg_image: null,
-      original_bg_image: null
-    }));
+  const fetchSpeakers = async () => {
+    try {
+      setSpeakersLoading(true);
+      setSpeakersError(null);
+      
+      const { data, error } = await supabase
+        .from('speakers')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      
+      setSpeakers(data || []);
+    } catch (error) {
+      console.error('Error fetching speakers:', error);
+      setSpeakersError('Ошибка при загрузке спикеров');
+    } finally {
+      setSpeakersLoading(false);
+    }
   };
 
-  // Validate form data
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
     
     // Required fields
-    if (!formData.title?.trim()) {
-      newErrors.title = 'Название обязательно';
+    if (!eventData.title.trim()) errors.title = 'Название обязательно';
+    if (!eventData.date) errors.date = 'Дата обязательна';
+    if (!eventData.start_time) errors.start_time = 'Время начала обязательно';
+    if (!eventData.end_time) errors.end_time = 'Время окончания обязательно';
+    if (!eventData.location.trim()) errors.location = 'Место проведения обязательно';
+    
+    // Time validation
+    if (eventData.start_time && !isValidTimeFormat(eventData.start_time)) {
+      errors.start_time = 'Неверный формат времени (HH:MM)';
     }
     
-    if (!formData.date) {
-      newErrors.date = 'Дата обязательна';
+    if (eventData.end_time && !isValidTimeFormat(eventData.end_time)) {
+      errors.end_time = 'Неверный формат времени (HH:MM)';
     }
     
-    if (!formData.start_time) {
-      newErrors.start_time = 'Время начала обязательно';
-    } else if (!isValidTimeFormat(formData.start_time)) {
-      newErrors.start_time = 'Неверный формат времени (HH:MM)';
+    if (eventData.start_time && eventData.end_time && 
+        isValidTimeFormat(eventData.start_time) && 
+        isValidTimeFormat(eventData.end_time)) {
+      const [startHour, startMinute] = eventData.start_time.split(':').map(Number);
+      const [endHour, endMinute] = eventData.end_time.split(':').map(Number);
+      
+      const startMinutes = startHour * 60 + startMinute;
+      const endMinutes = endHour * 60 + endMinute;
+      
+      if (endMinutes <= startMinutes) {
+        errors.end_time = 'Время окончания должно быть позже времени начала';
+      }
     }
     
-    if (!formData.end_time) {
-      newErrors.end_time = 'Время окончания обязательно';
-    } else if (!isValidTimeFormat(formData.end_time)) {
-      newErrors.end_time = 'Неверный формат времени (HH:MM)';
+    // Payment validation
+    if (eventData.payment_type === 'cost') {
+      if (eventData.price === null || eventData.price <= 0) {
+        errors.price = 'Укажите стоимость';
+      }
+      
+      if (!eventData.currency) {
+        errors.currency = 'Выберите валюту';
+      }
     }
     
-    if (formData.start_time && formData.end_time && formData.start_time >= formData.end_time) {
-      newErrors.end_time = 'Время окончания должно быть позже времени начала';
+    // URL validations
+    if (eventData.payment_link && !isValidUrl(eventData.payment_link)) {
+      errors.payment_link = 'Неверный формат URL';
     }
     
-    if (!formData.location?.trim()) {
-      newErrors.location = 'Место проведения обязательно';
+    if (eventData.video_url && !isValidUrl(eventData.video_url)) {
+      errors.video_url = 'Неверный формат URL';
     }
     
-    if (formData.payment_type === 'cost' && (formData.price === undefined || formData.price < 0)) {
-      newErrors.price = 'Укажите корректную стоимость';
+    // Length validations
+    if (eventData.title.length > TITLE_MAX_LENGTH) {
+      errors.title = `Максимальная длина названия ${TITLE_MAX_LENGTH} символов`;
     }
     
-    if (formData.payment_link && !isValidUrl(formData.payment_link)) {
-      newErrors.payment_link = 'Неверный формат ссылки';
+    if (eventData.short_description.length > SHORT_DESC_MAX_LENGTH) {
+      errors.short_description = `Максимальная длина краткого описания ${SHORT_DESC_MAX_LENGTH} символов`;
     }
     
-    if (formData.video_url && !isValidUrl(formData.video_url)) {
-      newErrors.video_url = 'Неверный формат ссылки';
+    if (eventData.description.length > DESC_MAX_LENGTH) {
+      errors.description = `Максимальная длина описания ${DESC_MAX_LENGTH} символов`;
     }
     
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
-  // Submit form
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -577,27 +323,14 @@ const CreateEditEventPage = () => {
     try {
       setSaving(true);
       
-      // Prepare data for saving
-      const eventData = { ...formData };
+      // Format times for database storage
+      const formattedData = {
+        ...eventData,
+        start_time: formatDateTimeForDatabase(new Date(eventData.date), eventData.start_time),
+        end_time: formatDateTimeForDatabase(new Date(eventData.date), eventData.end_time),
+      };
       
-      // Convert date and times to UTC for storage
-      if (eventData.date && eventData.start_time) {
-        eventData.start_time = formatDateTimeForDatabase(eventData.date, eventData.start_time);
-      }
-      
-      if (eventData.date && eventData.end_time) {
-        eventData.end_time = formatDateTimeForDatabase(eventData.date, eventData.end_time);
-      }
-      
-      // Set speakers from selected speakers
-      eventData.speakers = selectedSpeakers;
-      
-      // Set festival program if applicable
-      if (eventData.event_type === 'Festival' && festivalProgram.length > 0) {
-        eventData.festival_program = festivalProgram;
-      }
-      
-      // Call the Edge Function to save the event
+      // Call the Edge Function instead of directly updating the database
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/save-event`,
         {
@@ -607,8 +340,8 @@ const CreateEditEventPage = () => {
             'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
           },
           body: JSON.stringify({
-            eventData,
-            isNew: !isEditMode
+            eventData: formattedData,
+            isNew
           })
         }
       );
@@ -618,7 +351,7 @@ const CreateEditEventPage = () => {
         throw new Error(errorData.error || 'Failed to save event');
       }
 
-      toast.success(isEditMode ? 'Мероприятие обновлено' : 'Мероприятие создано');
+      toast.success(isNew ? 'Мероприятие успешно создано' : 'Мероприятие успешно обновлено');
       navigate('/admin/events');
     } catch (error) {
       console.error('Error saving event:', error);
@@ -628,1060 +361,1408 @@ const CreateEditEventPage = () => {
     }
   };
 
-  // Handle festival program item form
-  const handleProgramItemChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setProgramItemForm(prev => ({ ...prev, [name]: value }));
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      setShowCropper(true);
+    }
   };
 
-  // Add or update festival program item
+  const handleCrop = async () => {
+    if (!cropper || !imageFile) return;
+
+    try {
+      // Get cropped canvas
+      const croppedCanvas = cropper.getCroppedCanvas({
+        width: 1200,
+        height: 400
+      });
+
+      // Convert canvas to blob
+      const croppedBlob = await new Promise<Blob>((resolve) => {
+        croppedCanvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+        }, 'image/jpeg', 0.9);
+      });
+
+      // Create file from blob
+      const croppedFile = new File([croppedBlob], imageFile.name, {
+        type: 'image/jpeg'
+      });
+
+      // Generate unique filenames
+      const timestamp = Date.now();
+      const fileExt = 'jpg';
+      
+      const originalPath = `events/original_${timestamp}.${fileExt}`;
+      const croppedPath = `events/cropped_${timestamp}.${fileExt}`;
+
+      // Upload original image
+      const { error: originalError } = await supabase.storage
+        .from('images')
+        .upload(originalPath, imageFile);
+
+      if (originalError) throw originalError;
+
+      // Upload cropped image
+      const { error: croppedError } = await supabase.storage
+        .from('images')
+        .upload(croppedPath, croppedFile);
+
+      if (croppedError) throw croppedError;
+
+      // Update event data
+      setEventData(prev => ({
+        ...prev,
+        bg_image: croppedPath,
+        original_bg_image: originalPath
+      }));
+
+      setShowCropper(false);
+      setImageFile(null);
+      toast.success('Изображение успешно загружено');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      toast.error('Ошибка при загрузке изображения');
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    try {
+      if (eventData.bg_image) {
+        const { error } = await supabase.storage
+          .from('images')
+          .remove([eventData.bg_image]);
+
+        if (error) throw error;
+      }
+
+      if (eventData.original_bg_image) {
+        const { error } = await supabase.storage
+          .from('images')
+          .remove([eventData.original_bg_image]);
+
+        if (error) throw error;
+      }
+
+      setEventData(prev => ({
+        ...prev,
+        bg_image: null,
+        original_bg_image: null
+      }));
+
+      toast.success('Изображение удалено');
+    } catch (error) {
+      console.error('Error removing image:', error);
+      toast.error('Ошибка при удалении изображения');
+    }
+  };
+
+  const toggleSpeaker = (speaker: Speaker) => {
+    setEventData(prev => {
+      const speakerIds = prev.speakers || [];
+      
+      if (speakerIds.includes(speaker.id)) {
+        return {
+          ...prev,
+          speakers: speakerIds.filter(id => id !== speaker.id)
+        };
+      } else {
+        return {
+          ...prev,
+          speakers: [...speakerIds, speaker.id]
+        };
+      }
+    });
+  };
+
   const handleAddProgramItem = () => {
-    if (!programItemForm.title || !programItemForm.start_time || !programItemForm.end_time) {
-      toast.error('Заполните обязательные поля');
+    if (!currentProgramItem.title || !currentProgramItem.start_time || !currentProgramItem.end_time) {
+      toast.error('Заполните обязательные поля программы');
       return;
     }
 
-    if (editingProgramItemIndex !== null) {
-      // Update existing item
-      const updatedProgram = [...festivalProgram];
-      updatedProgram[editingProgramItemIndex] = programItemForm;
-      setFestivalProgram(updatedProgram);
-    } else {
-      // Add new item
-      setFestivalProgram(prev => [...prev, programItemForm]);
-    }
+    setEventData(prev => {
+      const updatedProgram = [...(prev.festival_program || [])];
+      
+      if (editingProgramIndex !== null) {
+        updatedProgram[editingProgramIndex] = currentProgramItem;
+      } else {
+        updatedProgram.push(currentProgramItem);
+      }
+      
+      return {
+        ...prev,
+        festival_program: updatedProgram
+      };
+    });
 
-    // Reset form
-    setProgramItemForm({
+    setCurrentProgramItem({
       title: '',
       description: '',
+      image_url: '',
       start_time: '',
       end_time: '',
-      image_url: '',
       lecturer_id: ''
     });
-    setEditingProgramItemIndex(null);
-    setShowFestivalProgramForm(false);
+    setEditingProgramIndex(null);
+    setShowProgramForm(false);
+    setProgramPreviewUrl(null);
   };
 
-  // Edit festival program item
   const handleEditProgramItem = (index: number) => {
-    setProgramItemForm(festivalProgram[index]);
-    setEditingProgramItemIndex(index);
-    setShowFestivalProgramForm(true);
+    if (!eventData.festival_program) return;
+    
+    setCurrentProgramItem(eventData.festival_program[index]);
+    setEditingProgramIndex(index);
+    setShowProgramForm(true);
+    
+    if (eventData.festival_program[index].image_url) {
+      setProgramPreviewUrl(`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${eventData.festival_program[index].image_url}`);
+    } else {
+      setProgramPreviewUrl(null);
+    }
   };
 
-  // Delete festival program item
   const handleDeleteProgramItem = (index: number) => {
-    setFestivalProgram(prev => prev.filter((_, i) => i !== index));
+    setEventData(prev => {
+      const updatedProgram = [...(prev.festival_program || [])];
+      updatedProgram.splice(index, 1);
+      
+      return {
+        ...prev,
+        festival_program: updatedProgram
+      };
+    });
   };
 
-  // Get speaker name by ID
-  const getSpeakerName = (speakerId: string) => {
-    const speaker = speakers.find(s => s.id === speakerId);
-    return speaker ? speaker.name : 'Неизвестный спикер';
+  const handleProgramImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setProgramImageFile(file);
+      setShowProgramCropper(true);
+    }
   };
 
+  const handleProgramCrop = async () => {
+    if (!programCropper || !programImageFile) return;
 
-// Обработка состояния загрузки - показываем красивый индикатор загрузки
-  // с градиентным фоном и анимированными спиннерами
-  if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-purple-900/20">
-        <div className="flex flex-col items-center space-y-4">
-          {/* Двойной анимированный спиннер для более эффектного вида */}
-          <div className="relative">
-            <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
-            <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-purple-600 rounded-full animate-spin animate-reverse"></div>
-          </div>
-          <p className="text-lg font-medium text-gray-600 dark:text-gray-300">Загружаем данные...</p>
-        </div>
-      </div>
-    );
-  }
+    try {
+      // Get cropped canvas
+      const croppedCanvas = programCropper.getCroppedCanvas({
+        width: 800,
+        height: 600
+      });
 
-  // Конфигурация опций для типа оплаты - используется в RadioGroup компоненте
-  // Преобразуем простые строки в объекты с value и label для красивого отображения
-  const paymentTypeOptions = [
-    { value: 'free', label: 'Бесплатно' },
-    { value: 'donation', label: 'Донейшн' }, 
-    { value: 'cost', label: 'Платно' }
-  ];
+      // Convert canvas to blob
+      const croppedBlob = await new Promise<Blob>((resolve) => {
+        croppedCanvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+        }, 'image/jpeg', 0.9);
+      });
 
-// Основная разметка компонента - современный интерфейс с анимациями
+      // Create file from blob
+      const croppedFile = new File([croppedBlob], programImageFile.name, {
+        type: 'image/jpeg'
+      });
+
+      // Generate unique filename
+      const timestamp = Date.now();
+      const fileExt = 'jpg';
+      const filePath = `program-images/${timestamp}.${fileExt}`;
+
+      // Upload cropped image
+      const { error } = await supabase.storage
+        .from('images')
+        .upload(filePath, croppedFile);
+
+      if (error) throw error;
+
+      // Update program item
+      setCurrentProgramItem(prev => ({
+        ...prev,
+        image_url: filePath
+      }));
+
+      // Set preview URL
+      setProgramPreviewUrl(`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${filePath}`);
+
+      setShowProgramCropper(false);
+      setProgramImageFile(null);
+      toast.success('Изображение успешно загружено');
+    } catch (error) {
+      console.error('Error uploading program image:', error);
+      toast.error('Ошибка при загрузке изображения');
+    }
+  };
+
+  const filteredSpeakers = speakers.filter(speaker => 
+    speaker.name.toLowerCase().includes(speakerSearchQuery.toLowerCase()) ||
+    speaker.field_of_expertise.toLowerCase().includes(speakerSearchQuery.toLowerCase())
+  );
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-blue-900/20 dark:to-purple-900/20 p-6">
-      <div className="max-w-5xl mx-auto">
-        {/* Заголовок страницы с анимацией появления и градиентными элементами */}
-        <div className="flex justify-between items-center mb-8 animate-in slide-in-from-top duration-700">
-          <div className="flex items-center space-x-4">
-            {/* Иконка с градиентным фоном и тенью */}
-            <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg shadow-blue-500/25">
-              <Sparkles className="h-8 w-8 text-white" />
-            </div>
-            <div>
-              {/* Заголовок с градиентным текстом */}
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                {isEditMode ? 'Редактирование мероприятия' : 'Создание мероприятия'}
-              </h1>
-              {/* Подзаголовок с описанием */}
-              <p className="text-gray-600 dark:text-gray-400 mt-1">
-                {isEditMode ? 'Измените детали вашего мероприятия' : 'Создайте новое незабываемое мероприятие'}
-              </p>
-            </div>
-          </div>
-          {/* Кнопки действий с hover эффектами */}
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/admin/events')}
-              className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-105 hover:shadow-lg"
-            >
-              Отмена
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={saving}
-              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center gap-2 hover:scale-105 hover:shadow-lg shadow-blue-500/25"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Сохранение...
-                </>
-              ) : (
-                <>
-                  <Save className="h-5 w-5" />
-                  Сохранить
-                </>
-              )}
-            </button>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 dark:from-dark-900 dark:via-dark-900 dark:to-dark-800 py-8 font-sans">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Заголовок */}
+        <div className="mb-12 text-center">
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-primary-600 via-primary-500 to-secondary-500 bg-clip-text text-transparent mb-4 font-heading">
+            {isNew ? 'Создание мероприятия' : 'Редактирование мероприятия'}
+          </h1>
+          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto leading-relaxed">
+            {isNew 
+              ? 'Заполните форму, чтобы создать новое мероприятие' 
+              : 'Внесите изменения в существующее мероприятие'}
+          </p>
         </div>
 
-        {/* Основная форма с анимацией появления снизу */}
-        <form onSubmit={handleSubmit} className="space-y-8 animate-in slide-in-from-bottom duration-700">
-          
-          {/* Секция: Основная информация с градиентным фоном */}
-          <AnimatedSection title="Основная информация" icon={Info} gradient={true}>
+        {/* Кнопка сохранения */}
+        <div className="flex justify-center mb-10">
+          <button
+            onClick={handleSubmit}
+            disabled={saving}
+            className="inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white font-semibold rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg font-heading"
+          >
+            <Save className="w-5 h-5" />
+            {saving ? 'Сохранение...' : 'Сохранить мероприятие'}
+          </button>
+        </div>
+
+        {/* Форма */}
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Основная информация */}
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center mb-6">
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/30 dark:to-primary-800/30 rounded-xl mr-4">
+                <Info className="w-6 h-6 text-primary-600 dark:text-primary-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Основная информация</h2>
+                <p className="text-gray-500 dark:text-gray-400">Заголовок, описание и тип мероприятия</p>
+              </div>
+            </div>
+            
             <div className="space-y-6">
-              {/* Поле названия мероприятия с валидацией */}
-              <div className="form-group">
-                <label htmlFor="title" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Название мероприятия <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
-                  id="title"
-                  name="title"
-                  value={formData.title || ''}
-                  onChange={handleChange}
-                  className={`
-                    w-full px-4 py-3 rounded-xl border-2 transition-all duration-300 
-                    ${errors.title 
-                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
-                      : 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500/20 hover:border-gray-400 dark:hover:border-gray-500'
-                    } 
-                    dark:bg-gray-800 focus:outline-none focus:ring-4 placeholder-gray-400 dark:placeholder-gray-500
-                  `}
+                  value={eventData.title}
+                  onChange={(e) => setEventData({...eventData, title: e.target.value})}
+                  className={`w-full p-4 border-2 ${formErrors.title ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200`}
                   placeholder="Введите название мероприятия"
                 />
-                {/* Анимированное сообщение об ошибке */}
-                {errors.title && (
-                  <p className="mt-2 text-sm text-red-500 animate-in slide-in-from-top duration-300">{errors.title}</p>
+                {formErrors.title && (
+                  <p className="mt-1 text-sm text-red-500">{formErrors.title}</p>
                 )}
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {eventData.title.length}/{TITLE_MAX_LENGTH} символов
+                </p>
               </div>
-
-              {/* Поле краткого описания */}
-              <div className="form-group">
-                <label htmlFor="short_description" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Краткое описание
                 </label>
                 <textarea
-                  id="short_description"
-                  name="short_description"
-                  value={formData.short_description || ''}
-                  onChange={handleChange}
+                  value={eventData.short_description}
+                  onChange={(e) => setEventData({...eventData, short_description: e.target.value})}
                   rows={2}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500 placeholder-gray-400 dark:placeholder-gray-500"
-                  placeholder="Краткое описание для карточки мероприятия"
+                  className={`w-full p-4 border-2 ${formErrors.short_description ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200 resize-none`}
+                  placeholder="Краткое описание для списка мероприятий"
                 />
+                {formErrors.short_description && (
+                  <p className="mt-1 text-sm text-red-500">{formErrors.short_description}</p>
+                )}
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {eventData.short_description.length}/{SHORT_DESC_MAX_LENGTH} символов
+                </p>
               </div>
-
-              {/* Поле полного описания */}
-              <div className="form-group">
-                <label htmlFor="description" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Полное описание
                 </label>
                 <textarea
-                  id="description"
-                  name="description"
-                  value={formData.description || ''}
-                  onChange={handleChange}
-                  rows={6}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500 placeholder-gray-400 dark:placeholder-gray-500"
+                  value={eventData.description}
+                  onChange={(e) => setEventData({...eventData, description: e.target.value})}
+                  rows={8}
+                  className={`w-full p-4 border-2 ${formErrors.description ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200`}
                   placeholder="Подробное описание мероприятия"
                 />
+                {formErrors.description && (
+                  <p className="mt-1 text-sm text-red-500">{formErrors.description}</p>
+                )}
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {eventData.description.length}/{DESC_MAX_LENGTH} символов
+                </p>
               </div>
-
-              {/* Сетка для типа мероприятия и возрастной категории */}
+              
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="form-group">
-                  <label htmlFor="event_type" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                    Тип мероприятия
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Тип мероприятия <span className="text-red-500">*</span>
                   </label>
                   <select
-                    id="event_type"
-                    name="event_type"
-                    value={formData.event_type || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500"
+                    value={eventData.event_type}
+                    onChange={(e) => setEventData({...eventData, event_type: e.target.value})}
+                    className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
                   >
-                    {eventTypes.map(type => (
+                    {eventTypes.map((type) => (
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </select>
                 </div>
-
-                <div className="form-group">
-                  <label htmlFor="age_category" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                    Возрастная категория
+                
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Возрастная категория <span className="text-red-500">*</span>
                   </label>
                   <select
-                    id="age_category"
-                    name="age_category"
-                    value={formData.age_category || ''}
-                    onChange={handleChange}
-                    className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500"
+                    value={eventData.age_category}
+                    onChange={(e) => setEventData({...eventData, age_category: e.target.value})}
+                    className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
                   >
-                    {ageCategories.map(category => (
+                    {ageCategories.map((category) => (
                       <option key={category} value={category}>{category}</option>
                     ))}
                   </select>
                 </div>
               </div>
-
-              {/* Выбор языков через современный CheckboxGroup */}
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-                  Языки
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Языки <span className="text-red-500">*</span>
                 </label>
-                <CheckboxGroup 
-                  options={languages}
-                  values={formData.languages || []}
-                  onChange={handleLanguageChange}
-                />
-              </div>
-
-              {/* Секция загрузки изображения с предпросмотром и кроппером */}
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-                  Изображение
-                </label>
-                {/* Скрытый input для файлов */}
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handleImageSelect}
-                  accept="image/*"
-                  className="hidden"
-                />
-                
-                {/* Условный рендеринг: кроппер, превью или зона загрузки */}
-                {showCropper && imageFile ? (
-                  // Интерфейс обрезки изображения с анимацией
-                  <div className="space-y-4 animate-in zoom-in duration-500">
-                    <div className="rounded-2xl overflow-hidden border-2 border-gray-200 dark:border-gray-700">
-                      <Cropper
-                        src={URL.createObjectURL(imageFile)}
-                        style={{ height: 400, width: '100%' }}
-                        aspectRatio={3}
-                        guides={true}
-                        viewMode={1}
-                        dragMode="move"
-                        scalable={true}
-                        cropBoxMovable={true}
-                        cropBoxResizable={true}
-                        onInitialized={(instance) => setCropper(instance)}
-                        className="max-w-full"
-                      />
-                    </div>
-                    
-                    {/* Кнопки управления кроппером */}
-                    <div className="flex justify-end gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setShowCropper(false)}
-                        className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-105"
-                      >
-                        <X className="h-5 w-5 mr-2 inline-block" />
-                        Отмена
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleCrop}
-                        className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl transition-all duration-300 hover:scale-105 shadow-lg shadow-blue-500/25"
-                      >
-                        <Check className="h-5 w-5 mr-2 inline-block" />
-                        Обрезать и сохранить
-                      </button>
-                    </div>
-                  </div>
-                ) : previewUrl ? (
-                  // Превью загруженного изображения с кнопками управления
-                  <div className="relative group animate-in zoom-in duration-500">
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="w-full h-48 object-cover rounded-2xl shadow-lg group-hover:shadow-xl transition-all duration-300"
-                    />
-                    {/* Затемнение при наведении */}
-                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all duration-300 rounded-2xl"></div>
-                    {/* Кнопки управления, появляющиеся при наведении */}
-                    <div className="absolute bottom-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="p-3 bg-white/90 hover:bg-white text-gray-800 rounded-full shadow-lg hover:scale-110 transition-all duration-300"
-                        title="Изменить изображение"
-                      >
-                        <Upload className="h-5 w-5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleRemoveImage}
-                        className="p-3 bg-red-500/90 hover:bg-red-500 text-white rounded-full shadow-lg hover:scale-110 transition-all duration-300"
-                        title="Удалить изображение"
-                      >
-                        <X className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  // Зона перетаскивания для загрузки файлов
-                  <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-12 text-center hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-300 hover:bg-blue-50/50 dark:hover:bg-blue-900/10">
-                    <div className="flex flex-col items-center">
-                      <div className="mb-4 p-4 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-2xl">
-                        <Image className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl transition-all duration-300 hover:scale-105 shadow-lg shadow-blue-500/25"
-                      >
-                        Загрузить изображение
-                      </button>
-                      <p className="mt-3 text-sm text-gray-500 dark:text-gray-400">
-                        Рекомендуемый размер: 1200x400px
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </AnimatedSection>
-
-          {/* Секция: Дата и время */}
-          <AnimatedSection title="Дата и время" icon={Calendar}>
-            {/* Сетка для полей даты и времени */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="form-group">
-                <label htmlFor="date" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  Дата <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="date"
-                  id="date"
-                  name="date"
-                  value={formData.date || ''}
-                  onChange={handleChange}
-                  className={`
-                    w-full px-4 py-3 rounded-xl border-2 transition-all duration-300
-                    ${errors.date 
-                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
-                      : 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500/20 hover:border-gray-400 dark:hover:border-gray-500'
-                    } 
-                    dark:bg-gray-800 focus:outline-none focus:ring-4
-                  `}
-                />
-                {errors.date && (
-                  <p className="mt-2 text-sm text-red-500 animate-in slide-in-from-top duration-300">{errors.date}</p>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="start_time" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  Время начала <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="time"
-                  id="start_time"
-                  name="start_time"
-                  value={formData.start_time || ''}
-                  onChange={handleChange}
-                  className={`
-                    w-full px-4 py-3 rounded-xl border-2 transition-all duration-300
-                    ${errors.start_time 
-                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
-                      : 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500/20 hover:border-gray-400 dark:hover:border-gray-500'
-                    } 
-                    dark:bg-gray-800 focus:outline-none focus:ring-4
-                  `}
-                />
-                {errors.start_time && (
-                  <p className="mt-2 text-sm text-red-500 animate-in slide-in-from-top duration-300">{errors.start_time}</p>
-                )}
-              </div>
-
-              <div className="form-group">
-                <label htmlFor="end_time" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  Время окончания <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="time"
-                  id="end_time"
-                  name="end_time"
-                  value={formData.end_time || ''}
-                  onChange={handleChange}
-                  className={`
-                    w-full px-4 py-3 rounded-xl border-2 transition-all duration-300
-                    ${errors.end_time 
-                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
-                      : 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500/20 hover:border-gray-400 dark:hover:border-gray-500'
-                    } 
-                    dark:bg-gray-800 focus:outline-none focus:ring-4
-                  `}
-                />
-                {errors.end_time && (
-                  <p className="mt-2 text-sm text-red-500 animate-in slide-in-from-top duration-300">{errors.end_time}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Поле места проведения */}
-            <div className="form-group">
-              <label htmlFor="location" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                Место проведения <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="location"
-                name="location"
-                value={formData.location || ''}
-                onChange={handleChange}
-                className={`
-                  w-full px-4 py-3 rounded-xl border-2 transition-all duration-300
-                  ${errors.location 
-                    ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
-                    : 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500/20 hover:border-gray-400 dark:hover:border-gray-500'
-                  } 
-                  dark:bg-gray-800 focus:outline-none focus:ring-4 placeholder-gray-400 dark:placeholder-gray-500
-                `}
-                placeholder="Адрес или название места"
-              />
-              {errors.location && (
-                <p className="mt-2 text-sm text-red-500 animate-in slide-in-from-top duration-300">{errors.location}</p>
-              )}
-            </div>
-          </AnimatedSection>
-
-          {/* Секция: Информация о стоимости */}
-          <AnimatedSection title="Информация о стоимости" icon={DollarSign}>
-            <div className="space-y-6">
-              {/* Выбор типа оплаты через RadioGroup */}
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-                  Тип оплаты
-                </label>
-                <RadioGroup 
-                  options={paymentTypeOptions}
-                  value={formData.payment_type}
-                  onChange={(value) => setFormData(prev => ({ ...prev, payment_type: value }))}
-                  name="payment_type"
-                />
-              </div>
-
-              {/* Условное отображение полей цены и валюты для платных мероприятий */}
-              {formData.payment_type === 'cost' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in slide-in-from-top duration-500">
-                  <div className="form-group">
-                    <label htmlFor="price" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                      Стоимость <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      id="price"
-                      name="price"
-                      value={formData.price || 0}
-                      onChange={handleChange}
-                      min="0"
-                      step="1"
-                      className={`
-                        w-full px-4 py-3 rounded-xl border-2 transition-all duration-300
-                        ${errors.price 
-                          ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
-                          : 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500/20 hover:border-gray-400 dark:hover:border-gray-500'
-                        } 
-                        dark:bg-gray-800 focus:outline-none focus:ring-4
-                      `}
-                    />
-                    {errors.price && (
-                      <p className="mt-2 text-sm text-red-500 animate-in slide-in-from-top duration-300">{errors.price}</p>
-                    )}
-                  </div>
-
-                  <div className="form-group">
-                    <label htmlFor="currency" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                      Валюта
-                    </label>
-                    <select
-                      id="currency"
-                      name="currency"
-                      value={formData.currency || ''}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500"
-                    >
-                      {currencies.map(currency => (
-                        <option key={currency} value={currency}>{currency}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              )}
-
-              {/* Поле ссылки на оплату */}
-              <div className="form-group">
-                <label htmlFor="payment_link" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  Ссылка на оплату
-                </label>
-                <input
-                  type="url"
-                  id="payment_link"
-                  name="payment_link"
-                  value={formData.payment_link || ''}
-                  onChange={handleChange}
-                  className={`
-                    w-full px-4 py-3 rounded-xl border-2 transition-all duration-300
-                    ${errors.payment_link 
-                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
-                      : 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500/20 hover:border-gray-400 dark:hover:border-gray-500'
-                    } 
-                    dark:bg-gray-800 focus:outline-none focus:ring-4 placeholder-gray-400 dark:placeholder-gray-500
-                  `}
-                  placeholder="https://..."
-                />
-                {errors.payment_link && (
-                  <p className="mt-2 text-sm text-red-500 animate-in slide-in-from-top duration-300">{errors.payment_link}</p>
-                )}
-              </div>
-
-              {/* Поле ID виджета оплаты */}
-              <div className="form-group">
-                <label htmlFor="payment_widget_id" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  ID виджета оплаты
-                </label>
-                <input
-                  type="text"
-                  id="payment_widget_id"
-                  name="payment_widget_id"
-                  value={formData.payment_widget_id || ''}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500 placeholder-gray-400 dark:placeholder-gray-500"
-                  placeholder="ID виджета (если используется)"
-                />
-              </div>
-
-              {/* Тумблер для выбора виджета */}
-              <div className="form-group">
-                <Toggle
-                  checked={formData.widget_chooser || false}
-                  onChange={(checked) => setFormData(prev => ({ ...prev, widget_chooser: checked }))}
-                  label="Использовать виджет вместо ссылки"
-                  description="Включите, если хотите использовать встроенный виджет оплаты"
-                />
-              </div>
-            </div>
-          </AnimatedSection>
-
-          {/* Секция: Спикеры */}
-          <AnimatedSection title="Спикеры" icon={Users}>
-            <div className="space-y-6">
-              {/* Выбор спикеров из базы данных */}
-              <div className="form-group">
-                <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
-                  Выберите спикеров
-                </label>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {speakers.map(speaker => (
-                    <label
-                      key={speaker.id}
-                      className={`
-                        flex items-center gap-3 cursor-pointer p-4 border-2 rounded-xl transition-all duration-300 hover:scale-105
-                        ${selectedSpeakers.includes(speaker.id)
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-lg shadow-blue-500/25'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                        }
-                      `}
-                    >
-                      {/* Кастомный чекбокс */}
-                      <div
-                        className={`
-                          flex h-5 w-5 items-center justify-center rounded border-2 transition-all duration-300
-                          ${selectedSpeakers.includes(speaker.id)
-                            ? 'border-blue-500 bg-blue-500'
-                            : 'border-gray-300 dark:border-gray-600'
-                          }
-                        `}
-                      >
-                        {selectedSpeakers.includes(speaker.id) && (
-                          <Check className="h-3 w-3 text-white animate-in fade-in duration-300" />
-                        )}
-                      </div>
-                      {/* Информация о спикере */}
-                      <div className="flex items-center gap-3">
-                        {speaker.photos?.[0]?.url ? (
-                          <img
-                            src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos[0].url}`}
-                            alt={speaker.name}
-                            className="w-10 h-10 rounded-full object-cover border-2 border-gray-200 dark:border-gray-600"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-full flex items-center justify-center border-2 border-gray-200 dark:border-gray-600">
-                            <Users className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                          </div>
-                        )}
-                        <span className="font-medium text-gray-900 dark:text-gray-100">{speaker.name}</span>
-                      </div>
-                      {/* Скрытый input для accessibility */}
+                <div className="flex flex-wrap gap-3">
+                  {languages.map((lang) => (
+                    <label key={lang} className="inline-flex items-center">
                       <input
                         type="checkbox"
-                        checked={selectedSpeakers.includes(speaker.id)}
-                        onChange={() => handleSpeakerSelect(speaker.id)}
-                        className="sr-only"
+                        checked={eventData.languages.includes(lang)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setEventData({
+                              ...eventData,
+                              languages: [...eventData.languages, lang]
+                            });
+                          } else {
+                            setEventData({
+                              ...eventData,
+                              languages: eventData.languages.filter(l => l !== lang)
+                            });
+                          }
+                        }}
+                        className="form-checkbox h-5 w-5 text-primary-600 rounded border-gray-300 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
                       />
+                      <span className="ml-2 text-gray-700 dark:text-gray-300">{lang}</span>
                     </label>
                   ))}
                 </div>
               </div>
+            </div>
+          </div>
 
-              {/* Тумблер для скрытия галереи спикеров */}
-              <div className="form-group">
-                <Toggle
-                  checked={formData.hide_speakers_gallery || false}
-                  onChange={(checked) => setFormData(prev => ({ ...prev, hide_speakers_gallery: checked }))}
-                  label="Скрыть галерею спикеров"
-                  description="Галерея спикеров не будет отображаться на странице мероприятия"
+          {/* Дата и время */}
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center mb-6">
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-xl mr-4">
+                <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Дата и время</h2>
+                <p className="text-gray-500 dark:text-gray-400">Когда состоится мероприятие</p>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Дата <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="date"
+                  value={eventData.date}
+                  onChange={(e) => setEventData({...eventData, date: e.target.value})}
+                  className={`w-full p-4 border-2 ${formErrors.date ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200`}
+                />
+                {formErrors.date && (
+                  <p className="mt-1 text-sm text-red-500">{formErrors.date}</p>
+                )}
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Время начала <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="time"
+                  value={eventData.start_time}
+                  onChange={(e) => setEventData({...eventData, start_time: e.target.value})}
+                  className={`w-full p-4 border-2 ${formErrors.start_time ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200`}
+                />
+                {formErrors.start_time && (
+                  <p className="mt-1 text-sm text-red-500">{formErrors.start_time}</p>
+                )}
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Время по Белграду
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Время окончания <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="time"
+                  value={eventData.end_time}
+                  onChange={(e) => setEventData({...eventData, end_time: e.target.value})}
+                  className={`w-full p-4 border-2 ${formErrors.end_time ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200`}
+                />
+                {formErrors.end_time && (
+                  <p className="mt-1 text-sm text-red-500">{formErrors.end_time}</p>
+                )}
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Время по Белграду
+                </p>
+              </div>
+            </div>
+            
+            <div className="mt-6">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                Место проведения <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-center">
+                <div className="flex-shrink-0 mr-3">
+                  <div className="p-3 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-lg">
+                    <MapPin className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  value={eventData.location}
+                  onChange={(e) => setEventData({...eventData, location: e.target.value})}
+                  className={`flex-grow p-4 border-2 ${formErrors.location ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200`}
+                  placeholder="Адрес или название места"
+                />
+              </div>
+              {formErrors.location && (
+                <p className="mt-1 text-sm text-red-500">{formErrors.location}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Изображение */}
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center mb-6">
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-green-100 to-green-200 dark:from-green-900/30 dark:to-green-800/30 rounded-xl mr-4">
+                <ImageIcon className="w-6 h-6 text-green-600 dark:text-green-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Изображение</h2>
+                <p className="text-gray-500 dark:text-gray-400">Загрузите обложку мероприятия</p>
+              </div>
+            </div>
+            
+            {showCropper && imageFile ? (
+              <div className="space-y-4">
+                <Cropper
+                  src={URL.createObjectURL(imageFile)}
+                  style={{ height: 400, width: '100%' }}
+                  aspectRatio={3}
+                  guides={true}
+                  viewMode={1}
+                  dragMode="move"
+                  scalable={true}
+                  cropBoxMovable={true}
+                  cropBoxResizable={true}
+                  onInitialized={(instance) => setCropper(instance)}
+                  className="max-w-full"
+                />
+                
+                <div className="flex justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCropper(false);
+                      setImageFile(null);
+                    }}
+                    className="px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-md hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
+                  >
+                    <X className="h-4 w-4 mr-2 inline-block" />
+                    Отмена
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCrop}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
+                  >
+                    <Check className="h-4 w-4 mr-2 inline-block" />
+                    Сохранить
+                  </button>
+                </div>
+              </div>
+            ) : eventData.bg_image ? (
+              <div className="relative">
+                <img
+                  src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${eventData.bg_image}`}
+                  alt="Preview"
+                  className="w-full h-48 object-cover rounded-lg"
+                />
+                <div className="absolute bottom-2 right-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-2 bg-white/90 hover:bg-white text-dark-800 rounded-full shadow-lg"
+                    title="Изменить изображение"
+                  >
+                    <Edit className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRemoveImage}
+                    className="p-2 bg-red-600/90 hover:bg-red-600 text-white rounded-full shadow-lg"
+                    title="Удалить изображение"
+                  >
+                    <Trash className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg p-8 text-center">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageSelect}
+                  className="hidden"
+                />
+                <div className="flex flex-col items-center">
+                  <div className="mb-4 p-3 bg-gray-100 dark:bg-dark-700 rounded-full">
+                    <ImageIcon className="h-6 w-6 text-gray-500 dark:text-gray-400" />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors"
+                  >
+                    Загрузить изображение
+                  </button>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                    Рекомендуемый размер: 1200x400px
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Стоимость и оплата */}
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center mb-6">
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-900/30 dark:to-yellow-800/30 rounded-xl mr-4">
+                <DollarSign className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Стоимость и оплата</h2>
+                <p className="text-gray-500 dark:text-gray-400">Настройте параметры оплаты</p>
+              </div>
+            </div>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Тип оплаты <span className="text-red-500">*</span>
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {paymentTypes.map((type) => (
+                    <label
+                      key={type}
+                      className={`flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                        eventData.payment_type === type
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 dark:border-primary-500'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="payment_type"
+                        value={type}
+                        checked={eventData.payment_type === type}
+                        onChange={() => setEventData({...eventData, payment_type: type})}
+                        className="sr-only"
+                      />
+                      <span className="font-medium">
+                        {type === 'free' ? 'Бесплатно' : type === 'donation' ? 'Донейшн' : 'Платно'}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              
+              {eventData.payment_type === 'cost' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Стоимость <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={eventData.price || ''}
+                      onChange={(e) => setEventData({...eventData, price: e.target.value ? Number(e.target.value) : null})}
+                      className={`w-full p-4 border-2 ${formErrors.price ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200`}
+                      placeholder="Введите стоимость"
+                      min="0"
+                      step="50"
+                    />
+                    {formErrors.price && (
+                      <p className="mt-1 text-sm text-red-500">{formErrors.price}</p>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Валюта <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={eventData.currency}
+                      onChange={(e) => setEventData({...eventData, currency: e.target.value})}
+                      className={`w-full p-4 border-2 ${formErrors.currency ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200`}
+                    >
+                      {currencies.map((currency) => (
+                        <option key={currency} value={currency}>{currency}</option>
+                      ))}
+                    </select>
+                    {formErrors.currency && (
+                      <p className="mt-1 text-sm text-red-500">{formErrors.currency}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {eventData.payment_type === 'cost' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Комментарий к цене
+                  </label>
+                  <input
+                    type="text"
+                    value={eventData.price_comment || ''}
+                    onChange={(e) => setEventData({...eventData, price_comment: e.target.value})}
+                    className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                    placeholder="Например: 'Скидка для студентов 50%'"
+                  />
+                </div>
+              )}
+              
+              {eventData.payment_type === 'cost' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Скидка для пар (%)
+                    </label>
+                    <input
+                      type="text"
+                      value={eventData.couple_discount || ''}
+                      onChange={(e) => setEventData({...eventData, couple_discount: e.target.value})}
+                      className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                      placeholder="Например: 20"
+                    />
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      Оставьте пустым, если скидки нет
+                    </p>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <label className="flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={eventData.child_half_price || false}
+                        onChange={(e) => setEventData({...eventData, child_half_price: e.target.checked})}
+                        className="form-checkbox h-5 w-5 text-primary-600 rounded border-gray-300 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                      />
+                      <span className="ml-2 text-gray-700 dark:text-gray-300">Детский билет за полцены</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+              
+              {eventData.payment_type === 'cost' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Ссылка на оплату
+                  </label>
+                  <input
+                    type="url"
+                    value={eventData.payment_link || ''}
+                    onChange={(e) => setEventData({...eventData, payment_link: e.target.value})}
+                    className={`w-full p-4 border-2 ${formErrors.payment_link ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200`}
+                    placeholder="https://example.com/payment"
+                  />
+                  {formErrors.payment_link && (
+                    <p className="mt-1 text-sm text-red-500">{formErrors.payment_link}</p>
+                  )}
+                </div>
+              )}
+              
+              {eventData.payment_type === 'cost' && (
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    ID платежного виджета
+                  </label>
+                  <input
+                    type="text"
+                    value={eventData.payment_widget_id || ''}
+                    onChange={(e) => setEventData({...eventData, payment_widget_id: e.target.value})}
+                    className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                    placeholder="ID виджета для встраивания"
+                  />
+                </div>
+              )}
+              
+              {eventData.payment_type === 'cost' && eventData.payment_link && eventData.payment_widget_id && (
+                <div className="flex items-center">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={eventData.widget_chooser || false}
+                      onChange={(e) => setEventData({...eventData, widget_chooser: e.target.checked})}
+                      className="form-checkbox h-5 w-5 text-primary-600 rounded border-gray-300 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                    />
+                    <span className="ml-2 text-gray-700 dark:text-gray-300">Показывать выбор способа оплаты</span>
+                  </label>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Регистрация */}
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center mb-6">
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-purple-100 to-purple-200 dark:from-purple-900/30 dark:to-purple-800/30 rounded-xl mr-4">
+                <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Регистрация</h2>
+                <p className="text-gray-500 dark:text-gray-400">Настройте параметры регистрации</p>
+              </div>
+            </div>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Максимальное количество участников
+                </label>
+                <input
+                  type="number"
+                  value={eventData.registrations?.max_regs || ''}
+                  onChange={(e) => {
+                    const value = e.target.value ? parseInt(e.target.value) : null;
+                    setEventData({
+                      ...eventData,
+                      registrations: {
+                        ...eventData.registrations!,
+                        max_regs: value
+                      }
+                    });
+                  }}
+                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                  placeholder="Оставьте пустым для неограниченной регистрации"
+                  min="1"
+                />
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Оставьте пустым для неограниченной регистрации
+                </p>
+              </div>
+              
+              <div className="flex items-center">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={eventData.registration_enabled !== false}
+                    onChange={(e) => setEventData({...eventData, registration_enabled: e.target.checked})}
+                    className="form-checkbox h-5 w-5 text-primary-600 rounded border-gray-300 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                  />
+                  <span className="ml-2 text-gray-700 dark:text-gray-300">Разрешить регистрацию</span>
+                </label>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Дедлайн регистрации
+                </label>
+                <input
+                  type="datetime-local"
+                  value={eventData.registration_deadline || ''}
+                  onChange={(e) => setEventData({...eventData, registration_deadline: e.target.value})}
+                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                />
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  Оставьте пустым, чтобы разрешить регистрацию до начала мероприятия
+                </p>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Максимальное количество билетов на одного человека
+                </label>
+                <input
+                  type="number"
+                  value={eventData.registration_limit_per_user || 5}
+                  onChange={(e) => setEventData({...eventData, registration_limit_per_user: parseInt(e.target.value)})}
+                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                  min="1"
+                  max="20"
                 />
               </div>
             </div>
-          </AnimatedSection>
+          </div>
 
-          {/* Секция: Программа фестиваля (только для типа "Festival") */}
-          {formData.event_type === 'Festival' && (
-            <AnimatedSection title="Программа фестиваля" icon={Calendar}>
-              <div className="space-y-6">
-                {/* Список существующих пунктов программы */}
-                {festivalProgram.length > 0 ? (
-                  <div className="space-y-4">
-                    {festivalProgram.map((item, index) => (
+          {/* Спикеры */}
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-900/30 dark:to-orange-800/30 rounded-xl mr-4">
+                  <Users className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Спикеры</h2>
+                  <p className="text-gray-500 dark:text-gray-400">Выберите спикеров мероприятия</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={eventData.hide_speakers_gallery || false}
+                    onChange={(e) => setEventData({...eventData, hide_speakers_gallery: e.target.checked})}
+                    className="form-checkbox h-5 w-5 text-primary-600 rounded border-gray-300 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-700"
+                  />
+                  <span className="ml-2 text-gray-700 dark:text-gray-300">Скрыть галерею спикеров</span>
+                </label>
+              </div>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Поиск спикеров..."
+                  value={speakerSearchQuery}
+                  onChange={(e) => setSpeakerSearchQuery(e.target.value)}
+                  className="w-full p-4 pl-12 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                />
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              </div>
+              
+              {speakersLoading ? (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto"></div>
+                  <p className="mt-4 text-gray-500 dark:text-gray-400">Загрузка спикеров...</p>
+                </div>
+              ) : speakersError ? (
+                <div className="text-center py-8 text-red-500">
+                  {speakersError}
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {filteredSpeakers.map(speaker => (
                       <div
-                        key={index}
-                        className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-6 hover:shadow-lg transition-all duration-300 animate-in slide-in-from-left"
-                        style={{ animationDelay: `${index * 100}ms` }}
+                        key={speaker.id}
+                        onClick={() => toggleSpeaker(speaker)}
+                        className={`p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                          eventData.speakers.includes(speaker.id)
+                            ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 dark:border-primary-500'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                        }`}
                       >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100">{item.title}</h3>
-                            {/* Время проведения пункта программы */}
-                            <div className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 mt-2">
-                              <Clock className="h-4 w-4" />
-                              {item.start_time} - {item.end_time}
-                            </div>
-                            {/* Информация о спикере */}
-                            {item.lecturer_id && (
-                              <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400 mt-1">
-                                <Users className="h-4 w-4" />
-                                Спикер: {getSpeakerName(item.lecturer_id)}
+                        <div className="flex items-center">
+                          <div className="w-12 h-12 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 mr-3">
+                            {speaker.photos?.[0]?.url ? (
+                              <img
+                                src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos[0].url}`}
+                                alt={speaker.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <User className="w-6 h-6 text-gray-400" />
                               </div>
                             )}
-                            {/* Описание пункта программы */}
-                            {item.description && (
-                              <p className="text-gray-600 dark:text-gray-400 mt-2">{item.description}</p>
-                            )}
                           </div>
-                          {/* Кнопки редактирования и удаления */}
-                          <div className="flex gap-2 ml-4">
+                          <div>
+                            <h3 className="font-medium text-gray-900 dark:text-white">{speaker.name}</h3>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{speaker.field_of_expertise}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {selectedSpeakers.length > 0 && (
+                    <div className="mt-6">
+                      <h3 className="font-medium text-gray-900 dark:text-white mb-3">Выбранные спикеры:</h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedSpeakers.map(speaker => (
+                          <div
+                            key={speaker.id}
+                            className="flex items-center gap-2 bg-primary-100 dark:bg-primary-900/30 text-primary-800 dark:text-primary-300 px-3 py-1.5 rounded-full"
+                          >
+                            <span>{speaker.name}</span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSpeaker(speaker);
+                              }}
+                              className="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-200"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Программа фестиваля */}
+          {eventData.event_type === 'Festival' && (
+            <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center">
+                  <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-pink-100 to-pink-200 dark:from-pink-900/30 dark:to-pink-800/30 rounded-xl mr-4">
+                    <Calendar className="w-6 h-6 text-pink-600 dark:text-pink-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Программа фестиваля</h2>
+                    <p className="text-gray-500 dark:text-gray-400">Добавьте пункты программы</p>
+                  </div>
+                </div>
+                
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCurrentProgramItem({
+                      title: '',
+                      description: '',
+                      image_url: '',
+                      start_time: '',
+                      end_time: '',
+                      lecturer_id: ''
+                    });
+                    setEditingProgramIndex(null);
+                    setShowProgramForm(true);
+                    setProgramPreviewUrl(null);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                >
+                  <Plus className="h-5 w-5" />
+                  Добавить пункт
+                </button>
+              </div>
+              
+              {showProgramForm ? (
+                <div className="bg-gray-50 dark:bg-dark-700 rounded-xl p-6 mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    {editingProgramIndex !== null ? 'Редактирование пункта программы' : 'Новый пункт программы'}
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Название <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={currentProgramItem.title}
+                        onChange={(e) => setCurrentProgramItem({...currentProgramItem, title: e.target.value})}
+                        className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                        placeholder="Название пункта программы"
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          Время начала <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="time"
+                          value={currentProgramItem.start_time}
+                          onChange={(e) => setCurrentProgramItem({...currentProgramItem, start_time: e.target.value})}
+                          className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                          Время окончания <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="time"
+                          value={currentProgramItem.end_time}
+                          onChange={(e) => setCurrentProgramItem({...currentProgramItem, end_time: e.target.value})}
+                          className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Описание
+                      </label>
+                      <textarea
+                        value={currentProgramItem.description}
+                        onChange={(e) => setCurrentProgramItem({...currentProgramItem, description: e.target.value})}
+                        rows={3}
+                        className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                        placeholder="Описание пункта программы"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Спикер
+                      </label>
+                      <select
+                        value={currentProgramItem.lecturer_id}
+                        onChange={(e) => setCurrentProgramItem({...currentProgramItem, lecturer_id: e.target.value})}
+                        className="w-full p-3 border-2 border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                      >
+                        <option value="">Выберите спикера</option>
+                        {speakers.map(speaker => (
+                          <option key={speaker.id} value={speaker.id}>{speaker.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                        Изображение
+                      </label>
+                      
+                      {showProgramCropper && programImageFile ? (
+                        <div className="space-y-4">
+                          <Cropper
+                            src={URL.createObjectURL(programImageFile)}
+                            style={{ height: 300, width: '100%' }}
+                            aspectRatio={4/3}
+                            guides={true}
+                            viewMode={1}
+                            dragMode="move"
+                            scalable={true}
+                            cropBoxMovable={true}
+                            cropBoxResizable={true}
+                            onInitialized={(instance) => setProgramCropper(instance)}
+                            className="max-w-full"
+                          />
+                          
+                          <div className="flex justify-end gap-3">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowProgramCropper(false);
+                                setProgramImageFile(null);
+                              }}
+                              className="px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-md hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
+                            >
+                              <X className="h-4 w-4 mr-2 inline-block" />
+                              Отмена
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleProgramCrop}
+                              className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
+                            >
+                              <Check className="h-4 w-4 mr-2 inline-block" />
+                              Сохранить
+                            </button>
+                          </div>
+                        </div>
+                      ) : programPreviewUrl ? (
+                        <div className="relative">
+                          <img
+                            src={programPreviewUrl}
+                            alt="Preview"
+                            className="w-full h-48 object-cover rounded-lg"
+                          />
+                          <div className="absolute bottom-2 right-2 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => programFileInputRef.current?.click()}
+                              className="p-2 bg-white/90 hover:bg-white text-dark-800 rounded-full shadow-lg"
+                              title="Изменить изображение"
+                            >
+                              <Edit className="h-5 w-5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setCurrentProgramItem({...currentProgramItem, image_url: ''});
+                                setProgramPreviewUrl(null);
+                              }}
+                              className="p-2 bg-red-600/90 hover:bg-red-600 text-white rounded-full shadow-lg"
+                              title="Удалить изображение"
+                            >
+                              <Trash className="h-5 w-5" />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg p-6 text-center">
+                          <input
+                            ref={programFileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleProgramImageSelect}
+                            className="hidden"
+                          />
+                          <div className="flex flex-col items-center">
+                            <div className="mb-3 p-2 bg-gray-100 dark:bg-dark-700 rounded-full">
+                              <ImageIcon className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => programFileInputRef.current?.click()}
+                              className="px-3 py-1.5 bg-primary-600 hover:bg-primary-700 text-white rounded-md transition-colors text-sm"
+                            >
+                              Загрузить изображение
+                            </button>
+                            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                              Рекомендуемый размер: 800x600px
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="flex justify-end gap-3 pt-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowProgramForm(false);
+                          setCurrentProgramItem({
+                            title: '',
+                            description: '',
+                            image_url: '',
+                            start_time: '',
+                            end_time: '',
+                            lecturer_id: ''
+                          });
+                          setProgramPreviewUrl(null);
+                        }}
+                        className="px-4 py-2 border border-gray-300 dark:border-dark-600 rounded-md hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
+                      >
+                        Отмена
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddProgramItem}
+                        className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors"
+                      >
+                        {editingProgramIndex !== null ? 'Сохранить изменения' : 'Добавить пункт'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+              
+              {eventData.festival_program && eventData.festival_program.length > 0 ? (
+                <div className="space-y-4">
+                  {eventData.festival_program.map((item, index) => {
+                    const speaker = speakers.find(s => s.id === item.lecturer_id);
+                    
+                    return (
+                      <div 
+                        key={index}
+                        className="bg-gray-50 dark:bg-dark-700 rounded-xl p-4 border border-gray-200 dark:border-dark-600"
+                      >
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-start gap-4">
+                            {item.image_url && (
+                              <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
+                                <img
+                                  src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${item.image_url}`}
+                                  alt={item.title}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            )}
+                            
+                            <div>
+                              <h3 className="font-semibold text-gray-900 dark:text-white">{item.title}</h3>
+                              <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400 mt-1">
+                                <div className="flex items-center">
+                                  <Clock className="h-4 w-4 mr-1" />
+                                  <span>{item.start_time} - {item.end_time}</span>
+                                </div>
+                                {speaker && (
+                                  <div className="flex items-center">
+                                    <Users className="h-4 w-4 mr-1" />
+                                    <span>{speaker.name}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {item.description && (
+                                <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 line-clamp-2">
+                                  {item.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <div className="flex gap-2">
                             <button
                               type="button"
                               onClick={() => handleEditProgramItem(index)}
-                              className="p-2 hover:bg-blue-100 dark:hover:bg-blue-900/20 text-blue-600 rounded-lg transition-all duration-300 hover:scale-110"
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded"
                             >
                               <Edit className="h-4 w-4" />
                             </button>
                             <button
                               type="button"
                               onClick={() => handleDeleteProgramItem(index)}
-                              className="p-2 hover:bg-red-100 dark:hover:bg-red-900/20 text-red-600 rounded-lg transition-all duration-300 hover:scale-110"
+                              className="p-1.5 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
                             >
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
                         </div>
                       </div>
-                    ))}
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-8 bg-gray-50 dark:bg-dark-700 rounded-xl">
+                  <div className="w-16 h-16 bg-gray-200 dark:bg-dark-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Calendar className="h-8 w-8 text-gray-400 dark:text-gray-500" />
                   </div>
-                ) : (
-                  // Пустое состояние для программы фестиваля
-                  <div className="text-center py-12 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-300">
-                    <div className="flex flex-col items-center">
-                      <div className="p-4 bg-gradient-to-br from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-2xl mb-4">
-                        <Calendar className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <p className="text-gray-500 dark:text-gray-400 text-lg font-medium">
-                        Нет добавленных пунктов программы
-                      </p>
-                      <p className="text-gray-400 dark:text-gray-500 text-sm mt-1">
-                        Добавьте первый пункт программы фестиваля
-                      </p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Форма добавления/редактирования пункта программы */}
-                {showFestivalProgramForm ? (
-                  <div className="border-2 border-blue-200 dark:border-blue-700 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl p-6 animate-in slide-in-from-bottom duration-500">
-                    <h3 className="font-semibold text-lg text-gray-900 dark:text-gray-100 mb-6">
-                      {editingProgramItemIndex !== null ? 'Редактирование пункта программы' : 'Добавление пункта программы'}
-                    </h3>
-                    
-                    <div className="space-y-6">
-                      {/* Название пункта программы */}
-                      <div className="form-group">
-                        <label htmlFor="program_title" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                          Название <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          id="program_title"
-                          name="title"
-                          value={programItemForm.title}
-                          onChange={handleProgramItemChange}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500 placeholder-gray-400 dark:placeholder-gray-500"
-                          placeholder="Название пункта программы"
-                        />
-                      </div>
-
-                      {/* Время начала и окончания пункта программы */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="form-group">
-                          <label htmlFor="program_start_time" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                            Время начала <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="time"
-                            id="program_start_time"
-                            name="start_time"
-                            value={programItemForm.start_time}
-                            onChange={handleProgramItemChange}
-                            className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500"
-                          />
-                        </div>
-
-                        <div className="form-group">
-                          <label htmlFor="program_end_time" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                            Время окончания <span className="text-red-500">*</span>
-                          </label>
-                          <input
-                            type="time"
-                            id="program_end_time"
-                            name="end_time"
-                            value={programItemForm.end_time}
-                            onChange={handleProgramItemChange}
-                            className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500"
-                          />
-                        </div>
-                      </div>
-
-                      {/* Описание пункта программы */}
-                      <div className="form-group">
-                        <label htmlFor="program_description" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                          Описание
-                        </label>
-                        <textarea
-                          id="program_description"
-                          name="description"
-                          value={programItemForm.description}
-                          onChange={handleProgramItemChange}
-                          rows={3}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500 placeholder-gray-400 dark:placeholder-gray-500"
-                          placeholder="Описание пункта программы"
-                        />
-                      </div>
-
-                      {/* Выбор спикера для пункта программы */}
-                      <div className="form-group">
-                        <label htmlFor="program_lecturer" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                          Спикер
-                        </label>
-                        <select
-                          id="program_lecturer"
-                          name="lecturer_id"
-                          value={programItemForm.lecturer_id}
-                          onChange={handleProgramItemChange}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500"
-                        >
-                          <option value="">Выберите спикера</option>
-                          {speakers.map(speaker => (
-                            <option key={speaker.id} value={speaker.id}>{speaker.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Кнопки управления формой программы */}
-                      <div className="flex justify-end gap-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowFestivalProgramForm(false);
-                            setEditingProgramItemIndex(null);
-                            setProgramItemForm({
-                              title: '',
-                              description: '',
-                              start_time: '',
-                              end_time: '',
-                              image_url: '',
-                              lecturer_id: ''
-                            });
-                          }}
-                          className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-105"
-                        >
-                          Отмена
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleAddProgramItem}
-                          className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl transition-all duration-300 hover:scale-105 shadow-lg shadow-blue-500/25"
-                        >
-                          {editingProgramItemIndex !== null ? 'Сохранить' : 'Добавить'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  // Кнопка добавления нового пункта программы
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Нет пунктов программы</h3>
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                    Добавьте пункты, чтобы создать программу фестиваля
+                  </p>
                   <button
                     type="button"
-                    onClick={() => setShowFestivalProgramForm(true)}
-                    className="w-full py-6 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/10 hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-300 flex items-center justify-center gap-3 group"
+                    onClick={() => {
+                      setCurrentProgramItem({
+                        title: '',
+                        description: '',
+                        image_url: '',
+                        start_time: '',
+                        end_time: '',
+                        lecturer_id: ''
+                      });
+                      setEditingProgramIndex(null);
+                      setShowProgramForm(true);
+                    }}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
                   >
-                    <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg group-hover:bg-blue-200 dark:group-hover:bg-blue-900/50 transition-all duration-300">
-                      <Plus className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <span className="text-lg font-medium text-gray-700 dark:text-gray-300">
-                      Добавить пункт программы
-                    </span>
+                    <Plus className="h-5 w-5" />
+                    Добавить первый пункт
                   </button>
-                )}
-              </div>
-            </AnimatedSection>
+                </div>
+              )}
+            </div>
           )}
 
-          {/* Секция: Дополнительные настройки (по умолчанию свернута) */}
-          <AnimatedSection title="Дополнительные настройки" icon={Settings} defaultOpen={false}>
+          {/* Дополнительные настройки */}
+          <div className="bg-white dark:bg-dark-800 rounded-2xl shadow-lg p-8 border border-gray-100 dark:border-gray-700">
+            <div className="flex items-center mb-6">
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-900/30 dark:to-gray-800/30 rounded-xl mr-4">
+                <Tag className="w-6 h-6 text-gray-600 dark:text-gray-400" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white font-heading">Дополнительные настройки</h2>
+                <p className="text-gray-500 dark:text-gray-400">Статус и дополнительные ссылки</p>
+              </div>
+            </div>
+            
             <div className="space-y-6">
-              {/* Статус мероприятия */}
-              <div className="form-group">
-                <label htmlFor="status" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  Статус мероприятия
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Статус мероприятия <span className="text-red-500">*</span>
                 </label>
-                <select
-                  id="status"
-                  name="status"
-                  value={formData.status || ''}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500"
-                >
-                  {statuses.map(status => (
-                    <option key={status} value={status}>
-                      {status === 'active' ? 'Активное' : 
-                       status === 'draft' ? 'Черновик' : 
-                       'Прошедшее'}
-                    </option>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {statuses.map((status) => (
+                    <label
+                      key={status}
+                      className={`flex items-center justify-center p-4 border-2 rounded-xl cursor-pointer transition-all duration-200 ${
+                        eventData.status === status
+                          ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 dark:border-primary-500'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="status"
+                        value={status}
+                        checked={eventData.status === status}
+                        onChange={() => setEventData({...eventData, status: status})}
+                        className="sr-only"
+                      />
+                      <span className="font-medium">
+                        {status === 'active' ? 'Активно' : status === 'draft' ? 'Черновик' : 'Прошедшее'}
+                      </span>
+                    </label>
                   ))}
-                </select>
+                </div>
               </div>
-
-              {/* Максимальное количество участников */}
-              <div className="form-group">
-                <label htmlFor="max_registrations" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  Максимальное количество участников
-                </label>
-                <input
-                  type="number"
-                  id="max_registrations"
-                  name="max_registrations"
-                  value={formData.registrations?.max_regs || ''}
-                  onChange={(e) => {
-                    const value = e.target.value ? parseInt(e.target.value) : null;
-                    setFormData(prev => ({
-                      ...prev,
-                      registrations: {
-                        ...prev.registrations!,
-                        max_regs: value
-                      }
-                    }));
-                  }}
-                  min="0"
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500 placeholder-gray-400 dark:placeholder-gray-500"
-                  placeholder="Оставьте пустым для неограниченного количества"
-                />
-              </div>
-
-              {/* Ссылка на видео */}
-              <div className="form-group">
-                <label htmlFor="video_url" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
                   Ссылка на видео
                 </label>
                 <input
                   type="url"
-                  id="video_url"
-                  name="video_url"
-                  value={formData.video_url || ''}
-                  onChange={handleChange}
-                  className={`
-                    w-full px-4 py-3 rounded-xl border-2 transition-all duration-300
-                    ${errors.video_url 
-                      ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' 
-                      : 'border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500/20 hover:border-gray-400 dark:hover:border-gray-500'
-                    } 
-                    dark:bg-gray-800 focus:outline-none focus:ring-4 placeholder-gray-400 dark:placeholder-gray-500
-                  `}
-                  placeholder="https://youtube.com/..."
+                  value={eventData.video_url || ''}
+                  onChange={(e) => setEventData({...eventData, video_url: e.target.value})}
+                  className={`w-full p-4 border-2 ${formErrors.video_url ? 'border-red-500' : 'border-gray-200 dark:border-gray-600'} rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200`}
+                  placeholder="https://youtube.com/watch?v=..."
                 />
-                {errors.video_url && (
-                  <p className="mt-2 text-sm text-red-500 animate-in slide-in-from-top duration-300">{errors.video_url}</p>
+                {formErrors.video_url && (
+                  <p className="mt-1 text-sm text-red-500">{formErrors.video_url}</p>
                 )}
               </div>
-
-              {/* Настройки скидок в сетке */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Скидка для пар */}
-                <div className="form-group">
-                  <Toggle
-                    checked={formData.couple_discount !== undefined}
-                    onChange={(checked) => {
-                      if (checked) {
-                        setFormData(prev => ({ ...prev, couple_discount: '10' }));
-                      } else {
-                        setFormData(prev => {
-                          const { couple_discount, ...rest } = prev;
-                          return rest;
-                        });
-                      }
-                    }}
-                    label="Скидка для пар"
-                    description="Активировать скидку при покупке двух билетов"
-                  />
-                  
-                  {/* Поле ввода процента скидки (появляется при включении) */}
-                  {formData.couple_discount !== undefined && (
-                    <div className="mt-4 animate-in slide-in-from-top duration-300">
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="number"
-                          name="couple_discount"
-                          value={formData.couple_discount || ''}
-                          onChange={handleChange}
-                          min="1"
-                          max="100"
-                          className="w-24 px-3 py-2 rounded-lg border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none"
-                        />
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">%</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Детский билет за полцены */}
-                <div className="form-group">
-                  <Toggle
-                    checked={formData.child_half_price || false}
-                    onChange={(checked) => setFormData(prev => ({ ...prev, child_half_price: checked }))}
-                    label="Детский билет за полцены"
-                    description="Детские билеты будут стоить 50% от основной цены"
-                  />
-                </div>
-              </div>
-
-              {/* Включение регистрации */}
-              <div className="form-group">
-                <Toggle
-                  checked={formData.registration_enabled !== false}
-                  onChange={(checked) => setFormData(prev => ({ ...prev, registration_enabled: checked }))}
-                  label="Включить регистрацию"
-                  description="Пользователи смогут регистрироваться на мероприятие"
-                />
-              </div>
-
-              {/* Дедлайн регистрации */}
-              <div className="form-group">
-                <label htmlFor="registration_deadline" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  Дедлайн регистрации
+              
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Ссылка на фотогалерею
                 </label>
                 <input
-                  type="datetime-local"
-                  id="registration_deadline"
-                  name="registration_deadline"
-                  value={formData.registration_deadline || ''}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500"
-                />
-              </div>
-
-              {/* Лимит регистраций на пользователя */}
-              <div className="form-group">
-                <label htmlFor="registration_limit_per_user" className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                  Лимит регистраций на одного пользователя
-                </label>
-                <input
-                  type="number"
-                  id="registration_limit_per_user"
-                  name="registration_limit_per_user"
-                  value={formData.registration_limit_per_user || 5}
-                  onChange={handleChange}
-                  min="1"
-                  className="w-full px-4 py-3 rounded-xl border-2 border-gray-300 dark:border-gray-600 dark:bg-gray-800 transition-all duration-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 focus:outline-none hover:border-gray-400 dark:hover:border-gray-500"
+                  type="url"
+                  value={eventData.photo_gallery || ''}
+                  onChange={(e) => setEventData({...eventData, photo_gallery: e.target.value})}
+                  className="w-full p-4 border-2 border-gray-200 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-all duration-200"
+                  placeholder="https://photos.google.com/..."
                 />
               </div>
             </div>
-          </AnimatedSection>
+          </div>
 
-          {/* Финальные кнопки формы с анимацией появления */}
-          <div className="flex justify-end gap-4 pt-8 animate-in slide-in-from-bottom duration-700">
+          {/* Кнопки действий */}
+          <div className="flex justify-center gap-4 pb-8">
             <button
               type="button"
               onClick={() => navigate('/admin/events')}
-              className="px-8 py-4 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-300 hover:scale-105 text-lg font-medium"
+              className="px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-dark-700 transition-all duration-200 font-medium"
             >
               Отмена
             </button>
             <button
               type="submit"
               disabled={saving}
-              className="px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl transition-all duration-300 disabled:opacity-50 flex items-center gap-3 hover:scale-105 shadow-lg shadow-blue-500/25 text-lg font-medium"
+              className="px-6 py-3 bg-gradient-to-r from-primary-500 to-primary-600 hover:from-primary-600 hover:to-primary-700 text-white rounded-xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg font-medium"
             >
-              {saving ? (
-                <>
-                  <Loader2 className="h-6 w-6 animate-spin" />
-                  Сохранение...
-                </>
-              ) : (
-                <>
-                  <Save className="h-6 w-6" />
-                  Сохранить мероприятие
-                </>
-              )}
+              <Save className="h-5 w-5 mr-2 inline-block" />
+              {saving ? 'Сохранение...' : (isNew ? 'Создать мероприятие' : 'Сохранить изменения')}
             </button>
           </div>
         </form>
