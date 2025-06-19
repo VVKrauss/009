@@ -14,7 +14,7 @@
     "@supabase/supabase-js": "^2.49.8",
     "browser-image-compression": "^2.0.2",
     "cropperjs": "^1.6.2",
-    "date-fns": "^4.1.0",
+    "date-fns": "^2.30.0",
     "date-fns-tz": "^2.0.0",
     "dompurify": "^3.2.6",
     "file-saver": "^2.0.5",
