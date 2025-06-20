@@ -341,10 +341,23 @@ const CreateEditEventPage = () => {
       if (!response.ok) {
         const errorData = await response.json();
         
-        // Handle specific pg_net extension error
+        // Handle specific pg_net extension error - show warning but continue
         if (errorData.code === 'PG_NET_EXTENSION_MISSING') {
-          toast.error('Для работы уведомлений необходимо включить расширение pg_net в настройках базы данных Supabase');
           console.warn('pg_net extension missing - notifications disabled');
+          toast.success(
+            isNew ? 'Мероприятие успешно создано' : 'Мероприятие успешно обновлено',
+            {
+              duration: 4000,
+            }
+          );
+          toast('⚠️ Уведомления отключены: для их работы необходимо включить расширение pg_net в настройках Supabase', {
+            duration: 6000,
+            style: {
+              background: '#f59e0b',
+              color: 'white',
+            },
+          });
+          navigate('/admin/events');
           return;
         }
         
