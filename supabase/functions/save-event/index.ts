@@ -20,7 +20,7 @@ async function sendTelegramNotification(message: string) {
     const TELEGRAM_CHAT_ID = Deno.env.get('TELEGRAM_CHAT_ID');
 
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) {
-      console.log('Telegram configuration missing');
+      console.log('Telegram configuration missing, skipping notification');
       return;
     }
 
@@ -44,7 +44,8 @@ async function sendTelegramNotification(message: string) {
 
     console.log('Telegram notification sent successfully');
   } catch (error) {
-    console.error('Error sending Telegram notification:', error);
+    console.error('Error sending Telegram notification (continuing with event save):', error);
+    // Don't throw the error - we want the event save to continue even if notification fails
   }
 }
 
@@ -97,7 +98,7 @@ Deno.serve(async (req) => {
       if (error) throw error;
       result = data;
       
-      // Send notification for new event
+      // Try to send notification for new event (non-blocking)
       const message = `
 🎉 <b>Новое мероприятие создано</b>
 
@@ -109,7 +110,10 @@ Deno.serve(async (req) => {
 🏷️ Статус: ${eventData.status === 'active' ? 'Активно' : 'Черновик'}
 `;
 
-      await sendTelegramNotification(message);
+      // Send notification without awaiting to prevent blocking the main operation
+      sendTelegramNotification(message).catch(error => {
+        console.error('Telegram notification failed (non-blocking):', error);
+      });
     } else {
       // Update existing event
       const { data, error } = await supabaseAdmin
@@ -121,7 +125,7 @@ Deno.serve(async (req) => {
       if (error) throw error;
       result = data;
       
-      // Send notification for updated event
+      // Try to send notification for updated event (non-blocking)
       const message = `
 🔄 <b>Мероприятие обновлено</b>
 
@@ -133,7 +137,10 @@ Deno.serve(async (req) => {
 🏷️ Статус: ${eventData.status === 'active' ? 'Активно' : 'Черновик'}
 `;
 
-      await sendTelegramNotification(message);
+      // Send notification without awaiting to prevent blocking the main operation
+      sendTelegramNotification(message).catch(error => {
+        console.error('Telegram notification failed (non-blocking):', error);
+      });
     }
 
     return new Response(
@@ -149,6 +156,21 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error('Error processing event:', error);
+    
+    // Check if this is the pg_net schema error and provide a helpful message
+    if (error.message && error.message.includes('schema "net" does not exist')) {
+      console.error('pg_net extension not enabled - notifications will be disabled');
+      return new Response(
+        JSON.stringify({ 
+          error: 'Database extension missing for notifications, but event operation failed for another reason',
+          details: error.message 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
     
     return new Response(
       JSON.stringify({ error: error.message || 'An unknown error occurred' }),
