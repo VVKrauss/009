@@ -87,47 +87,63 @@ Deno.serve(async (req) => {
     console.log(`Processing ${isNew ? 'new' : 'existing'} event:`, eventData.id);
 
     let result;
+    let eventSaveError = null;
     
-    if (isNew) {
-      // Insert new event
-      const { data, error } = await supabaseAdmin
-        .from('events')
-        .insert([eventData])
-        .select();
+    try {
+      if (isNew) {
+        // Insert new event
+        const { data, error } = await supabaseAdmin
+          .from('events')
+          .insert([eventData])
+          .select();
 
-      if (error) throw error;
-      result = data;
+        if (error) throw error;
+        result = data;
+      } else {
+        // Update existing event
+        const { data, error } = await supabaseAdmin
+          .from('events')
+          .update(eventData)
+          .eq('id', eventData.id)
+          .select();
+
+        if (error) throw error;
+        result = data;
+      }
+    } catch (error) {
+      eventSaveError = error;
+      console.error('Error saving event to database:', error);
       
-      // Try to send notification for new event (non-blocking)
-      const message = `
-🎉 <b>Новое мероприятие создано</b>
-
-📅 Название: ${eventData.title}
-📆 Дата: ${eventData.date}
-⏰ Время: ${eventData.start_time ? new Date(eventData.start_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'Не указано'} - ${eventData.end_time ? new Date(eventData.end_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'Не указано'}
-📍 Место: ${eventData.location || 'Не указано'}
-💰 Стоимость: ${eventData.payment_type === 'free' ? 'Бесплатно' : `${eventData.price} ${eventData.currency}`}
-🏷️ Статус: ${eventData.status === 'active' ? 'Активно' : 'Черновик'}
-`;
-
-      // Send notification without awaiting to prevent blocking the main operation
-      sendTelegramNotification(message).catch(error => {
-        console.error('Telegram notification failed (non-blocking):', error);
-      });
-    } else {
-      // Update existing event
-      const { data, error } = await supabaseAdmin
-        .from('events')
-        .update(eventData)
-        .eq('id', eventData.id)
-        .select();
-
-      if (error) throw error;
-      result = data;
+      // Check if this is a pg_net related error from database triggers
+      if (error.message && (
+        error.message.includes('schema "net" does not exist') ||
+        error.message.includes('pg_net') ||
+        error.message.includes('net.http_post')
+      )) {
+        console.log('Detected pg_net extension missing - this is likely from a database trigger trying to send notifications');
+        
+        // Return a specific error message for pg_net issues
+        return new Response(
+          JSON.stringify({ 
+            error: 'Database notification extension (pg_net) is not enabled. Please enable the pg_net extension in your Supabase dashboard under Database > Extensions to allow notification features to work properly.',
+            code: 'PG_NET_EXTENSION_MISSING',
+            details: error.message 
+          }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
       
-      // Try to send notification for updated event (non-blocking)
+      // For other database errors, throw them normally
+      throw error;
+    }
+
+    // If event save was successful, try to send notification (non-blocking)
+    if (!eventSaveError) {
       const message = `
-🔄 <b>Мероприятие обновлено</b>
+${isNew ? '🎉 <b>Новое мероприятие создано</b>' : '🔄 <b>Мероприятие обновлено</b>'}
 
 📅 Название: ${eventData.title}
 📆 Дата: ${eventData.date}
@@ -157,23 +173,11 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error processing event:', error);
     
-    // Check if this is the pg_net schema error and provide a helpful message
-    if (error.message && error.message.includes('schema "net" does not exist')) {
-      console.error('pg_net extension not enabled - notifications will be disabled');
-      return new Response(
-        JSON.stringify({ 
-          error: 'Database extension missing for notifications, but event operation failed for another reason',
-          details: error.message 
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        }
-      );
-    }
-    
     return new Response(
-      JSON.stringify({ error: error.message || 'An unknown error occurred' }),
+      JSON.stringify({ 
+        error: error.message || 'An unknown error occurred',
+        details: error.message 
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

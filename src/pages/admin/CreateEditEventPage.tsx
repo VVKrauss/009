@@ -340,6 +340,14 @@ const CreateEditEventPage = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
+        
+        // Handle specific pg_net extension error
+        if (errorData.code === 'PG_NET_EXTENSION_MISSING') {
+          toast.error('Для работы уведомлений необходимо включить расширение pg_net в настройках базы данных Supabase');
+          console.warn('pg_net extension missing - notifications disabled');
+          return;
+        }
+        
         throw new Error(errorData.error || 'Failed to save event');
       }
 
