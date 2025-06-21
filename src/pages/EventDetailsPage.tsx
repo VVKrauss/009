@@ -31,7 +31,7 @@ interface FestivalProgramItem {
   lecturer_id: string;
 }
 
-interface Event {
+interface Event { 
   id: string;
   title: string;
   description: string;
