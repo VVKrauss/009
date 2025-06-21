@@ -13,7 +13,7 @@ const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('ru-RU', {
       day: 'numeric',
       month: 'long',
-      year: 'numeric'
+      year: 'numeric' 
     });
   } catch (error) {
     return 'Некорректная дата';
