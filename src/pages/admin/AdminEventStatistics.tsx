@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Users, Clock, ChevronDown, Loader2, Star, TrendingUp, Award, X, BarChart3, DollarSign, Eye, Grid3X3, List, CalendarDays, Gift, CreditCard } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getSupabaseImageUrl } from '../../utils/imageUtils';
+import { Dialog } from '@headlessui/react';
+
+// Типы для экспорта
+type ExportType = 'visitors' | 'full_stats';
 
 // Функции форматирования
 const formatDate = (dateStr: string) => {
