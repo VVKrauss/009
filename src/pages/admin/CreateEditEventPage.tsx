@@ -27,6 +27,7 @@ import { ru } from 'date-fns/locale';
 import { eventTypes, paymentTypes, languages, ageCategories, currencies, statuses, TITLE_MAX_LENGTH, SHORT_DESC_MAX_LENGTH, DESC_MAX_LENGTH } from './constants';
 import EventSpeakersSection from '../../components/admin/EventSpeakersSection';
 import EventFestivalProgramSection from '../../components/admin/EventFestivalProgramSection';
+import { formatTimeFromTimestamp, formatDateTimeForDatabase } from '../../utils/dateTimeUtils';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -130,7 +131,10 @@ const CreateEditEventPage = () => {
         languages: data.languages || ['Русский'],
         speakers: data.speakers || [],
         hide_speakers_gallery: data.hide_speakers_gallery !== false,
-        festival_program: data.festival_program || []
+        festival_program: data.festival_program || [],
+        // Convert timestamps back to time strings for the form
+        start_time: formatTimeFromTimestamp(data.start_time),
+        end_time: formatTimeFromTimestamp(data.end_time)
       });
     } catch (error) {
       console.error('Error fetching event:', error);
@@ -304,11 +308,14 @@ const CreateEditEventPage = () => {
     try {
       setSaving(true);
       
-      // Prepare the event data
+      // Prepare the event data with proper timestamp conversion
       const eventData = {
         ...event,
         price: event.price ? parseFloat(event.price) : null,
-        couple_discount: event.couple_discount ? parseFloat(event.couple_discount) : null
+        couple_discount: event.couple_discount ? parseFloat(event.couple_discount) : null,
+        // Convert date and time strings to proper timestamps
+        start_time: formatDateTimeForDatabase(parseISO(event.date), event.start_time),
+        end_time: formatDateTimeForDatabase(parseISO(event.date), event.end_time)
       };
       
       // Determine if this is a new event or an update
