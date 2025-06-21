@@ -426,61 +426,106 @@ const EventsStatistics = () => {
     completionRate: 0
   });
 
-  // Функция экспорта данных
-  const handleExport = async () => {
-    try {
-      // Собираем все регистрации из всех событий
-      const allRegistrations: { full_name: string; email: string }[] = [];
-      
-      // Проверяем все типы событий (nearest, upcoming, past)
-      const eventTypes = ['nearest', 'upcoming', 'past'] as const;
-      
-      for (const type of eventTypes) {
-        for (const event of events[type]) {
-          // Проверяем оба возможных места хранения регистраций
-          const registrations = 
-            event.registrations_list || 
-            (event.registrations?.reg_list ? event.registrations.reg_list : []);
-          
-          if (Array.isArray(registrations)) {
-            registrations.forEach(reg => {
-              if (reg.full_name && reg.email) {
-                allRegistrations.push({
-                  full_name: reg.full_name,
-                  email: reg.email
-                });
-              }
-            });
-          }
+
+const handleExport = async () => {
+  try {
+    // Собираем все регистрации из всех событий
+    const allRegistrations: { full_name: string; email: string }[] = [];
+    
+    // Проверяем все типы событий (nearest, upcoming, past)
+    const eventTypes = ['nearest', 'upcoming', 'past'] as const;
+    
+    for (const type of eventTypes) {
+      for (const event of events[type]) {
+        // Проверяем наличие registrations.reg_list
+        if (event.registrations?.reg_list && Array.isArray(event.registrations.reg_list)) {
+          event.registrations.reg_list.forEach(reg => {
+            if (reg.full_name && reg.email) {
+              allRegistrations.push({
+                full_name: reg.full_name,
+                email: reg.email
+              });
+            }
+          });
         }
       }
-      
-      // Формируем CSV-файл
-      let csvContent = 'Имя,Email\n';
-      
-      allRegistrations.forEach(reg => {
-        csvContent += `"${reg.full_name.replace(/"/g, '""')}","${reg.email}"\n`;
-      });
-      
-      // Создаем и скачиваем файл
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `participants_export_${new Date().toISOString().slice(0, 10)}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Уведомление об успешном экспорте
-      alert(`Экспортировано ${allRegistrations.length} участников`);
-    } catch (error) {
-      console.error('Ошибка при экспорте:', error);
-      alert('Произошла ошибка при экспорте данных');
     }
-  };
-
+    
+    // Формируем CSV-файл
+    let csvContent = 'Имя,Email\n';
+    
+    allRegistrations.forEach(reg => {
+      csvContent += `"${reg.full_name.replace(/"/g, '""')}","${reg.email}"\n`;
+    });
+    
+    // Создаем и скачиваем файл
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `participants_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Уведомление об успешном экспорте
+    alert(`Экспортировано ${allRegistrations.length} участников`);
+  } catch (error) {
+    console.error('Ошибка при экспорте:', error);
+    alert('Произошла ошибка при экспорте данных');
+  }
+};const handleExport = async () => {
+  try {
+    // Собираем все регистрации из всех событий
+    const allRegistrations: { full_name: string; email: string }[] = [];
+    
+    // Проверяем все типы событий (nearest, upcoming, past)
+    const eventTypes = ['nearest', 'upcoming', 'past'] as const;
+    
+    for (const type of eventTypes) {
+      for (const event of events[type]) {
+        // Проверяем наличие registrations.reg_list
+        if (event.registrations?.reg_list && Array.isArray(event.registrations.reg_list)) {
+          event.registrations.reg_list.forEach(reg => {
+            if (reg.full_name && reg.email) {
+              allRegistrations.push({
+                full_name: reg.full_name,
+                email: reg.email
+              });
+            }
+          });
+        }
+      }
+    }
+    
+    // Формируем CSV-файл
+    let csvContent = 'Имя,Email\n';
+    
+    allRegistrations.forEach(reg => {
+      csvContent += `"${reg.full_name.replace(/"/g, '""')}","${reg.email}"\n`;
+    });
+    
+    // Создаем и скачиваем файл
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `participants_export_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Уведомление об успешном экспорте
+    alert(`Экспортировано ${allRegistrations.length} участников`);
+  } catch (error) {
+    console.error('Ошибка при экспорте:', error);
+    alert('Произошла ошибка при экспорте данных');
+  }
+};
+  
+  
   // Функция расчета статистики
   const calculateStats = async () => {
     try {
