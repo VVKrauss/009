@@ -430,7 +430,7 @@ const EventsStatistics = () => {
 const handleExport = async () => {
   try {
     // Собираем все регистрации из всех событий
-    const allRegistrations: { full_name: string; email: string }[] = [];
+    const registrationsMap = new Map<string, { full_name: string; count: number }>();
     
     // Проверяем все типы событий (nearest, upcoming, past)
     const eventTypes = ['nearest', 'upcoming', 'past'] as const;
@@ -440,22 +440,44 @@ const handleExport = async () => {
         // Проверяем наличие registrations.reg_list
         if (event.registrations?.reg_list && Array.isArray(event.registrations.reg_list)) {
           event.registrations.reg_list.forEach(reg => {
-            if (reg.full_name && reg.email) {
-              allRegistrations.push({
-                full_name: reg.full_name,
-                email: reg.email 
-              });
+            if (reg.email && reg.full_name) {
+              const email = reg.email.toLowerCase().trim();
+              const current = registrationsMap.get(email);
+              
+              if (current) {
+                // Если email уже есть, увеличиваем счетчик
+                registrationsMap.set(email, {
+                  full_name: current.full_name, // сохраняем первое встреченное имя
+                  count: current.count + 1
+                });
+              } else {
+                // Новый email
+                registrationsMap.set(email, {
+                  full_name: reg.full_name.trim(),
+                  count: 1
+                });
+              }
             }
           });
         }
       }
     }
     
-    // Формируем CSV-файл
-    let csvContent = 'Имя,Email\n';
+    // Преобразуем в массив и сортируем по количеству регистраций (по убыванию)
+    const sortedRegistrations = Array.from(registrationsMap.entries())
+      .map(([email, data]) => ({
+        email,
+        full_name: data.full_name,
+        count: data.count
+      }))
+      .sort((a, b) => b.count - a.count);
     
-    allRegistrations.forEach(reg => {
-      csvContent += `"${reg.full_name.replace(/"/g, '""')}","${reg.email}"\n`;
+    // Формируем CSV-файл с BOM для корректного отображения кириллицы
+    const BOM = '\uFEFF';
+    let csvContent = BOM + 'Имя,Email,Число посещений\n';
+    
+    sortedRegistrations.forEach(reg => {
+      csvContent += `"${reg.full_name.replace(/"/g, '""')}","${reg.email}",${reg.count}\n`;
     });
     
     // Создаем и скачиваем файл
@@ -470,12 +492,14 @@ const handleExport = async () => {
     document.body.removeChild(link);
     
     // Уведомление об успешном экспорте
-    alert(`Экспортировано ${allRegistrations.length} участников`);
+    alert(`Экспортировано ${sortedRegistrations.length} уникальных участников`);
   } catch (error) {
     console.error('Ошибка при экспорте:', error);
     alert('Произошла ошибка при экспорте данных');
   }
 };
+
+
   
   // Функция расчета статистики
   const calculateStats = async () => {
