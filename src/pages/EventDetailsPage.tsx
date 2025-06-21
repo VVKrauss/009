@@ -40,10 +40,10 @@ interface Event {
   date: string;
   start_time: string;
   end_time: string;
-  location: string;
+  location?: string;
   age_category: string;
-  price: number;
-  currency: string;
+  price: number | null;
+  currency?: string;
   status: string;
   payment_type: string;
   payment_link?: string;
@@ -239,6 +239,9 @@ const EventDetailsPage = () => {
   const handleRegisterClick = () => {
     if (event?.payment_type === 'free' || event?.payment_type === 'donation') {
       setShowRegistrationModal(true);
+    } else if (event?.price === null && event?.payment_link) {
+      // For online payment only events, redirect directly to payment link
+      window.open(event.payment_link, '_blank');
     } else {
       setShowPaymentOptions(true);
     }
@@ -474,7 +477,9 @@ const EventDetailsPage = () => {
                           ? 'Бесплатно'
                           : event.payment_type === 'donation'
                             ? 'Донейшн'
-                            : `${event.price} ${event.currency}`
+                            : event.price === null
+                              ? 'Онлайн оплата'
+                              : `${event.price} ${event.currency}`
                         }
                       </span>
                     </div>
@@ -520,7 +525,7 @@ const EventDetailsPage = () => {
                     onClick={handleRegisterClick}
                     className="w-full btn-primary mb-4"
                   >
-                    Зарегистрироваться
+                    {event.price === null && event.payment_link ? 'Купить онлайн' : 'Зарегистрироваться'}
                   </button>
 
                   <div className="space-y-4 text-sm">
