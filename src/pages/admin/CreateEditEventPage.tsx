@@ -104,6 +104,7 @@ type EventData = {
   };
   registration_enabled?: boolean;
   registration_limit_per_user?: number;
+  google_calendar_event_id?: string;
 };
 
 const defaultEventData: EventData = {
@@ -298,6 +299,90 @@ const CreateEditEventPage = () => {
     return Object.keys(errors).length === 0;
   };
 
+  const createOrUpdateGoogleCalendarEvent = async (eventData: EventData, isNew: boolean): Promise<string | null> => {
+    try {
+      // Get access token from Supabase auth
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.provider_token) {
+        console.warn('No Google access token found, skipping calendar sync');
+        return null;
+      }
+
+      // Prepare event data for Google Calendar
+      const calendarEvent = {
+        summary: eventData.title,
+        description: eventData.description || eventData.short_description,
+        location: eventData.location,
+        start: {
+          dateTime: `${eventData.date}T${eventData.start_time}:00`,
+          timeZone: BELGRADE_TIMEZONE
+        },
+        end: {
+          dateTime: `${eventData.date}T${eventData.end_time}:00`,
+          timeZone: BELGRADE_TIMEZONE
+        },
+        reminders: {
+          useDefault: false,
+          overrides: [
+            { method: 'email', minutes: 24 * 60 }, // 1 day before
+            { method: 'popup', minutes: 60 } // 1 hour before
+          ]
+        }
+      };
+
+      let response;
+      const calendarId = 'primary'; // Use primary calendar
+
+      if (isNew || !eventData.google_calendar_event_id) {
+        // Create new event
+        response = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${session.provider_token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(calendarEvent)
+          }
+        );
+      } else {
+        // Update existing event
+        response = await fetch(
+          `https://www.googleapis.com/calendar/v3/calendars/${calendarId}/events/${eventData.google_calendar_event_id}`,
+          {
+            method: 'PUT',
+            headers: {
+              'Authorization': `Bearer ${session.provider_token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(calendarEvent)
+          }
+        );
+      }
+
+      if (!response.ok) {
+        const error = await response.json();
+        console.error('Google Calendar API error:', error);
+        
+        // If it's an auth error, just warn but don't fail the save
+        if (response.status === 401 || response.status === 403) {
+          toast.warning('Не удалось синхронизировать с Google Calendar. Проверьте права доступа.');
+          return null;
+        }
+        
+        throw new Error(error.error?.message || 'Failed to sync with Google Calendar');
+      }
+
+      const result = await response.json();
+      return result.id;
+    } catch (error) {
+      console.error('Error syncing with Google Calendar:', error);
+      toast.warning('Не удалось синхронизировать с Google Calendar, но мероприятие сохранено');
+      return null;
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -315,11 +400,15 @@ const CreateEditEventPage = () => {
     try {
       setSaving(true);
       
+      // First, try to create/update Google Calendar event
+      const googleCalendarEventId = await createOrUpdateGoogleCalendarEvent(eventData, isNew);
+      
       // Format times for database storage
       const formattedData = {
         ...eventData,
         start_time: formatDateTimeForDatabase(new Date(eventData.date), eventData.start_time),
         end_time: formatDateTimeForDatabase(new Date(eventData.date), eventData.end_time),
+        google_calendar_event_id: googleCalendarEventId || eventData.google_calendar_event_id
       };
       
       // Call the Edge Function instead of directly updating the database
@@ -365,6 +454,14 @@ const CreateEditEventPage = () => {
       }
 
       toast.success(isNew ? 'Мероприятие успешно создано' : 'Мероприятие успешно обновлено');
+      
+      if (googleCalendarEventId) {
+        toast.success('Событие синхронизировано с Google Calendar', {
+          icon: '📅',
+          duration: 3000,
+        });
+      }
+      
       navigate('/admin/events');
     } catch (error) {
       console.error('Error saving event:', error);
@@ -373,6 +470,7 @@ const CreateEditEventPage = () => {
       setSaving(false);
     }
   };
+
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
