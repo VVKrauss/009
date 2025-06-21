@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Users, Clock, ChevronDown, Loader2, Star, TrendingUp, Award, X, BarChart3, DollarSign, Eye, Grid3X3, List, CalendarDays, Gift, CreditCard } from 'lucide-react';
+import { Calendar, Users, Clock, ChevronDown, Loader2, Star, TrendingUp, Award, BarChart3, DollarSign, Eye, Grid3X3, List, CalendarDays, Gift, CreditCard } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { getSupabaseImageUrl } from '../../utils/imageUtils';
 import { Dialog } from '@headlessui/react';
 
-// Типы для экспорта
 type ExportType = 'visitors' | 'full_stats';
 
 // Функции форматирования
@@ -67,50 +66,8 @@ const getEventTypeIcon = (type: string) => {
   }
 };
 
-// Функция загрузки событий из Supabase
-const loadEventsFromSupabase = async (type: string, offset = 0, limit = 10) => {
-  try {
-    const now = new Date().toISOString();
-    let query = supabase.from('events').select('*');
-
-    if (type === 'nearest') {
-      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      query = query
-        .gte('start_time', now)
-        .lte('start_time', nextWeek)
-        .eq('status', 'active')
-        .order('start_time', { ascending: true })
-        .limit(1);
-    } else if (type === 'upcoming') {
-      query = query
-        .gte('start_time', now)
-        .eq('status', 'active')
-        .order('start_time', { ascending: true })
-        .range(offset, offset + limit - 1);
-    } else if (type === 'past') {
-      query = query
-        .or(`start_time.lt.${now},status.eq.past`)
-        .order('start_time', { ascending: false })
-        .range(offset, offset + limit - 1);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
-
-    return {
-      data: (data || []).filter(event => event && event.id),
-      hasMore: (data || []).length === limit
-    };
-  } catch (error) {
-    console.error('Error loading events:', error);
-    return { data: [], hasMore: false };
-  }
-};
-
 // Компонент карточки мероприятия
 const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, isPast?: boolean, isCompact?: boolean }) => {
-  if (!event) return null;
-
   const [speakers, setSpeakers] = useState<any[]>([]);
 
   useEffect(() => {
@@ -159,7 +116,6 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
 
   return (
     <div className={`group relative bg-white dark:bg-dark-800 rounded-xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600 ${isCompact ? 'p-4' : 'p-6'}`}>
-      {/* Цветная полоска сверху */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600"></div>
       
       <div className={isCompact ? 'mt-2' : 'mt-4'}>
@@ -271,15 +227,12 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
 
 // Компонент списочного элемента
 const EventListItem = ({ event, isPast = false }: { event: any, isPast?: boolean }) => {
-  if (!event) return null;
-
   const registrations = event.registrations || {};
   const currentRegs = parseInt(registrations.current || '0') || 0;
   const maxRegs = registrations.max_regs || 0;
 
   return (
     <div className="bg-white dark:bg-dark-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600 transition-all duration-200 hover:shadow-md relative overflow-hidden">
-      {/* Цветная полоска сверху */}
       <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600"></div>
       
       <div className="flex items-start justify-between mt-2">
@@ -398,6 +351,46 @@ const ViewToggle = ({ isListView, onToggle }: { isListView: boolean, onToggle: (
   </div>
 );
 
+// Функция загрузки событий из Supabase
+const loadEventsFromSupabase = async (type: string, offset = 0, limit = 10) => {
+  try {
+    const now = new Date().toISOString();
+    let query = supabase.from('events').select('*');
+
+    if (type === 'nearest') {
+      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      query = query
+        .gte('start_time', now)
+        .lte('start_time', nextWeek)
+        .eq('status', 'active')
+        .order('start_time', { ascending: true })
+        .limit(1);
+    } else if (type === 'upcoming') {
+      query = query
+        .gte('start_time', now)
+        .eq('status', 'active')
+        .order('start_time', { ascending: true })
+        .range(offset, offset + limit - 1);
+    } else if (type === 'past') {
+      query = query
+        .or(`start_time.lt.${now},status.eq.past`)
+        .order('start_time', { ascending: false })
+        .range(offset, offset + limit - 1);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+
+    return {
+      data: (data || []).filter(event => event && event.id),
+      hasMore: (data || []).length === limit
+    };
+  } catch (error) {
+    console.error('Error loading events:', error);
+    return { data: [], hasMore: false };
+  }
+};
+
 // Основной компонент
 const EventsStatistics = () => {
   const [activeTab, setActiveTab] = useState('dashboard');
@@ -430,81 +423,132 @@ const EventsStatistics = () => {
     completionRate: 0
   });
 
+  // Состояния для модального окна экспорта
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportType, setExportType] = useState<ExportType>('visitors');
 
-const handleExport = async () => {
-  try {
-    // Собираем все регистрации из всех событий
-    const registrationsMap = new Map<string, { full_name: string; count: number }>();
-    
-    // Проверяем все типы событий (nearest, upcoming, past)
-    const eventTypes = ['nearest', 'upcoming', 'past'] as const;
-    
-    for (const type of eventTypes) {
-      for (const event of events[type]) {
-        // Проверяем наличие registrations.reg_list
-        if (event.registrations?.reg_list && Array.isArray(event.registrations.reg_list)) {
-          event.registrations.reg_list.forEach(reg => {
-            if (reg.email && reg.full_name) {
-              const email = reg.email.toLowerCase().trim();
-              const current = registrationsMap.get(email);
-              
-              if (current) {
-                // Если email уже есть, увеличиваем счетчик
-                registrationsMap.set(email, {
-                  full_name: current.full_name, // сохраняем первое встреченное имя
-                  count: current.count + 1
-                });
-              } else {
-                // Новый email
-                registrationsMap.set(email, {
-                  full_name: reg.full_name.trim(),
-                  count: 1
-                });
+  // Функция экспорта только посетителей
+  const exportVisitors = async () => {
+    try {
+      const registrationsMap = new Map<string, { full_name: string; count: number }>();
+      
+      const eventTypes = ['nearest', 'upcoming', 'past'] as const;
+      
+      for (const type of eventTypes) {
+        for (const event of events[type]) {
+          if (event.registrations?.reg_list && Array.isArray(event.registrations.reg_list)) {
+            event.registrations.reg_list.forEach(reg => {
+              if (reg.email && reg.full_name) {
+                const email = reg.email.toLowerCase().trim();
+                const current = registrationsMap.get(email);
+                
+                if (current) {
+                  registrationsMap.set(email, {
+                    full_name: current.full_name,
+                    count: current.count + 1
+                  });
+                } else {
+                  registrationsMap.set(email, {
+                    full_name: reg.full_name.trim(),
+                    count: 1
+                  });
+                }
               }
-            }
+            });
+          }
+        }
+      }
+      
+      const sortedRegistrations = Array.from(registrationsMap.entries())
+        .map(([email, data]) => ({
+          email,
+          full_name: data.full_name,
+          count: data.count
+        }))
+        .sort((a, b) => b.count - a.count);
+      
+      const BOM = '\uFEFF';
+      let csvContent = BOM + 'Имя,Email,Число посещений\n';
+      
+      sortedRegistrations.forEach(reg => {
+        csvContent += `"${reg.full_name.replace(/"/g, '""')}","${reg.email}",${reg.count}\n`;
+      });
+      
+      downloadCSV(csvContent, 'visitors_export');
+      alert(`Экспортировано ${sortedRegistrations.length} уникальных посетителей`);
+    } catch (error) {
+      console.error('Ошибка экспорта посетителей:', error);
+      alert('Ошибка при экспорте данных посетителей');
+    }
+  };
+
+  // Функция экспорта полной статистики
+  const exportFullStats = async () => {
+    try {
+      const eventStats: Array<{
+        title: string;
+        date: string;
+        participants: number;
+        revenue: number;
+      }> = [];
+      
+      const eventTypes = ['nearest', 'upcoming', 'past'] as const;
+      
+      for (const type of eventTypes) {
+        for (const event of events[type]) {
+          const regs = event.registrations?.reg_list || [];
+          const participants = regs.length;
+          const revenue = regs.reduce((sum, reg) => sum + (reg.total_amount || 0), 0);
+          
+          eventStats.push({
+            title: event.title || 'Без названия',
+            date: formatDate(event.date || event.start_time),
+            participants,
+            revenue
           });
         }
       }
+      
+      const BOM = '\uFEFF';
+      let csvContent = BOM + 'Мероприятие,Дата,Участников,Выручка\n';
+      
+      eventStats.forEach(stat => {
+        csvContent += `"${stat.title.replace(/"/g, '""')}","${stat.date}",${stat.participants},${stat.revenue}\n`;
+      });
+      
+      downloadCSV(csvContent, 'full_stats_export');
+      alert(`Экспортирована статистика по ${eventStats.length} мероприятиям`);
+    } catch (error) {
+      console.error('Ошибка экспорта статистики:', error);
+      alert('Ошибка при экспорте полной статистики');
     }
-    
-    // Преобразуем в массив и сортируем по количеству регистраций (по убыванию)
-    const sortedRegistrations = Array.from(registrationsMap.entries())
-      .map(([email, data]) => ({
-        email,
-        full_name: data.full_name,
-        count: data.count
-      }))
-      .sort((a, b) => b.count - a.count);
-    
-    // Формируем CSV-файл с BOM для корректного отображения кириллицы
-    const BOM = '\uFEFF';
-    let csvContent = BOM + 'Имя,Email,Число посещений\n';
-    
-    sortedRegistrations.forEach(reg => {
-      csvContent += `"${reg.full_name.replace(/"/g, '""')}","${reg.email}",${reg.count}\n`;
-    });
-    
-    // Создаем и скачиваем файл
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  };
+
+  // Общая функция для скачивания CSV
+  const downloadCSV = (content: string, prefix: string) => {
+    const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `participants_export_${new Date().toISOString().slice(0, 10)}.csv`);
-    link.style.visibility = 'hidden';
+    link.setAttribute('download', `${prefix}_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
-    // Уведомление об успешном экспорте
-    alert(`Экспортировано ${sortedRegistrations.length} уникальных участников`);
-  } catch (error) {
-    console.error('Ошибка при экспорте:', error);
-    alert('Произошла ошибка при экспорте данных');
-  }
-};
+  };
 
+  const handleExportClick = () => {
+    setIsExportModalOpen(true);
+  };
 
-  
+  const handleExportConfirm = () => {
+    setIsExportModalOpen(false);
+    if (exportType === 'visitors') {
+      exportVisitors();
+    } else {
+      exportFullStats();
+    }
+  };
+
   // Функция расчета статистики
   const calculateStats = async () => {
     try {
@@ -727,7 +771,7 @@ const handleExport = async () => {
                           Статистика
                         </h3>
                         <button
-                          onClick={handleExport}
+                          onClick={handleExportClick}
                           className="flex items-center gap-2 bg-primary-500 hover:bg-primary-600 text-white px-3 py-1.5 rounded-lg transition-colors duration-200 shadow-sm text-sm"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -1005,7 +1049,7 @@ const handleExport = async () => {
                         ) : (
                           <>
                             <ChevronDown className="w-5 h-5 mr-2" />
-                            Показать еще 10 мероприятий 
+                            Показать еще 10 мероприятий
                           </>
                         )}
                       </button>
@@ -1028,6 +1072,74 @@ const handleExport = async () => {
             </div>
           )}
         </div>
+
+        {/* Модальное окно экспорта */}
+        <Dialog
+          open={isExportModalOpen}
+          onClose={() => setIsExportModalOpen(false)}
+          className="fixed z-50 inset-0 overflow-y-auto"
+        >
+          <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <Dialog.Overlay className="fixed inset-0 bg-black bg-opacity-30 transition-opacity" />
+            
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+            
+            <div className="inline-block align-bottom bg-white dark:bg-dark-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+              <div className="px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <Dialog.Title className="text-lg font-bold text-gray-900 dark:text-white mb-4">
+                  Выберите тип экспорта
+                </Dialog.Title>
+                
+                <div className="space-y-4 mb-6">
+                  <div className="flex items-start">
+                    <input
+                      id="visitors-export"
+                      type="radio"
+                      checked={exportType === 'visitors'}
+                      onChange={() => setExportType('visitors')}
+                      className="h-4 w-4 mt-1 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600"
+                    />
+                    <label htmlFor="visitors-export" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <span className="font-semibold">Только посетители</span>
+                      <p className="text-gray-500 dark:text-gray-400 mt-1">Содержит: Имя, Email, Число посещений</p>
+                    </label>
+                  </div>
+                  
+                  <div className="flex items-start">
+                    <input
+                      id="fullstats-export"
+                      type="radio"
+                      checked={exportType === 'full_stats'}
+                      onChange={() => setExportType('full_stats')}
+                      className="h-4 w-4 mt-1 text-primary-600 focus:ring-primary-500 border-gray-300 dark:border-gray-600"
+                    />
+                    <label htmlFor="fullstats-export" className="ml-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <span className="font-semibold">Полная статистика</span>
+                      <p className="text-gray-500 dark:text-gray-400 mt-1">Содержит: Мероприятие, Дата, Участников, Выручка</p>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+                <button
+                  type="button"
+                  onClick={handleExportConfirm}
+                  className="w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-primary-600 text-base font-medium text-white hover:bg-primary-700 focus:outline-none sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Экспортировать
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsExportModalOpen(false)}
+                  className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 dark:border-gray-600 shadow-sm px-4 py-2 bg-white dark:bg-dark-700 text-base font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-dark-600 focus:outline-none sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        </Dialog>
       </div>
     </div>
   );
