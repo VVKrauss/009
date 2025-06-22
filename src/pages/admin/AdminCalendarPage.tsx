@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { createClient } from '@supabase/supabase-js';
-import { Calendar, ChevronLeft, ChevronRight, Grid, List, Plus } from 'lucide-react';
 import { format, addDays, addWeeks, addMonths, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isSameMonth, isToday, setHours, setMinutes, parseISO, isBefore } from 'date-fns';
 import { ru } from 'date-fns/locale';
 import { toast } from 'react-hot-toast';
 import { Tooltip } from 'react-tooltip';
+import { Calendar, ChevronLeft, ChevronRight, Grid, List, Plus } from 'lucide-react';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -19,16 +19,24 @@ const WEEK_OPTIONS = { locale: ru, weekStartsOn: 1 };
 // === ТИПЫ ===
 interface TimeSlot {
   id: string;
-  start_at: string;
-  end_at: string;
   slot_details: {
-    type?: 'event' | 'rent';
+    date: string; // '2025-06-25'
+    start_at: string; // ISO timestamp
+    end_at: string; // ISO timestamp
     title?: string;
+    type?: 'event' | 'rent';
     description?: string;
-    booked?: boolean;
+    location?: string;
+    price?: number;
+    currency?: string;
+    payment_type?: 'free' | 'paid' | 'cost';
+    status?: 'draft' | 'active' | 'published' | 'cancelled';
+    event_id?: string;
     user_name?: string;
     user_contact?: string;
-    status?: 'draft' | 'published' | 'cancelled';
+    booked?: boolean;
+    created_at?: string;
+    updated_at?: string;
   };
 }
 
@@ -47,12 +55,11 @@ interface GroupedSlot extends TimeSlot {
 // === ХУКИ ===
 const useTimeUtils = () => {
   const parseTimestamp = useCallback((timestamp: string): Date => {
-    // Обрабатываем PostgreSQL timestamp with timezone формат
+    // Поддерживаем разные форматы timestamp
     if (timestamp.includes(' ') && timestamp.includes('+')) {
       const [datePart, timePart] = timestamp.split(' ');
       const [timeWithoutTz, tz] = timePart.split('+');
       
-      // Правильно форматируем timezone offset
       let timezone;
       if (tz === '00') {
         timezone = '+00:00';
@@ -87,13 +94,12 @@ const useTimeUtils = () => {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
-    }).split('.').reverse().join('-'); // Конвертируем в yyyy-MM-dd формат
+    }).split('.').reverse().join('-');
   }, [parseTimestamp]);
 
-  // Форматируем для datetime-local input (нужно локальное время)
+  // Форматируем для datetime-local input
   const formatForInput = useCallback((timestamp: string): string => {
     const date = parseTimestamp(timestamp);
-    // Для input нужно время в локальной зоне пользователя
     const year = date.getFullYear();
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const day = date.getDate().toString().padStart(2, '0');
@@ -112,7 +118,7 @@ const useTimeUtils = () => {
 const useSlotGrouping = (slots: TimeSlot[]) => {
   return useMemo(() => {
     return slots.reduce((acc, slot) => {
-      const dateKey = format(new Date(slot.start_at), 'yyyy-MM-dd');
+      const dateKey = slot.slot_details.date;
       const title = slot.slot_details.title || 'Без названия';
       const key = `${dateKey}-${title}`;
       
@@ -128,9 +134,9 @@ const useSlotGrouping = (slots: TimeSlot[]) => {
 };
 
 const useSlotPositioning = () => {
-  return useCallback((startTimestamp: string, endTimestamp: string) => {
-    const startDate = new Date(startTimestamp);
-    const endDate = new Date(endTimestamp);
+  return useCallback((slot: TimeSlot) => {
+    const startDate = new Date(slot.slot_details.start_at);
+    const endDate = new Date(slot.slot_details.end_at);
     
     const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
     const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
@@ -156,10 +162,13 @@ const useFilteredSlots = (slots: TimeSlot[], currentDate: Date, viewMode: ViewMo
     };
 
     const range = getDateRange();
-    const startISO = range.start.toISOString();
-    const endISO = new Date(range.end.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString();
+    const startDateStr = format(range.start, 'yyyy-MM-dd');
+    const endDateStr = format(range.end, 'yyyy-MM-dd');
 
-    return slots.filter(slot => slot.start_at >= startISO && slot.start_at <= endISO);
+    return slots.filter(slot => {
+      const slotDate = slot.slot_details.date;
+      return slotDate >= startDateStr && slotDate <= endDateStr;
+    });
   }, [slots, currentDate, viewMode]);
 };
 
@@ -230,7 +239,7 @@ const SlotComponent = ({
   className?: string;
 }) => {
   const { formatSlotTime, isSlotPast } = useTimeUtils();
-  const isPastSlot = isSlotPast(slot.end_at);
+  const isPastSlot = isSlotPast(slot.slot_details.end_at);
   
   const firstSlot = groupedSlot?.slots[0] || slot;
   const lastSlot = groupedSlot?.slots[groupedSlot?.slots.length - 1] || slot;
@@ -251,8 +260,10 @@ const SlotComponent = ({
   
   const tooltipContent = `
     ${slot.slot_details.title || 'Слот'}
-    Время: ${formatSlotTime(firstSlot.start_at)}-${formatSlotTime(lastSlot.end_at)}
+    Время: ${formatSlotTime(firstSlot.slot_details.start_at)}-${formatSlotTime(lastSlot.slot_details.end_at)}
+    ${slot.slot_details.location ? `Место: ${slot.slot_details.location}` : ''}
     ${slot.slot_details.description || ''}
+    ${slot.slot_details.price ? `Цена: ${slot.slot_details.price} ${slot.slot_details.currency || 'RSD'}` : ''}
     ${slot.slot_details.user_name ? `Клиент: ${slot.slot_details.user_name}` : ''}
     ${slot.slot_details.status ? `Статус: ${slot.slot_details.status}` : ''}
     ${isPastSlot ? 'Прошедшее мероприятие' : ''}
@@ -272,7 +283,7 @@ const SlotComponent = ({
       }}
     >
       <div className="font-medium truncate">
-        {formatSlotTime(firstSlot.start_at)} {slot.slot_details.title && `- ${slot.slot_details.title}`}
+        {formatSlotTime(firstSlot.slot_details.start_at)} {slot.slot_details.title && `- ${slot.slot_details.title}`}
         {slot.slot_details.status && (
           <span className="text-xs text-gray-500 ml-1">
             {getEventStatusText(slot.slot_details.status)}
@@ -346,7 +357,7 @@ const AdminCalendarPage = () => {
       const { data, error } = await supabase
         .from('time_slots_table')
         .select('*')
-        .order('start_at', { ascending: true });
+        .order('slot_details->start_at', { ascending: true });
 
       if (error) throw error;
       setTimeSlots(data || []);
@@ -378,9 +389,15 @@ const AdminCalendarPage = () => {
       mode: 'create',
       data: {
         id: '',
-        start_at: startAt.toISOString(),
-        end_at: endAt.toISOString(),
-        slot_details: { type: 'rent', title: '', booked: false }
+        slot_details: {
+          date: format(date, 'yyyy-MM-dd'),
+          start_at: startAt.toISOString(),
+          end_at: endAt.toISOString(),
+          type: 'rent',
+          title: '',
+          status: 'active',
+          booked: false
+        }
       }
     });
   }, []);
@@ -397,32 +414,33 @@ const AdminCalendarPage = () => {
     if (!modalState.data) return;
 
     try {
-      const { start_at, end_at, slot_details } = modalState.data;
+      const { slot_details } = modalState.data;
       
-      if (!start_at || !end_at) {
+      if (!slot_details.start_at || !slot_details.end_at) {
         toast.error('Заполните все обязательные поля');
         return;
       }
 
-      if (new Date(end_at) <= new Date(start_at)) {
+      if (new Date(slot_details.end_at) <= new Date(slot_details.start_at)) {
         toast.error('Время окончания должно быть позже времени начала');
         return;
       }
 
-      // Проверка пересечений
+      // Проверка пересечений через JSONB поля
       const { data: overlappingSlots, error: overlapError } = await supabase
         .from('time_slots_table')
         .select('*')
-        .or(`and(start_at.lte.${end_at},end_at.gte.${start_at})`)
+        .or(`and(slot_details->>start_at.lte.${slot_details.end_at},slot_details->>end_at.gte.${slot_details.start_at})`)
         .neq('id', modalState.mode === 'edit' ? modalState.data.id : '');
 
       if (overlapError) throw overlapError;
 
       if (overlappingSlots && overlappingSlots.length > 0) {
         const overlappingDetails = overlappingSlots.map(slot => {
-          const type = slot.slot_details?.type === 'event' ? 'Мероприятие' : 'Аренда';
-          const title = slot.slot_details?.title || 'Без названия';
-          const time = `${formatSlotTime(slot.start_at)}-${formatSlotTime(slot.end_at)}`;
+          const details = slot.slot_details;
+          const type = details?.type === 'event' ? 'Мероприятие' : 'Аренда';
+          const title = details?.title || 'Без названия';
+          const time = `${formatSlotTime(details.start_at)}-${formatSlotTime(details.end_at)}`;
           return `• ${type}: ${title} (${time})`;
         }).join('\n');
 
@@ -433,7 +451,7 @@ const AdminCalendarPage = () => {
       if (modalState.mode === 'edit') {
         const { error } = await supabase
           .from('time_slots_table')
-          .update({ start_at, end_at, slot_details })
+          .update({ slot_details })
           .eq('id', modalState.data.id);
 
         if (error) throw error;
@@ -441,7 +459,7 @@ const AdminCalendarPage = () => {
       } else {
         const { error } = await supabase
           .from('time_slots_table')
-          .insert([{ start_at, end_at, slot_details: { ...slot_details, type: 'rent' } }]);
+          .insert([{ slot_details: { ...slot_details, type: 'rent' } }]);
 
         if (error) throw error;
         toast.success('Слот создан');
@@ -493,9 +511,8 @@ const AdminCalendarPage = () => {
         
         {/* Дни месяца */}
         {days.map(day => {
-          const daySlots = filteredSlots.filter(slot => 
-            isSameDay(parseTimestamp(slot.start_at), day)
-          );
+          const dayKey = format(day, 'yyyy-MM-dd');
+          const daySlots = filteredSlots.filter(slot => slot.slot_details.date === dayKey);
           const isCurrentMonth = isSameMonth(day, currentDate);
           const isDayToday = isToday(day);
 
@@ -548,7 +565,7 @@ const AdminCalendarPage = () => {
         {days.map(day => {
           const dayKey = format(day, 'yyyy-MM-dd');
           const dayGroupedSlots = Object.values(groupedSlots).filter(
-            group => format(parseTimestamp(group.start_at), 'yyyy-MM-dd') === dayKey
+            group => group.slot_details.date === dayKey
           );
 
           return (
@@ -572,9 +589,7 @@ const AdminCalendarPage = () => {
                 ))}
 
                 {dayGroupedSlots.map((group, idx) => {
-                  const firstSlot = group.slots[0];
-                  const lastSlot = group.slots[group.slots.length - 1];
-                  const { top, height } = getSlotPosition(firstSlot.start_at, lastSlot.end_at);
+                  const { top, height } = getSlotPosition(group);
 
                   return (
                     <SlotComponent
@@ -599,7 +614,7 @@ const AdminCalendarPage = () => {
   const renderDayView = () => {
     const dayKey = format(currentDate, 'yyyy-MM-dd');
     const dayGroupedSlots = Object.values(groupedSlots).filter(
-      group => format(parseTimestamp(group.start_at), 'yyyy-MM-dd') === dayKey
+      group => group.slot_details.date === dayKey
     );
 
     return (
@@ -627,9 +642,7 @@ const AdminCalendarPage = () => {
           ))}
 
           {dayGroupedSlots.map((group, idx) => {
-            const firstSlot = group.slots[0];
-            const lastSlot = group.slots[group.slots.length - 1];
-            const { top, height } = getSlotPosition(firstSlot.start_at, lastSlot.end_at);
+            const { top, height } = getSlotPosition(group);
 
             return (
               <SlotComponent
@@ -701,7 +714,29 @@ const AdminCalendarPage = () => {
 
             {/* Кнопка создания */}
             <button
-              onClick={() => handleTimeSlotClick(currentDate, 10)}
+              onClick={() => {
+                const startAt = new Date(currentDate);
+                startAt.setHours(10, 0, 0, 0);
+                const endAt = new Date(startAt);
+                endAt.setHours(11, 0, 0, 0);
+                
+                setModalState({
+                  isOpen: true,
+                  mode: 'create',
+                  data: {
+                    id: '',
+                    slot_details: {
+                      date: format(currentDate, 'yyyy-MM-dd'),
+                      start_at: startAt.toISOString(),
+                      end_at: endAt.toISOString(),
+                      type: 'rent',
+                      title: '',
+                      status: 'active',
+                      booked: false
+                    }
+                  }
+                });
+              }}
               className="p-2 rounded-md bg-green-600 text-white hover:bg-green-700 transition-colors flex items-center gap-1"
             >
               <Plus className="w-5 h-5" />
@@ -755,7 +790,7 @@ const AdminCalendarPage = () => {
       {/* Модальное окно */}
       {modalState.isOpen && modalState.data && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-dark-800 rounded-lg shadow-xl p-6 w-full max-w-md">
+          <div className="bg-white dark:bg-dark-800 rounded-lg shadow-xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">
               {modalState.mode === 'edit' ? 'Редактировать слот' : 'Создать новый слот'}
             </h2>
@@ -767,18 +802,23 @@ const AdminCalendarPage = () => {
                 </label>
                 <input
                   type="datetime-local"
-                  value={modalState.data.start_at ? formatForInput(modalState.data.start_at) : ''}
+                  value={modalState.data.slot_details.start_at ? formatForInput(modalState.data.slot_details.start_at) : ''}
                   onChange={(e) => {
                     if (e.target.value) {
                       const startAt = new Date(e.target.value).toISOString();
+                      const currentDate = new Date(e.target.value);
                       setModalState(prev => ({
                         ...prev,
                         data: prev.data ? {
                           ...prev.data,
-                          start_at: startAt,
-                          end_at: !prev.data.end_at || new Date(prev.data.end_at) <= new Date(startAt) 
-                            ? new Date(new Date(startAt).getTime() + 60 * 60 * 1000).toISOString()
-                            : prev.data.end_at
+                          slot_details: {
+                            ...prev.data.slot_details,
+                            date: format(currentDate, 'yyyy-MM-dd'),
+                            start_at: startAt,
+                            end_at: !prev.data.slot_details.end_at || new Date(prev.data.slot_details.end_at) <= new Date(startAt) 
+                              ? new Date(new Date(startAt).getTime() + 60 * 60 * 1000).toISOString()
+                              : prev.data.slot_details.end_at
+                          }
                         } : null
                       }));
                     }
@@ -793,14 +833,18 @@ const AdminCalendarPage = () => {
                 </label>
                 <input
                   type="datetime-local"
-                  value={modalState.data.end_at ? formatForInput(modalState.data.end_at) : ''}
+                  value={modalState.data.slot_details.end_at ? formatForInput(modalState.data.slot_details.end_at) : ''}
                   onChange={(e) => {
                     if (e.target.value) {
+                      const endAt = new Date(e.target.value).toISOString();
                       setModalState(prev => ({
                         ...prev,
                         data: prev.data ? {
                           ...prev.data,
-                          end_at: new Date(e.target.value).toISOString()
+                          slot_details: {
+                            ...prev.data.slot_details,
+                            end_at: endAt
+                          }
                         } : null
                       }));
                     }
@@ -827,29 +871,7 @@ const AdminCalendarPage = () => {
                     } : null
                   }))}
                   className="w-full p-2 border rounded-md dark:bg-dark-700 border-gray-300 dark:border-dark-600"
-                  placeholder="Название аренды"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">
-                  Описание
-                </label>
-                <textarea
-                  value={modalState.data.slot_details?.description || ''}
-                  onChange={(e) => setModalState(prev => ({
-                    ...prev,
-                    data: prev.data ? {
-                      ...prev.data,
-                      slot_details: {
-                        ...prev.data.slot_details,
-                        description: e.target.value
-                      }
-                    } : null
-                  }))}
-                  className="w-full p-2 border rounded-md dark:bg-dark-700 border-gray-300 dark:border-dark-600"
-                  rows={3}
-                  placeholder="Дополнительная информация"
+                  placeholder="Название аренды или мероприятия"
                 />
               </div>
 
@@ -858,22 +880,23 @@ const AdminCalendarPage = () => {
                   Статус
                 </label>
                 <select
-                  value={modalState.data.slot_details?.status || 'published'}
+                  value={modalState.data.slot_details?.status || 'active'}
                   onChange={(e) => setModalState(prev => ({
                     ...prev,
                     data: prev.data ? {
                       ...prev.data,
                       slot_details: {
                         ...prev.data.slot_details,
-                        status: e.target.value as 'draft' | 'published' | 'cancelled'
+                        status: e.target.value as 'draft' | 'active' | 'published' | 'cancelled'
                       }
                     } : null
                   }))}
                   className="w-full p-2 border rounded-md dark:bg-dark-700 border-gray-300 dark:border-dark-600"
                 >
-                  <option value="published">Опубликован</option>
+                  <option value="active">Активно</option>
                   <option value="draft">Черновик</option>
-                  <option value="cancelled">Отменен</option>
+                  <option value="published">Опубликовано</option>
+                  <option value="cancelled">Отменено</option>
                 </select>
               </div>
 
