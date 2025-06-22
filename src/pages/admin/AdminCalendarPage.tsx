@@ -47,25 +47,66 @@ interface GroupedSlot extends TimeSlot {
 // === ХУКИ ===
 const useTimeUtils = () => {
   const parseTimestamp = useCallback((timestamp: string): Date => {
+    // Обрабатываем PostgreSQL timestamp with timezone формат
     if (timestamp.includes(' ') && timestamp.includes('+')) {
-      return new Date(timestamp.replace(' ', 'T'));
+      const [datePart, timePart] = timestamp.split(' ');
+      const [timeWithoutTz, tz] = timePart.split('+');
+      
+      // Правильно форматируем timezone offset
+      let timezone;
+      if (tz === '00') {
+        timezone = '+00:00';
+      } else if (tz.length === 2) {
+        timezone = `+${tz}:00`;
+      } else {
+        timezone = `+${tz}`;
+      }
+      
+      const isoFormat = `${datePart}T${timeWithoutTz}${timezone}`;
+      return new Date(isoFormat);
     }
     return parseISO(timestamp);
   }, []);
 
+  // Форматируем время для отображения в временной зоне Белграда
   const formatSlotTime = useCallback((timestamp: string): string => {
-    return format(parseTimestamp(timestamp), 'HH:mm');
+    const date = parseTimestamp(timestamp);
+    return date.toLocaleString('sr-RS', {
+      timeZone: 'Europe/Belgrade',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
   }, [parseTimestamp]);
 
+  // Получаем дату в временной зоне Белграда
   const getSlotDate = useCallback((timestamp: string): string => {
-    return format(parseTimestamp(timestamp), 'yyyy-MM-dd');
+    const date = parseTimestamp(timestamp);
+    return date.toLocaleDateString('sr-RS', {
+      timeZone: 'Europe/Belgrade',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).split('.').reverse().join('-'); // Конвертируем в yyyy-MM-dd формат
+  }, [parseTimestamp]);
+
+  // Форматируем для datetime-local input (нужно локальное время)
+  const formatForInput = useCallback((timestamp: string): string => {
+    const date = parseTimestamp(timestamp);
+    // Для input нужно время в локальной зоне пользователя
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   }, [parseTimestamp]);
 
   const isSlotPast = useCallback((endTimestamp: string): boolean => {
     return isBefore(parseTimestamp(endTimestamp), new Date());
   }, [parseTimestamp]);
 
-  return { parseTimestamp, formatSlotTime, getSlotDate, isSlotPast };
+  return { parseTimestamp, formatSlotTime, getSlotDate, formatForInput, isSlotPast };
 };
 
 const useSlotGrouping = (slots: TimeSlot[]) => {
@@ -258,7 +299,7 @@ const AdminCalendarPage = () => {
     data: null
   });
 
-  const { parseTimestamp, formatSlotTime } = useTimeUtils();
+  const { parseTimestamp, formatSlotTime, formatForInput } = useTimeUtils();
   const filteredSlots = useFilteredSlots(timeSlots, currentDate, viewMode);
   const groupedSlots = useSlotGrouping(filteredSlots);
   const getSlotPosition = useSlotPositioning();
@@ -633,6 +674,14 @@ const AdminCalendarPage = () => {
           </div>
         </div>
 
+        {/* Индикатор временной зоны */}
+        <div className="flex items-center gap-4 mb-2 text-sm text-gray-600 dark:text-gray-400">
+          <div className="flex items-center gap-2">
+            <span>🕐</span>
+            <span>Время отображается по Белграду (Europe/Belgrade)</span>
+          </div>
+        </div>
+
         {/* Легенда статусов */}
         <div className="flex items-center gap-4 mb-4 text-sm">
           <div className="flex items-center gap-2">
@@ -682,7 +731,7 @@ const AdminCalendarPage = () => {
                 </label>
                 <input
                   type="datetime-local"
-                  value={modalState.data.start_at ? format(parseTimestamp(modalState.data.start_at), "yyyy-MM-dd'T'HH:mm") : ''}
+                  value={modalState.data.start_at ? formatForInput(modalState.data.start_at) : ''}
                   onChange={(e) => {
                     if (e.target.value) {
                       const startAt = new Date(e.target.value).toISOString();
@@ -708,7 +757,7 @@ const AdminCalendarPage = () => {
                 </label>
                 <input
                   type="datetime-local"
-                  value={modalState.data.end_at ? format(parseTimestamp(modalState.data.end_at), "yyyy-MM-dd'T'HH:mm") : ''}
+                  value={modalState.data.end_at ? formatForInput(modalState.data.end_at) : ''}
                   onChange={(e) => {
                     if (e.target.value) {
                       setModalState(prev => ({
