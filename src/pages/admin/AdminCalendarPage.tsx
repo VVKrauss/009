@@ -165,18 +165,29 @@ const useFilteredSlots = (slots: TimeSlot[], currentDate: Date, viewMode: ViewMo
 
 // === УТИЛИТЫ ===
 const getSlotColorClasses = (type?: string, status?: string, isPast: boolean = false) => {
+  // Debug логирование
+  console.log('getSlotColorClasses called with:', { type, status, isPast });
+  
   if (isPast) {
+    console.log('→ Applying past style');
     return 'bg-gray-100 dark:bg-gray-800 border-l-4 border-gray-400 opacity-60';
   }
   
   if (status === 'draft') {
+    console.log('→ Applying draft style');
     return 'bg-gray-50 dark:bg-gray-700/50 border-l-4 border-gray-300 opacity-80';
   }
 
   switch (type) {
-    case 'event': return 'bg-green-50 dark:bg-green-900/30 border-l-4 border-green-500';
-    case 'rent': return 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500';
-    default: return 'bg-gray-50 dark:bg-gray-700 border-l-4 border-gray-300';
+    case 'event': 
+      console.log('→ Applying event style');
+      return 'bg-green-50 dark:bg-green-900/30 border-l-4 border-green-500';
+    case 'rent': 
+      console.log('→ Applying rent style');
+      return 'bg-blue-50 dark:bg-blue-900/30 border-l-4 border-blue-500';
+    default: 
+      console.log('→ Applying default style');
+      return 'bg-gray-50 dark:bg-gray-700 border-l-4 border-gray-300';
   }
 };
 
@@ -213,6 +224,20 @@ const SlotComponent = ({
   const firstSlot = groupedSlot?.slots[0] || slot;
   const lastSlot = groupedSlot?.slots[groupedSlot?.slots.length - 1] || slot;
   
+  // Debug логирование для отслеживания статуса
+  console.log('SlotComponent Debug:', {
+    title: slot.slot_details.title,
+    type: slot.slot_details.type,
+    status: slot.slot_details.status,
+    isPast: isPastSlot
+  });
+  
+  const colorClasses = getSlotColorClasses(
+    slot.slot_details.type, 
+    slot.slot_details.status, 
+    isPastSlot
+  );
+  
   const tooltipContent = `
     ${slot.slot_details.title || 'Слот'}
     Время: ${formatSlotTime(firstSlot.start_at)}-${formatSlotTime(lastSlot.end_at)}
@@ -226,11 +251,7 @@ const SlotComponent = ({
     <div
       data-tooltip-id={`tooltip-${slot.id}`}
       data-tooltip-content={tooltipContent}
-      className={`rounded cursor-pointer ${getSlotColorClasses(
-        slot.slot_details.type, 
-        slot.slot_details.status, 
-        isPastSlot
-      )} ${className}`}
+      className={`rounded cursor-pointer ${colorClasses} ${className}`}
       style={style}
       onClick={(e) => {
         e.stopPropagation();
