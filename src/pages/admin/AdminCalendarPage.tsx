@@ -13,11 +13,8 @@ const supabase = createClient(
 
 interface TimeSlot {
   id: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  start_at: string;
-  end_at: string;
+  start_at: string; // ISO timestamp - единственный источник времени
+  end_at: string;   // ISO timestamp - единственный источник времени
   slot_details: {
     type?: 'event' | 'rent';
     title?: string;
@@ -36,9 +33,8 @@ const AdminCalendarPage = () => {
   const [newSlotModal, setNewSlotModal] = useState(false);
   const [editingSlot, setEditingSlot] = useState<TimeSlot | null>(null);
   const [newSlotData, setNewSlotData] = useState<Partial<TimeSlot>>({
-    date: format(new Date(), 'yyyy-MM-dd'),
-    start_time: '10:00',
-    end_time: '11:00',
+    start_at: new Date().toISOString(),
+    end_at: addDays(new Date(), 0).toISOString(),
     slot_details: {
       type: 'rent',
       title: '',
@@ -51,18 +47,27 @@ const AdminCalendarPage = () => {
     weekStartsOn: 1 
   };
 
+  // Вспомогательные функции для работы с датами
+  const getDateFromSlot = (slot: TimeSlot): Date => parseISO(slot.start_at);
+  const getStartTime = (slot: TimeSlot): string => format(parseISO(slot.start_at), 'HH:mm');
+  const getEndTime = (slot: TimeSlot): string => format(parseISO(slot.end_at), 'HH:mm');
+  const getDateString = (slot: TimeSlot): string => format(parseISO(slot.start_at), 'yyyy-MM-dd');
+
   const fetchTimeSlots = async () => {
     try {
       setLoading(true);
       const range = getDateRange();
       
+      // Конвертируем диапазон дат в ISO timestamps для сравнения
+      const startISO = range.start.toISOString();
+      const endISO = new Date(range.end.getTime() + 24 * 60 * 60 * 1000 - 1).toISOString(); // конец дня
+
       const { data, error } = await supabase
         .from('time_slots_table')
         .select('*')
-        .gte('date', format(range.start, 'yyyy-MM-dd'))
-        .lte('date', format(range.end, 'yyyy-MM-dd'))
-        .order('date', { ascending: true })
-        .order('start_time', { ascending: true });
+        .gte('start_at', startISO)
+        .lte('start_at', endISO)
+        .order('start_at', { ascending: true });
 
       if (error) throw error;
       setTimeSlots(data || []);
@@ -100,19 +105,15 @@ const AdminCalendarPage = () => {
   };
 
   const handleTimeSlotClick = (date: Date, hour: number) => {
-    const formattedDate = format(date, 'yyyy-MM-dd');
-    const startTime = `${hour.toString().padStart(2, '0')}:00`;
-    const endTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
+    const startAt = new Date(date);
+    startAt.setHours(hour, 0, 0, 0);
     
-    const startAt = new Date(`${formattedDate}T${startTime}:00Z`).toISOString();
-    const endAt = new Date(`${formattedDate}T${endTime}:00Z`).toISOString();
+    const endAt = new Date(startAt);
+    endAt.setHours(hour + 1, 0, 0, 0);
     
     setNewSlotData({
-      date: formattedDate,
-      start_time: startTime,
-      end_time: endTime,
-      start_at: startAt,
-      end_at: endAt,
+      start_at: startAt.toISOString(),
+      end_at: endAt.toISOString(),
       slot_details: {
         type: 'rent',
         title: '',
@@ -128,9 +129,6 @@ const AdminCalendarPage = () => {
     setEditingSlot(slot);
     setNewSlotData({
       id: slot.id,
-      date: slot.date,
-      start_time: slot.start_time,
-      end_time: slot.end_time,
       start_at: slot.start_at,
       end_at: slot.end_at,
       slot_details: {
@@ -143,95 +141,86 @@ const AdminCalendarPage = () => {
     setNewSlotModal(true);
   };
 
-const createOrUpdateTimeSlot = async () => {
-  try {
-    if (!newSlotData.date || !newSlotData.start_time || !newSlotData.end_time) {
-      toast.error('Заполните все обязательные поля');
-      return;
-    }
+  const createOrUpdateTimeSlot = async () => {
+    try {
+      if (!newSlotData.start_at || !newSlotData.end_at) {
+        toast.error('Заполните все обязательные поля');
+        return;
+      }
 
-    const startAt = new Date(`${newSlotData.date}T${newSlotData.start_time}:00Z`).toISOString();
-    const endAt = new Date(`${newSlotData.date}T${newSlotData.end_time}:00Z`).toISOString();
+      const startAt = new Date(newSlotData.start_at);
+      const endAt = new Date(newSlotData.end_at);
 
-    // Проверка на корректность временного интервала
-    if (new Date(endAt) <= new Date(startAt)) {
-      toast.error('Время окончания должно быть позже времени начала');
-      return;
-    }
+      // Проверка на корректность временного интервала
+      if (endAt <= startAt) {
+        toast.error('Время окончания должно быть позже времени начала');
+        return;
+      }
 
-    // Проверка на пересечение временных интервалов
-    const { data: overlappingSlots, error: overlapError } = await supabase
-      .from('time_slots_table')
-      .select('*')
-      .or(`and(start_at.lte.${endAt},end_at.gte.${startAt})`)
-      .neq('id', editingSlot?.id || ''); // Исключаем текущий слот при редактировании
-
-    if (overlapError) throw overlapError;
-
-    if (overlappingSlots && overlappingSlots.length > 0) {
-      // Формируем детальное сообщение о занятых слотах
-      const overlappingDetails = overlappingSlots.map(slot => {
-        const type = slot.slot_details?.type === 'event' ? 'Мероприятие' : 'Аренда';
-        const title = slot.slot_details?.title || 'Без названия';
-        const time = `${slot.start_time}-${slot.end_time}`;
-        const description = slot.slot_details?.description ? `\nОписание: ${slot.slot_details.description}` : '';
-        const clientInfo = slot.slot_details?.user_name ? `\nКлиент: ${slot.slot_details.user_name}` : '';
-        
-        return `• ${type}: ${title}\n  Время: ${time}${description}${clientInfo}`;
-      }).join('\n\n');
-
-      toast.error(
-        `Выбранное время пересекается с существующими слотами:\n\n${overlappingDetails}\n\nПожалуйста, выберите другое время.`,
-        { duration: 8000 } // Увеличиваем время показа уведомления
-      );
-      return;
-    }
-
-    if (editingSlot) {
-      const { data, error } = await supabase
+      // Проверка на пересечение временных интервалов
+      const { data: overlappingSlots, error: overlapError } = await supabase
         .from('time_slots_table')
-        .update({
-          date: newSlotData.date,
-          start_time: newSlotData.start_time,
-          end_time: newSlotData.end_time,
-          start_at: startAt,
-          end_at: endAt,
-          slot_details: newSlotData.slot_details
-        })
-        .eq('id', editingSlot.id)
-        .select();
+        .select('*')
+        .or(`and(start_at.lte.${newSlotData.end_at},end_at.gte.${newSlotData.start_at})`)
+        .neq('id', editingSlot?.id || '');
 
-      if (error) throw error;
-      toast.success('Слот успешно обновлен');
-    } else {
-      const { data, error } = await supabase
-        .from('time_slots_table')
-        .insert([{
-          date: newSlotData.date,
-          start_time: newSlotData.start_time,
-          end_time: newSlotData.end_time,
-          start_at: startAt,
-          end_at: endAt,
-          slot_details: {
-            ...newSlotData.slot_details,
-            type: 'rent'
-          }
-        }])
-        .select();
+      if (overlapError) throw overlapError;
 
-      if (error) throw error;
-      toast.success('Слот успешно создан');
+      if (overlappingSlots && overlappingSlots.length > 0) {
+        const overlappingDetails = overlappingSlots.map(slot => {
+          const type = slot.slot_details?.type === 'event' ? 'Мероприятие' : 'Аренда';
+          const title = slot.slot_details?.title || 'Без названия';
+          const time = `${format(parseISO(slot.start_at), 'HH:mm')}-${format(parseISO(slot.end_at), 'HH:mm')}`;
+          const description = slot.slot_details?.description ? `\nОписание: ${slot.slot_details.description}` : '';
+          const clientInfo = slot.slot_details?.user_name ? `\nКлиент: ${slot.slot_details.user_name}` : '';
+          
+          return `• ${type}: ${title}\n  Время: ${time}${description}${clientInfo}`;
+        }).join('\n\n');
+
+        toast.error(
+          `Выбранное время пересекается с существующими слотами:\n\n${overlappingDetails}\n\nПожалуйста, выберите другое время.`,
+          { duration: 8000 }
+        );
+        return;
+      }
+
+      if (editingSlot) {
+        const { data, error } = await supabase
+          .from('time_slots_table')
+          .update({
+            start_at: newSlotData.start_at,
+            end_at: newSlotData.end_at,
+            slot_details: newSlotData.slot_details
+          })
+          .eq('id', editingSlot.id)
+          .select();
+
+        if (error) throw error;
+        toast.success('Слот успешно обновлен');
+      } else {
+        const { data, error } = await supabase
+          .from('time_slots_table')
+          .insert([{
+            start_at: newSlotData.start_at,
+            end_at: newSlotData.end_at,
+            slot_details: {
+              ...newSlotData.slot_details,
+              type: 'rent'
+            }
+          }])
+          .select();
+
+        if (error) throw error;
+        toast.success('Слот успешно создан');
+      }
+      
+      setNewSlotModal(false);
+      fetchTimeSlots();
+    } catch (err) {
+      console.error('Error saving time slot:', err);
+      toast.error(editingSlot ? 'Ошибка обновления слота' : 'Ошибка создания слота');
     }
-    
-    setNewSlotModal(false);
-    fetchTimeSlots();
-  } catch (err) {
-    console.error('Error saving time slot:', err);
-    toast.error(editingSlot ? 'Ошибка обновления слота' : 'Ошибка создания слота');
-  }
-};
-  
-
+  };
   
   const deleteTimeSlot = async (id: string, type?: string) => {
     if (type === 'event') {
@@ -297,7 +286,7 @@ const createOrUpdateTimeSlot = async () => {
         
         {days.map(day => {
           const daySlots = timeSlots.filter(slot => 
-            isSameDay(new Date(slot.date), day)
+            isSameDay(getDateFromSlot(slot), day)
           );
 
           const isCurrentMonth = isSameMonth(day, currentDate);
@@ -325,7 +314,7 @@ const createOrUpdateTimeSlot = async () => {
                   <div 
                     key={slot.id}
                     data-tooltip-id={`tooltip-${slot.id}`}
-                    data-tooltip-content={`${slot.slot_details.title || 'Слот'}\n${slot.start_time}-${slot.end_time}\n${slot.slot_details.description || ''}`}
+                    data-tooltip-content={`${slot.slot_details.title || 'Слот'}\n${getStartTime(slot)}-${getEndTime(slot)}\n${slot.slot_details.description || ''}`}
                     className={`text-xs p-1 rounded cursor-pointer ${getSlotColorClasses(slot.slot_details.type)}`}
                     onClick={(e) => {
                       e.stopPropagation();
@@ -335,7 +324,7 @@ const createOrUpdateTimeSlot = async () => {
                     }}
                   >
                     <div className="truncate">
-                      {slot.start_time} - {slot.slot_details.title || 'Слот'}
+                      {getStartTime(slot)} - {slot.slot_details.title || 'Слот'}
                     </div>
                     <Tooltip id={`tooltip-${slot.id}`} className="z-50" />
                   </div>
@@ -356,9 +345,9 @@ const createOrUpdateTimeSlot = async () => {
     });
 
     const groupedSlots = timeSlots.reduce((acc, slot) => {
-      const date = slot.date;
+      const dateKey = getDateString(slot);
       const title = slot.slot_details.title || 'Без названия';
-      const key = `${date}-${title}`;
+      const key = `${dateKey}-${title}`;
       
       if (!acc[key]) {
         acc[key] = {
@@ -385,7 +374,7 @@ const createOrUpdateTimeSlot = async () => {
         {days.map(day => {
           const dayKey = format(day, 'yyyy-MM-dd');
           const dayGroupedSlots = Object.values(groupedSlots).filter(
-            group => group.date === dayKey
+            group => getDateString(group) === dayKey
           );
 
           return (
@@ -419,11 +408,11 @@ const createOrUpdateTimeSlot = async () => {
                   const firstSlot = group.slots[0];
                   const lastSlot = group.slots[group.slots.length - 1];
                   
-                  const [startHour, startMin] = firstSlot.start_time.split(':').map(Number);
-                  const [endHour, endMin] = lastSlot.end_time.split(':').map(Number);
+                  const startDate = parseISO(firstSlot.start_at);
+                  const endDate = parseISO(lastSlot.end_at);
                   
-                  const startMinutes = startHour * 60 + startMin;
-                  const endMinutes = endHour * 60 + endMin;
+                  const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
+                  const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
                   const top = (startMinutes - 9 * 60) / ((23 - 9) * 60) * 100;
                   const height = (endMinutes - startMinutes) / ((23 - 9) * 60) * 100;
 
@@ -433,7 +422,7 @@ const createOrUpdateTimeSlot = async () => {
                       data-tooltip-id={`tooltip-${group.id}`}
                       data-tooltip-content={`
                         ${group.slot_details.title || 'Слот'}\n
-                        Время: ${firstSlot.start_time}-${lastSlot.end_time}\n
+                        Время: ${getStartTime(firstSlot)}-${getEndTime(lastSlot)}\n
                         ${group.slot_details.description || ''}\n
                         ${group.slot_details.user_name ? `Клиент: ${group.slot_details.user_name}` : ''}
                       `}
@@ -451,7 +440,7 @@ const createOrUpdateTimeSlot = async () => {
                       }}
                     >
                       <div className="font-medium truncate">
-                        {firstSlot.start_time} {group.slot_details.title && `- ${group.slot_details.title}`}
+                        {getStartTime(firstSlot)} {group.slot_details.title && `- ${group.slot_details.title}`}
                       </div>
                       {group.slot_details.type !== 'event' && (
                         <button 
@@ -482,7 +471,7 @@ const createOrUpdateTimeSlot = async () => {
 
   const renderDay = () => {
     const dayKey = format(currentDate, 'yyyy-MM-dd');
-    const daySlots = timeSlots.filter(slot => slot.date === dayKey);
+    const daySlots = timeSlots.filter(slot => getDateString(slot) === dayKey);
 
     const groupedSlots = daySlots.reduce((acc, slot) => {
       const title = slot.slot_details.title || 'Без названия';
@@ -537,11 +526,11 @@ const createOrUpdateTimeSlot = async () => {
               const firstSlot = group.slots[0];
               const lastSlot = group.slots[group.slots.length - 1];
               
-              const [startHour, startMin] = firstSlot.start_time.split(':').map(Number);
-              const [endHour, endMin] = lastSlot.end_time.split(':').map(Number);
+              const startDate = parseISO(firstSlot.start_at);
+              const endDate = parseISO(lastSlot.end_at);
               
-              const startMinutes = startHour * 60 + startMin;
-              const endMinutes = endHour * 60 + endMin;
+              const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
+              const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
               const top = (startMinutes - 9 * 60) / ((23 - 9) * 60) * 100;
               const height = (endMinutes - startMinutes) / ((23 - 9) * 60) * 100;
 
@@ -551,7 +540,7 @@ const createOrUpdateTimeSlot = async () => {
                   data-tooltip-id={`tooltip-${group.id}`}
                   data-tooltip-content={`
                     ${group.slot_details.title || 'Слот'}\n
-                    Время: ${firstSlot.start_time}-${lastSlot.end_time}\n
+                    Время: ${getStartTime(firstSlot)}-${getEndTime(lastSlot)}\n
                     ${group.slot_details.description || ''}\n
                     ${group.slot_details.user_name ? `Клиент: ${group.slot_details.user_name}` : ''}
                   `}
@@ -569,7 +558,7 @@ const createOrUpdateTimeSlot = async () => {
                   }}
                 >
                   <div className="font-medium truncate">
-                    {firstSlot.start_time} {group.slot_details.title && `- ${group.slot_details.title}`}
+                    {getStartTime(firstSlot)} {group.slot_details.title && `- ${group.slot_details.title}`}
                   </div>
                   <div className="text-xs truncate">
                     {group.slot_details.description}
@@ -658,16 +647,14 @@ const createOrUpdateTimeSlot = async () => {
             <button
               onClick={() => {
                 setEditingSlot(null);
-                const currentDateFormatted = format(currentDate, 'yyyy-MM-dd');
-                const startAt = new Date(`${currentDateFormatted}T10:00:00Z`).toISOString();
-                const endAt = new Date(`${currentDateFormatted}T11:00:00Z`).toISOString();
+                const startAt = new Date(currentDate);
+                startAt.setHours(10, 0, 0, 0);
+                const endAt = new Date(startAt);
+                endAt.setHours(11, 0, 0, 0);
                 
                 setNewSlotData({
-                  date: currentDateFormatted,
-                  start_time: '10:00',
-                  end_time: '11:00',
-                  start_at: startAt,
-                  end_at: endAt,
+                  start_at: startAt.toISOString(),
+                  end_at: endAt.toISOString(),
                   slot_details: {
                     type: 'rent',
                     title: '',
@@ -706,34 +693,39 @@ const createOrUpdateTimeSlot = async () => {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Дата</label>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Дата и время начала</label>
                 <input
-                  type="date"
-                  value={newSlotData.date}
-                  onChange={(e) => setNewSlotData({...newSlotData, date: e.target.value})}
+                  type="datetime-local"
+                  value={newSlotData.start_at ? format(parseISO(newSlotData.start_at), "yyyy-MM-dd'T'HH:mm") : ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      const startAt = new Date(e.target.value).toISOString();
+                      setNewSlotData({
+                        ...newSlotData, 
+                        start_at: startAt,
+                        // Автоматически устанавливаем конец на час позже, если конец не задан или раньше начала
+                        end_at: !newSlotData.end_at || new Date(newSlotData.end_at) <= new Date(startAt) 
+                          ? new Date(new Date(startAt).getTime() + 60 * 60 * 1000).toISOString()
+                          : newSlotData.end_at
+                      });
+                    }
+                  }}
                   className="w-full p-2 border rounded-md dark:bg-dark-700 border-gray-300 dark:border-dark-600"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Начало</label>
-                  <input
-                    type="time"
-                    value={newSlotData.start_time}
-                    onChange={(e) => setNewSlotData({...newSlotData, start_time: e.target.value})}
-                    className="w-full p-2 border rounded-md dark:bg-dark-700 border-gray-300 dark:border-dark-600"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Конец</label>
-                  <input
-                    type="time"
-                    value={newSlotData.end_time}
-                    onChange={(e) => setNewSlotData({...newSlotData, end_time: e.target.value})}
-                    className="w-full p-2 border rounded-md dark:bg-dark-700 border-gray-300 dark:border-dark-600"
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Дата и время окончания</label>
+                <input
+                  type="datetime-local"
+                  value={newSlotData.end_at ? format(parseISO(newSlotData.end_at), "yyyy-MM-dd'T'HH:mm") : ''}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setNewSlotData({...newSlotData, end_at: new Date(e.target.value).toISOString()});
+                    }
+                  }}
+                  className="w-full p-2 border rounded-md dark:bg-dark-700 border-gray-300 dark:border-dark-600"
+                />
               </div>
 
               <div>
@@ -768,6 +760,23 @@ const createOrUpdateTimeSlot = async () => {
                   rows={3}
                   placeholder="Дополнительная информация"
                 />
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="booked"
+                  checked={newSlotData.slot_details?.booked || false}
+                  onChange={(e) => setNewSlotData({
+                    ...newSlotData,
+                    slot_details: {
+                      ...newSlotData.slot_details,
+                      booked: e.target.checked
+                    }
+                  })}
+                  className="mr-2"
+                />
+                <label htmlFor="booked" className="text-sm text-gray-700 dark:text-gray-300">Забронировано</label>
               </div>
             </div>
 
