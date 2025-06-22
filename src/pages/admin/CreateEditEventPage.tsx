@@ -644,7 +644,7 @@ const CreateEditEventPage = () => {
                 {event.description.length}/{DESC_MAX_LENGTH}
               </p>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="form-group">
                 <label htmlFor="event_type" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Тип мероприятия
@@ -711,8 +711,221 @@ const CreateEditEventPage = () => {
           
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="form-group">
+                <label htmlFor="start_at" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                  Дата и время начала <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  id="start_at"
+                  name="start_at"
+                  value={formatDateTimeForInput(event.start_at)}
+                  onChange={(e) => handleDateTimeChange('start_at', e.target.value)}
+                  className={`w-full px-4 py-3 rounded-lg border transition-colors ${
+                    errors.start_at 
+                      ? 'border-red-500 focus:border-red-500' 
+                      : 'border-gray-300 dark:border-dark-600 focus:border-primary-500'
+                  } bg-white dark:bg-dark-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800`}
+                />
+                {errors.start_at && (
+                  <p className="text-red-500 text-sm mt-2">Обязательное поле</p>
+                )}
+              </div>
+              
+              <div className="form-group">
+                <label htmlFor="end_at" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                  Дата и время окончания <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="datetime-local"
+                  id="end_at"
+                  name="end_at"
+                  value={formatDateTimeForInput(event.end_at)}
+                  onChange={(e) => handleDateTimeChange('end_at', e.target.value)}
+                  className={`w-full px-4 py-3 rounded-lg border transition-colors ${
+                    errors.end_at 
+                      ? 'border-red-500 focus:border-red-500' 
+                      : 'border-gray-300 dark:border-dark-600 focus:border-primary-500'
+                  } bg-white dark:bg-dark-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800`}
+                />
+                {errors.end_at && (
+                  <p className="text-red-500 text-sm mt-2">
+                    {errors.end_at === true ? 'Время окончания должно быть позже времени начала' : 'Обязательное поле'}
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            <div className="form-group">
+              <label htmlFor="location" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                Место проведения <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                id="location"
+                name="location"
+                value={event.location}
+                onChange={handleInputChange}
+                className={`w-full px-4 py-3 rounded-lg border transition-colors ${
+                  errors.location 
+                    ? 'border-red-500 focus:border-red-500' 
+                    : 'border-gray-300 dark:border-dark-600 focus:border-primary-500'
+                } bg-white dark:bg-dark-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800`}
+                placeholder="Адрес или название места"
+              />
+              {errors.location && (
+                <p className="text-red-500 text-sm mt-2">Обязательное поле</p>
+              )}
+            </div>
+          </div>
+        </div>
 
-              {/* Информация об оплате */}
+        {/* Медиа контент */}
+        <div className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-600 p-6">
+          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+            <Camera className="h-5 w-5 text-primary-600" />
+            Медиа контент
+          </h2>
+          
+          <div className="space-y-6">
+            {/* Главное изображение */}
+            <div className="form-group">
+              <label className="block font-medium mb-3 text-gray-700 dark:text-gray-300">
+                Главное изображение мероприятия
+              </label>
+              
+              {event.bg_image ? (
+                <div className="relative">
+                  <img
+                    src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.bg_image}`}
+                    alt="Event preview"
+                    className="w-full h-64 object-cover rounded-lg"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = 'https://via.placeholder.com/800x400?text=Image+not+found';
+                    }}
+                  />
+                  <div className="absolute bottom-4 right-4 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="p-2 bg-white/90 hover:bg-white text-dark-800 rounded-full shadow-lg transition-colors"
+                      title="Изменить изображение"
+                    >
+                      <Upload className="h-5 w-5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEvent(prev => ({ ...prev, bg_image: '' }))}
+                      className="p-2 bg-red-600/90 hover:bg-red-600 text-white rounded-full shadow-lg transition-colors"
+                      title="Удалить изображение"
+                    >
+                      <X className="h-5 w-5" />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg p-8 text-center">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="hidden"
+                  />
+                  <div className="flex flex-col items-center">
+                    <div className="mb-4 p-3 bg-gray-100 dark:bg-dark-700 rounded-full">
+                      <ImageIcon className="h-6 w-6 text-gray-500 dark:text-gray-400" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors"
+                      disabled={isUploading}
+                    >
+                      {isUploading ? (
+                        <div className="flex items-center gap-2">
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          <span>Загрузка... {uploadProgress}%</span>
+                        </div>
+                      ) : (
+                        <span>Загрузить изображение</span>
+                      )}
+                    </button>
+                    <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+                      Рекомендуемый размер: 1200x600px
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Видео URL */}
+            <div className="form-group">
+              <label htmlFor="video_url" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                <Video className="h-5 w-5 inline mr-2" />
+                Ссылка на видео
+              </label>
+              <input
+                type="url"
+                id="video_url"
+                name="video_url"
+                value={event.video_url}
+                onChange={handleInputChange}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 bg-white dark:bg-dark-700 text-gray-900 dark:text-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-colors"
+                placeholder="https://youtube.com/watch?v=..."
+              />
+            </div>
+
+            {/* Галерея фотографий */}
+            <div className="form-group">
+              <label className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                <Camera className="h-5 w-5 inline mr-2" />
+                Галерея фотографий
+              </label>
+              <div className="space-y-2">
+                {event.photo_gallery?.map((photo, index) => (
+                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-dark-700 rounded-lg">
+                    <input
+                      type="url"
+                      value={photo}
+                      onChange={(e) => {
+                        const newGallery = [...(event.photo_gallery || [])];
+                        newGallery[index] = e.target.value;
+                        handlePhotoGalleryChange(newGallery);
+                      }}
+                      className="flex-1 px-3 py-2 rounded border border-gray-300 dark:border-dark-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:outline-none focus:border-primary-500"
+                      placeholder="URL фотографии"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newGallery = event.photo_gallery.filter((_, i) => i !== index);
+                        handlePhotoGalleryChange(newGallery);
+                      }}
+                      className="p-2 text-red-600 hover:text-red-800 transition-colors"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newGallery = [...(event.photo_gallery || []), ''];
+                    handlePhotoGalleryChange(newGallery);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 transition-colors"
+                >
+                  <Plus className="h-4 w-4" />
+                  Добавить фотографию
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Информация об оплате */}
         <div className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-600 p-6">
           <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
             <DollarSign className="h-5 w-5 text-primary-600" />
@@ -922,7 +1135,7 @@ const CreateEditEventPage = () => {
           </div>
         </div>
 
-              {/* Секция спикеров */}
+        {/* Секция спикеров */}
         <EventSpeakersSection
           selectedSpeakerIds={event.speakers}
           hideSpeakersGallery={event.hide_speakers_gallery}
