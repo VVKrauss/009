@@ -198,19 +198,19 @@ const EventsSection = () => {
                   )}
                 </div>
                 {show_price && (
-                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-dark-700">
-                      <div className="text-base font-medium text-primary-600 dark:text-primary-400">
-                        {event.price === null 
-                          ? 'Подробнее'
-                          : event.payment_type === 'free' 
-                            ? 'Бесплатно'
-                            : event.payment_type === 'donation'
-                              ? 'Донейшн'
-                              : `${event.price} ${event.currency}`
-                        }
-                      </div>
-                    </div>
-                  )}
+  <div className="mt-4 pt-4 border-t border-gray-100 dark:border-dark-700">
+    <div className="text-base font-medium text-primary-600 dark:text-primary-400">
+      {event.price === null 
+        ? 'Подробнее'
+        : event.payment_type === 'free' 
+          ? 'Бесплатно'
+          : event.payment_type === 'donation'
+            ? 'Донейшн'
+            : `${event.price} ${event.currency}`
+      }
+    </div>
+  </div>
+)}
                                   
               </div>
             </Link>
