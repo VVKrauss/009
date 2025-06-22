@@ -2,11 +2,16 @@ import { useState, useEffect } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { Plus, Search, Edit, Eye, Calendar, Users, MapPin, Trash2, Filter, Loader2 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import { format, parseISO, isBefore } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { useNavigate, Link } from 'react-router-dom';
 import EventDetailsModal from '../../components/admin/EventDetailsModal';
 import { Event, EventRegistrations } from './constants';
+import { 
+  formatRussianDate,
+  formatTimeFromTimestamp, 
+  formatTimeRange,
+  isPastEvent,
+  formatDateTimeForDisplay 
+} from '../../utils/dateTimeUtils';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -48,17 +53,6 @@ const formatEventTitle = (title: string) => {
   };
 };
 
-const formatTimeFromTimestamp = (timestamp: string) => {
-  return format(parseISO(timestamp), 'HH:mm', { locale: ru });
-};
-
-const formatDateWithTime = (date: string, startTime: string, endTime: string) => {
-  const dateStr = format(parseISO(date), 'd MMMM yyyy', { locale: ru });
-  const startStr = formatTimeFromTimestamp(startTime);
-  const endStr = formatTimeFromTimestamp(endTime);
-  return `${dateStr} • ${startStr} - ${endStr}`;
-};
-
 const AdminEvents = () => {
   const navigate = useNavigate();
   const [events, setEvents] = useState<Event[]>([]);
@@ -77,55 +71,91 @@ const AdminEvents = () => {
   const fetchEvents = async () => {
     try {
       setLoading(true);
-      let query = supabase.from('events').select('*');
+
+      // Получаем события с их временными слотами
+      let query = supabase
+        .from('events')
+        .select(`
+          *,
+          time_slot:time_slots_table!fk_time_slots_event(
+            id,
+            start_at,
+            end_at
+          )
+        `);
 
       // Фильтрация по статусу
       if (statusFilter === 'past') {
-        const today = new Date().toISOString().split('T')[0];
-        query = query
-          .or(`status.eq.past,and(status.eq.active,date.lt.${today})`)
-          .order('date', { ascending: false });
+        // Получаем все события со статусом past ИЛИ активные которые уже прошли
+        query = query.or('status.eq.past,status.eq.active');
       } else if (statusFilter !== 'all') {
         query = query.eq('status', statusFilter);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Обогащаем события временными данными
+      const enrichedEvents = (data || []).map(event => ({
+        ...event,
+        start_at: event.time_slot?.[0]?.start_at || event.start_at,
+        end_at: event.time_slot?.[0]?.end_at || event.end_at
+      }));
+
+      // Дополнительная фильтрация для прошедших мероприятий
+      let filteredData = enrichedEvents;
+      if (statusFilter === 'past') {
+        filteredData = enrichedEvents.filter(event => 
+          event.status === 'past' || 
+          (event.end_at && isPastEvent(event.end_at))
+        );
+      } else if (statusFilter === 'active') {
+        // Для активных показываем только те что еще не прошли
+        filteredData = enrichedEvents.filter(event => 
+          event.status === 'active' && 
+          (!event.end_at || !isPastEvent(event.end_at))
+        );
       }
 
       // Сортировка
       switch (sortBy) {
         case 'chronological':
           if (statusFilter === 'active') {
-            const today = new Date().toISOString().split('T')[0];
-            query = query
-              .gte('date', today)
-              .order('date', { ascending: true })
-              .order('start_time', { ascending: true });
+            // Активные сортируем по дате начала (ближайшие первыми)
+            filteredData.sort((a, b) => {
+              const dateA = new Date(a.start_at || 0);
+              const dateB = new Date(b.start_at || 0);
+              return dateA.getTime() - dateB.getTime();
+            });
+          } else {
+            // Прошедшие и черновики сортируем по дате создания
+            filteredData.sort((a, b) => {
+              const dateA = new Date(a.created_at || 0);
+              const dateB = new Date(b.created_at || 0);
+              return dateB.getTime() - dateA.getTime();
+            });
           }
           break;
         case 'date-asc':
-          query = query.order('date', { ascending: true });
+          filteredData.sort((a, b) => {
+            const dateA = new Date(a.start_at || 0);
+            const dateB = new Date(b.start_at || 0);
+            return dateA.getTime() - dateB.getTime();
+          });
           break;
         case 'date-desc':
-          query = query.order('date', { ascending: false });
+          filteredData.sort((a, b) => {
+            const dateA = new Date(a.start_at || 0);
+            const dateB = new Date(b.start_at || 0);
+            return dateB.getTime() - dateA.getTime();
+          });
           break;
         case 'title-asc':
-          query = query.order('title', { ascending: true });
+          filteredData.sort((a, b) => a.title.localeCompare(b.title));
           break;
         case 'title-desc':
-          query = query.order('title', { ascending: false });
+          filteredData.sort((a, b) => b.title.localeCompare(a.title));
           break;
-      }
-
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      // Дополнительная фильтрация для прошедших мероприятий
-      let filteredData = data || [];
-      if (statusFilter === 'past') {
-        const today = new Date();
-        filteredData = filteredData.filter(event => 
-          event.status === 'past' || 
-          isBefore(parseISO(event.date), today)
-        );
       }
 
       setEvents(filteredData);
@@ -240,9 +270,21 @@ const AdminEvents = () => {
     return !!(event.registrations || event.registrations_list || event.current_registration_count !== undefined);
   };
 
+  // Функция для отображения даты и времени
+  const formatEventDateTime = (event: Event): string => {
+    if (!event.start_at) return 'Время не указано';
+    
+    const dateStr = formatRussianDate(event.start_at);
+    const timeStr = event.end_at 
+      ? formatTimeRange(event.start_at, event.end_at)
+      : formatTimeFromTimestamp(event.start_at);
+    
+    return `${dateStr} • ${timeStr}`;
+  };
+
   const tabs = [
-    { id: 'active', label: 'Активные', count: events.filter(e => e.status === 'active').length },
-    { id: 'past', label: 'Прошедшие', count: events.filter(e => e.status === 'past').length },
+    { id: 'active', label: 'Активные', count: events.filter(e => e.status === 'active' && (!e.end_at || !isPastEvent(e.end_at))).length },
+    { id: 'past', label: 'Прошедшие', count: events.filter(e => e.status === 'past' || (e.end_at && isPastEvent(e.end_at))).length },
     { id: 'draft', label: 'Черновики', count: events.filter(e => e.status === 'draft').length }
   ];
 
@@ -403,6 +445,7 @@ const AdminEvents = () => {
               const maxRegistrations = getMaxRegistrations(event);
               const currentRegistrationCount = getCurrentRegistrationCount(event);
               const fillPercentage = maxRegistrations ? (currentRegistrationCount / maxRegistrations) * 100 : 0;
+              const isEventPast = event.end_at ? isPastEvent(event.end_at) : false;
               
               return (
                 <div 
@@ -458,8 +501,14 @@ const AdminEvents = () => {
                     
                     {/* Статус мероприятия */}
                     <div className="absolute bottom-4 left-4">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-lg ${statusColors[event.status as keyof typeof statusColors]}`}>
-                        {event.status === 'active' ? 'Активно' : event.status === 'draft' ? 'Черновик' : 'Прошло'}
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-lg ${
+                        isEventPast 
+                          ? statusColors.past
+                          : statusColors[event.status as keyof typeof statusColors]
+                      }`}>
+                        {isEventPast ? 'Прошло' : 
+                         event.status === 'active' ? 'Активно' : 
+                         event.status === 'draft' ? 'Черновик' : 'Прошло'}
                       </span>
                     </div>
                   </div>
@@ -485,7 +534,7 @@ const AdminEvents = () => {
                         <div className="flex items-center justify-center w-8 h-8 bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3">
                           <Calendar className="w-4 h-4 text-primary-600 dark:text-primary-400" />
                         </div>
-                        <span className="truncate font-medium">{formatDateWithTime(event.date, event.start_time, event.end_time)}</span>
+                        <span className="truncate font-medium">{formatEventDateTime(event)}</span>
                       </div>
                       
                       {event.location && (
@@ -556,20 +605,4 @@ const AdminEvents = () => {
           </div>
         )}
 
-        {/* Модальное окно деталей */}
-        {selectedEvent && (
-          <EventDetailsModal
-            isOpen={showDetailsModal}
-            onClose={() => {
-              setShowDetailsModal(false);
-              setSelectedEvent(null);
-            }}
-            event={selectedEvent}
-          />
-        )}
-      </div>
-    </div>
-  );
-};
-
-export default AdminEvents;
+        
