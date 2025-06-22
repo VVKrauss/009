@@ -1,6 +1,4 @@
 import { useState, useEffect, useMemo } from 'react';
-import { format, parseISO } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { Search, LayoutGrid, List, Calendar, ChevronDown, ArrowUp, ArrowDown, AArrowUp, AArrowDown, Filter, Clock } from 'lucide-react';
 import { createClient } from '@supabase/supabase-js';
 import Layout from '../components/layout/Layout';
@@ -8,6 +6,12 @@ import EventsList from '../components/events/EventsList';
 import EventSlideshow from '../components/events/EventSlideshow';
 import { toast } from 'react-hot-toast';
 import { Link } from 'react-router-dom';
+import { 
+  formatRussianDate, 
+  formatTimeFromTimestamp, 
+  formatTimeRange, 
+  isPastEvent 
+} from '../utils/dateTimeUtils';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -23,9 +27,9 @@ interface Event {
   description: string;
   event_type: string;
   bg_image: string;
-  date: string;
-  start_time: string;
-  end_time: string;
+  // Новые поля времени
+  start_at: string;
+  end_at: string;
   location: string;
   age_category: string;
   price: number;
@@ -36,25 +40,11 @@ interface Event {
   video_url?: string;
   photo_gallery?: { url: string; thumbnail: string }[];
   languages: string[];
+  // Legacy поля для совместимости
+  date?: string;
+  start_time?: string;
+  end_time?: string;
 }
-
-// Функция для форматирования времени из timestampz в "HH:mm"
-const formatTimeFromTimestamp = (timestamp: string) => {
-  if (!timestamp) return '';
-  try {
-    return format(parseISO(timestamp), 'HH:mm');
-  } catch (e) {
-    console.error('Error formatting time:', e);
-    return '';
-  }
-};
-
-// Функция для форматирования временного диапазона
-const formatTimeRange = (startTime: string, endTime: string) => {
-  const start = formatTimeFromTimestamp(startTime);
-  const end = formatTimeFromTimestamp(endTime);
-  return `${start} - ${end}`;
-};
 
 const EventsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -89,49 +79,101 @@ const EventsPage = () => {
   const fetchEvents = async () => {
     try {
       setLoading(true);
-      const today = new Date().toISOString().split('T')[0];
-
-      let query = supabase
+      
+      // Получаем события с их временными слотами
+      let activeQuery = supabase
         .from('events')
-        .select('*')
-        .eq('status', 'active')
-        .gte('date', today);
+        .select(`
+          *,
+          time_slot:time_slots_table!fk_time_slots_event(
+            id,
+            start_at,
+            end_at
+          )
+        `)
+        .eq('status', 'active');
 
+      // Фильтрация по типам событий
       if (selectedEventTypes.length > 0) {
-        query = query.in('event_type', selectedEventTypes);
+        activeQuery = activeQuery.in('event_type', selectedEventTypes);
       }
 
-      switch (sortBy) {
-        case 'date-asc':
-          query = query.order('date', { ascending: true });
-          break;
-        case 'date-desc':
-          query = query.order('date', { ascending: false });
-          break;
-        case 'title-asc':
-          query = query.order('title', { ascending: true });
-          break;
-        case 'title-desc':
-          query = query.order('title', { ascending: false });
-          break;
-      }
-
-      const { data: activeEvents, error: activeError } = await query;
+      const { data: activeEvents, error: activeError } = await activeQuery;
       if (activeError) throw activeError;
 
+      // Обогащаем активные события временными данными
+      const enrichedActiveEvents = (activeEvents || []).map(event => ({
+        ...event,
+        start_at: event.time_slot?.[0]?.start_at || event.start_at,
+        end_at: event.time_slot?.[0]?.end_at || event.end_at
+      }));
+
+      // Фильтруем активные события - убираем прошедшие
+      const currentActiveEvents = enrichedActiveEvents.filter(event => {
+        if (!event.end_at) return true; // Если нет времени окончания, считаем активным
+        return !isPastEvent(event.end_at);
+      });
+
+      // Сортировка активных событий
+      let sortedActiveEvents = [...currentActiveEvents];
+      switch (sortBy) {
+        case 'date-asc':
+          sortedActiveEvents.sort((a, b) => 
+            new Date(a.start_at || 0).getTime() - new Date(b.start_at || 0).getTime()
+          );
+          break;
+        case 'date-desc':
+          sortedActiveEvents.sort((a, b) => 
+            new Date(b.start_at || 0).getTime() - new Date(a.start_at || 0).getTime()
+          );
+          break;
+        case 'title-asc':
+          sortedActiveEvents.sort((a, b) => a.title.localeCompare(b.title));
+          break;
+        case 'title-desc':
+          sortedActiveEvents.sort((a, b) => b.title.localeCompare(a.title));
+          break;
+      }
+
+      // Получаем прошедшие события
       const { data: pastEvents, error: pastError } = await supabase
         .from('events')
-        .select('*')
-        .eq('status', 'past')
-        .order('date', { ascending: false })
+        .select(`
+          *,
+          time_slot:time_slots_table!fk_time_slots_event(
+            id,
+            start_at,
+            end_at
+          )
+        `)
+        .or('status.eq.past')
+        .order('start_at', { ascending: false, foreignTable: 'time_slot' })
         .limit(6);
 
       if (pastError) throw pastError;
 
+      // Обогащаем прошедшие события и добавляем активные которые стали прошедшими
+      const enrichedPastEvents = (pastEvents || []).map(event => ({
+        ...event,
+        start_at: event.time_slot?.[0]?.start_at || event.start_at,
+        end_at: event.time_slot?.[0]?.end_at || event.end_at
+      }));
+
+      // Добавляем активные события которые уже прошли
+      const pastActiveEvents = enrichedActiveEvents.filter(event => 
+        event.end_at && isPastEvent(event.end_at)
+      );
+
+      // Объединяем и сортируем все прошедшие события
+      const allPastEvents = [...enrichedPastEvents, ...pastActiveEvents]
+        .sort((a, b) => new Date(b.start_at || 0).getTime() - new Date(a.start_at || 0).getTime())
+        .slice(0, 6); // Берем только последние 6
+
       setEvents({
-        active: activeEvents || [],
-        past: pastEvents || []
+        active: sortedActiveEvents,
+        past: allPastEvents
       });
+
     } catch (err) {
       console.error('Error fetching events:', err);
       setError('Не удалось загрузить мероприятия');
@@ -179,7 +221,7 @@ const EventsPage = () => {
   const upcomingEvents = useMemo(() => {
     return events.active
       ?.slice()
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .sort((a, b) => new Date(a.start_at || 0).getTime() - new Date(b.start_at || 0).getTime())
       .slice(0, 5);
   }, [events.active]);
 
@@ -223,7 +265,7 @@ const EventsPage = () => {
           descriptionStyle={{ fontSize: '0.875rem' }}
           desktopTitleStyle={{ fontSize: '1.75rem' }}
           desktopDescriptionStyle={{ fontSize: '1.125rem' }}
-          formatTimeRange={formatTimeRange} // Передаем функцию форматирования в слайдшоу
+          formatTimeRange={formatTimeRange}
         />
       </div>
       
@@ -382,7 +424,7 @@ const EventsPage = () => {
                   type="upcoming"
                   searchQuery={searchQuery}
                   viewMode={viewMode}
-                  formatTimeRange={formatTimeRange} // Передаем функцию форматирования в список мероприятий
+                  formatTimeRange={formatTimeRange}
                 />
                 
                 {filteredActiveEvents.length > visibleEvents && (
@@ -425,12 +467,14 @@ const EventsPage = () => {
                         <p className="font-medium text-sm line-clamp-2">{event.title}</p>
                         <div className="flex items-center text-xs text-dark-500 dark:text-dark-400 mt-1">
                           <Calendar className="h-3 w-3 mr-1" />
-                          <span>{format(parseISO(event.date), 'd MMMM yyyy', { locale: ru })}</span>
+                          <span>{event.start_at ? formatRussianDate(event.start_at) : 'Дата не указана'}</span>
                         </div>
-                        <div className="flex items-center text-xs text-dark-500 dark:text-dark-400 mt-1">
-                          <Clock className="h-3 w-3 mr-1" />
-                          <span>{formatTimeRange(event.start_time, event.end_time)}</span>
-                        </div>
+                        {event.start_at && event.end_at && (
+                          <div className="flex items-center text-xs text-dark-500 dark:text-dark-400 mt-1">
+                            <Clock className="h-3 w-3 mr-1" />
+                            <span>{formatTimeRange(event.start_at, event.end_at)}</span>
+                          </div>
+                        )}
                       </div>
                     </Link>
                   ))}
