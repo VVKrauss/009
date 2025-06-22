@@ -133,8 +133,11 @@ const CreateEditEventPage = () => {
         hide_speakers_gallery: data.hide_speakers_gallery !== false,
         festival_program: data.festival_program || [],
         // Convert timestamps back to time strings for the form
-        start_time: formatTimeFromTimestamp(data.start_time),
-        end_time: formatTimeFromTimestamp(data.end_time)
+        // Check if we have start_at/end_at (new format) or start_time/end_time (old format)
+        start_time: data.start_at ? formatTimeFromTimestamp(data.start_at) : 
+                   data.start_time ? formatTimeFromTimestamp(data.start_time) : '18:00',
+        end_time: data.end_at ? formatTimeFromTimestamp(data.end_at) : 
+                 data.end_time ? formatTimeFromTimestamp(data.end_time) : '20:00'
       });
     } catch (error) {
       console.error('Error fetching event:', error);
@@ -313,10 +316,20 @@ const CreateEditEventPage = () => {
         ...event,
         price: event.price ? parseFloat(event.price) : null,
         couple_discount: event.couple_discount ? parseFloat(event.couple_discount) : null,
-        // Convert date and time strings to proper timestamps
-        start_time: formatDateTimeForDatabase(parseISO(event.date), event.start_time),
-        end_time: formatDateTimeForDatabase(parseISO(event.date), event.end_time)
+        // Convert date and time strings to proper timestamps for start_at/end_at
+        start_at: formatDateTimeForDatabase(parseISO(event.date), event.start_time),
+        end_at: formatDateTimeForDatabase(parseISO(event.date), event.end_time),
+        // Remove the old start_time/end_time fields from the data being sent
+        start_time: undefined,
+        end_time: undefined
       };
+      
+      // Clean up undefined fields
+      Object.keys(eventData).forEach(key => {
+        if (eventData[key] === undefined) {
+          delete eventData[key];
+        }
+      });
       
       // Determine if this is a new event or an update
       const isNew = !id;
@@ -365,13 +378,27 @@ const CreateEditEventPage = () => {
     try {
       setLoading(true);
       
-      // Delete the event
-      const { error } = await supabase
-        .from('events')
-        .delete()
-        .eq('id', id);
+      // Call the Edge Function to delete the event
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/save-event`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            eventData: { id },
+            action: 'delete'
+          })
+        }
+      );
       
-      if (error) throw error;
+      const result = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(result.error || 'Error deleting event');
+      }
       
       toast.success('Мероприятие удалено');
       navigate('/admin/events');
@@ -582,7 +609,7 @@ const CreateEditEventPage = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Date and Location */}
         <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
@@ -837,7 +864,7 @@ const CreateEditEventPage = () => {
             </div>
           </div>
         </div>
-        
+
         {/* Event Image */}
         <div className="bg-white dark:bg-dark-800 rounded-lg shadow p-6">
           <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
