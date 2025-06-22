@@ -191,6 +191,17 @@ const getSlotColorClasses = (type?: string, status?: string, isPast: boolean = f
   }
 };
 
+// Функция для получения статуса события для отображения
+const getEventStatusText = (status?: string) => {
+  switch (status) {
+    case 'draft': return '(черновик)';
+    case 'active': return '(активно)';
+    case 'published': return '(опубликовано)';
+    case 'cancelled': return '(отменено)';
+    default: return status ? `(${status})` : '';
+  }
+};
+
 const generateTimeSlots = (date: Date) => {
   const slots = [];
   for (let hour = WORKING_HOURS.start; hour < WORKING_HOURS.end; hour++) {
@@ -243,7 +254,7 @@ const SlotComponent = ({
     Время: ${formatSlotTime(firstSlot.start_at)}-${formatSlotTime(lastSlot.end_at)}
     ${slot.slot_details.description || ''}
     ${slot.slot_details.user_name ? `Клиент: ${slot.slot_details.user_name}` : ''}
-    ${slot.slot_details.status === 'draft' ? 'Статус: Черновик' : ''}
+    ${slot.slot_details.status ? `Статус: ${slot.slot_details.status}` : ''}
     ${isPastSlot ? 'Прошедшее мероприятие' : ''}
   `;
 
@@ -262,7 +273,11 @@ const SlotComponent = ({
     >
       <div className="font-medium truncate">
         {formatSlotTime(firstSlot.start_at)} {slot.slot_details.title && `- ${slot.slot_details.title}`}
-        {slot.slot_details.status === 'draft' && <span className="text-xs text-gray-500 ml-1">(черновик)</span>}
+        {slot.slot_details.status && (
+          <span className="text-xs text-gray-500 ml-1">
+            {getEventStatusText(slot.slot_details.status)}
+          </span>
+        )}
         {isPastSlot && <span className="text-xs text-gray-500 ml-1">(прошло)</span>}
       </div>
       
