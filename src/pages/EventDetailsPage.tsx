@@ -7,7 +7,12 @@ import RegistrationModal from '../components/events/RegistrationModal';
 import PaymentOptionsModal from '../components/events/PaymentOptionsModal';
 import { toast } from 'react-hot-toast';
 import { EventRegistrations } from './admin/constants';
-import { formatRussianDate, formatTimeFromTimestamp, formatTimeRange } from '../utils/dateTimeUtils';
+import { 
+  formatRussianDate, 
+  formatTimeFromTimestamp, 
+  formatTimeRange,
+  isPastEvent 
+} from '../utils/dateTimeUtils';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -37,9 +42,9 @@ interface Event {
   description: string;
   event_type: string;
   bg_image: string;
-  date: string;
-  start_time: string;
-  end_time: string;
+  // Используем новые поля timestamptz
+  start_at: string;
+  end_at: string;
   location?: string;
   age_category: string;
   price: number | null;
@@ -52,32 +57,15 @@ interface Event {
   speakers: string[];
   festival_program?: FestivalProgramItem[];
   registrations?: EventRegistrations;
-  // Legacy fields - will be removed after migration
+  video_url?: string;
+  photo_gallery?: string[];
+  // Legacy fields - больше не используем
+  date?: string;
+  start_time?: string;
+  end_time?: string;
   max_registrations?: number;
   current_registration_count?: number;
 }
-
-const isPastEvent = (eventDate: string, endTime?: string) => {
-  try {
-    const eventDateTime = new Date(eventDate);
-    
-    // Если есть время окончания, используем его
-    if (endTime) {
-      const endDateTime = new Date(endTime);
-      return endDateTime < new Date();
-    }
-    
-    // Если времени окончания нет, считаем событие прошедшим только на следующий день
-    const nextDay = new Date(eventDateTime);
-    nextDay.setDate(nextDay.getDate() + 1);
-    nextDay.setHours(0, 0, 0, 0);
-    
-    return new Date() >= nextDay;
-  } catch (e) {
-    console.error('Error checking event date:', e);
-    return false;
-  }
-};
 
 const renderDescriptionWithLinks = (description: string) => {
   if (!description) {
@@ -176,14 +164,30 @@ const EventDetailsPage = () => {
     try {
       setLoading(true);
       
+      // Получаем событие с временным слотом
       const { data: eventData, error: eventError } = await supabase
         .from('events')
-        .select('*')
+        .select(`
+          *,
+          time_slot:time_slots_table!fk_time_slots_event(
+            id,
+            start_at,
+            end_at
+          )
+        `)
         .eq('id', id)
         .single();
 
       if (eventError) throw eventError;
-      setEvent(eventData);
+
+      // Обогащаем событие временными данными из слота
+      const enrichedEvent = {
+        ...eventData,
+        start_at: eventData.time_slot?.[0]?.start_at || eventData.start_at,
+        end_at: eventData.time_slot?.[0]?.end_at || eventData.end_at
+      };
+
+      setEvent(enrichedEvent);
 
       if (eventData.speakers?.length) {
         const { data: speakersData, error: speakersError } = await supabase
@@ -204,7 +208,8 @@ const EventDetailsPage = () => {
 
   const handleShare = async (platform: string) => {
     const url = window.location.href;
-    const text = `${event?.title} - ${formatRussianDate(event?.date || '')}`;
+    const eventDate = event?.start_at ? formatRussianDate(event.start_at) : '';
+    const text = `${event?.title} - ${eventDate}`;
 
     switch (platform) {
       case 'telegram':
@@ -263,6 +268,9 @@ const EventDetailsPage = () => {
     return event?.current_registration_count || 0;
   };
 
+  // Проверяем является ли событие прошедшим используя утилиту
+  const isEventPast = event?.end_at ? isPastEvent(event.end_at) : false;
+
   if (loading) {
     return (
       <Layout>
@@ -311,14 +319,18 @@ const EventDetailsPage = () => {
             <div className="hidden md:block">
               <h1 className="text-4xl font-bold mb-4">{event.title}</h1>
               <div className="flex flex-wrap gap-6 text-white/90">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  <span>{formatRussianDate(event.date)}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  <span>{formatTimeRange(event.start_time, event.end_time)}</span>
-                </div>
+                {event.start_at && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    <span>{formatRussianDate(event.start_at)}</span>
+                  </div>
+                )}
+                {event.start_at && event.end_at && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    <span>{formatTimeRange(event.start_at, event.end_at)}</span>
+                  </div>
+                )}
                 {event.location && (
                   <div className="flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
@@ -335,14 +347,18 @@ const EventDetailsPage = () => {
       <div className="md:hidden bg-white dark:bg-dark-800 py-6 px-4">
         <h1 className="text-3xl font-bold text-dark-900 dark:text-white mb-4">{event.title}</h1>
         <div className="flex flex-col gap-3 text-dark-600 dark:text-dark-300">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            <span>{formatRussianDate(event.date)}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            <span>{formatTimeRange(event.start_time, event.end_time)}</span>
-          </div>
+          {event.start_at && (
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              <span>{formatRussianDate(event.start_at)}</span>
+            </div>
+          )}
+          {event.start_at && event.end_at && (
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              <span>{formatTimeRange(event.start_at, event.end_at)}</span>
+            </div>
+          )}
           {event.location && (
             <div className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
@@ -360,6 +376,38 @@ const EventDetailsPage = () => {
                 <h2 className="text-2xl font-semibold mb-4">О мероприятии</h2>
                 {renderEventDescription(event.description)}
               </div>
+
+              {/* Видео (если есть) */}
+              {event.video_url && (
+                <div className="card p-6">
+                  <h2 className="text-2xl font-semibold mb-4">Видео</h2>
+                  <div className="aspect-video">
+                    <iframe
+                      src={event.video_url}
+                      className="w-full h-full rounded-lg"
+                      allowFullScreen
+                      title="Event video"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Галерея фотографий (если есть) */}
+              {event.photo_gallery && event.photo_gallery.length > 0 && (
+                <div className="card p-6">
+                  <h2 className="text-2xl font-semibold mb-4">Фотогалерея</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {event.photo_gallery.map((photo, index) => (
+                      <img
+                        key={index}
+                        src={photo}
+                        alt={`Фото ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {event.event_type === 'Festival' && event.festival_program && event.festival_program.length > 0 && (
                 <div className="card p-6">
@@ -434,6 +482,7 @@ const EventDetailsPage = () => {
                   </div>
                 </div>
               )}
+              
               {speakers.length > 0 && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-semibold">Спикеры</h2>
@@ -466,7 +515,7 @@ const EventDetailsPage = () => {
               )}
             </div>
 
-            {!isPastEvent(event.date) && (
+            {!isEventPast && (
               <div className="space-y-6">
                 <div className="card p-6">
                   <div className="flex items-center justify-between mb-6">
