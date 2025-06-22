@@ -606,3 +606,20 @@ const AdminEvents = () => {
         )}
 
         
+        {/* Модальное окно деталей */}
+        {selectedEvent && (
+          <EventDetailsModal
+            isOpen={showDetailsModal}
+            onClose={() => {
+              setShowDetailsModal(false);
+              setSelectedEvent(null);
+            }}
+            event={selectedEvent}
+          />
+        )}
+      </div>
+    </div>
+  );
+};
+
+export default AdminEvents;
