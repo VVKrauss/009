@@ -168,15 +168,15 @@ const EventsSection = () => {
               )}
               
               <div className="p-5">
-                {show_date && (
+                {show_date && event.start_time && (
                   <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-3">
                     <Calendar className="h-4 w-4 flex-shrink-0" />
-                    <span>{formatRussianDate(event.date, 'd MMMM')}</span>
+                    <span>{formatRussianDate(event.start_time, 'd MMMM')}</span>
                   </div>
                 )}
                 
                 <div className="space-y-3">
-                  {show_time && (
+                  {show_time && event.start_time && event.end_time && (
                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <Clock className="h-4 w-4 flex-shrink-0" />
                       <span>{formatTimeFromTimestamp(event.start_time)} - {formatTimeFromTimestamp(event.end_time)}</span>
