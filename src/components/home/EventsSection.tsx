@@ -245,4 +245,4 @@ const EventsSection = () => {
   );
 };
 
-export default EventsSection;
+export default EventsSection; 
