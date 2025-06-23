@@ -6,9 +6,8 @@ import { getSupabaseImageUrl } from '../../utils/imageUtils';
 export type Event = {
   id: number;
   title: string;
-  date?: string; // Legacy поле
-  start_time: string;
-  end_time: string;
+  start_at: string;
+  end_at: string;
   location?: string;
   description?: string;
   bg_image: string;
@@ -18,6 +17,10 @@ export type Event = {
   price?: number;
   currency?: string;
   payment_type?: string;
+  // Legacy fields for backward compatibility
+  date?: string;
+  start_time?: string;
+  end_time?: string;
 };
 
 type EventsListProps = {
@@ -50,10 +53,19 @@ const EVENT_TYPE_MAP: Record<string, string> = {
  * Безопасно форматирует дату события
  */
 const formatEventDate = (event: Event): string => {
-  // Сначала пытаемся использовать start_time для получения даты
+  // Сначала пытаемся использовать start_at (новое поле)
+  if (isValidDateString(event.start_at)) {
+    try {
+      return formatRussianDate(event.start_at, 'd MMMM');
+    } catch (error) {
+      console.error('Error formatting start_at:', event.start_at, error);
+    }
+  }
+  
+  // Fallback на legacy поле start_time
   if (isValidDateString(event.start_time)) {
     try {
-      return formatRussianDate(event.start_time, 'd MMMM');
+      return formatRussianDate(event.start_time!, 'd MMMM');
     } catch (error) {
       console.error('Error formatting start_time:', event.start_time, error);
     }
