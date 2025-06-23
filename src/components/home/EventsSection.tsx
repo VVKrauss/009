@@ -24,7 +24,7 @@ type Event = {
 };
 
 type HomepageSettings = {
-  events_count: number;
+  events_count: number; 
   show_title: boolean;
   show_date: boolean;
   show_time: boolean;
