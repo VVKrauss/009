@@ -136,48 +136,46 @@ const CreateEditEventPage = () => {
     }
   };
 
-  const fetchEvent = async (eventId: string) => {
-    try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('events')
-        .select('*')
-        .eq('id', eventId)
-        .single();
+const fetchEvent = async (eventId: string) => {
+  try {
+    setLoading(true);
+    const { data, error } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', eventId)
+      .single();
 
-      if (error) throw error;
+    if (error) throw error;
 
-      // Обрабатываем временные данные
-      let startTime = data.start_time || '';
-      let endTime = data.end_time || '';
-
-      if (!startTime && data.date && data.start_time) {
-        startTime = formatDateTimeForDatabase(parseISO(data.date), data.start_time);
+    // Обработка photo_gallery
+    let photoGallery = data.photo_gallery || [];
+    // Если photo_gallery это строка, попробуем распарсить ее как JSON
+    if (typeof photoGallery === 'string') {
+      try {
+        photoGallery = JSON.parse(photoGallery);
+      } catch (e) {
+        console.error('Error parsing photo_gallery:', e);
+        photoGallery = [];
       }
-      if (!endTime && data.date && data.end_time) {
-        endTime = formatDateTimeForDatabase(parseISO(data.date), data.end_time);
-      }
-
-      setEvent({
-        ...data,
-        price: data.price !== null ? String(data.price) : '',
-        couple_discount: data.couple_discount || '',
-        languages: data.languages || ['Русский'],
-        speakers: data.speakers || [],
-        hide_speakers_gallery: data.hide_speakers_gallery !== false,
-        festival_program: data.festival_program || [],
-        video_url: data.video_url || '',
-        photo_gallery: data.photo_gallery || [],
-        start_time: startTime,
-        end_time: endTime
-      });
-    } catch (error) {
-      console.error('Error fetching event:', error);
-      toast.error('Ошибка при загрузке мероприятия');
-    } finally {
-      setLoading(false);
     }
-  };
+    // Убедимся, что это массив
+    if (!Array.isArray(photoGallery)) {
+      photoGallery = [];
+    }
+
+    // Остальная обработка данных...
+    setEvent({
+      ...data,
+      photo_gallery: photoGallery, // используем обработанное значение
+      // ... остальные поля
+    });
+  } catch (error) {
+    console.error('Error fetching event:', error);
+    toast.error('Ошибка при загрузке мероприятия');
+  } finally {
+    setLoading(false);
+  }
+};
 
   const validateForm = () => {
     const newErrors = {
