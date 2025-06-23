@@ -182,7 +182,7 @@ const EventSlideshow = ({
             </div>
           </div>
         ))}
-      </Slider>
+      </Slider> 
 
       {/* Блок с названием и описанием для мобильной версии */}
       <div className="md:hidden container px-4 sm:px-6 mt-4">
