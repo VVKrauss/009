@@ -61,39 +61,39 @@ const CreateEditEventPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
-const [event, setEvent] = useState({
-  id: '',
-  title: '',
-  short_description: '',
-  description: '',
-  event_type: 'Lecture',
-  bg_image: '',
-  original_bg_image: '',
-  start_time: '', // изменили с start_at
-  end_time: '',   // изменили с end_at
-  location: '',
-  age_category: '0+',
-  price: '',
-  currency: 'RSD',
-  status: 'draft',
-  payment_type: 'cost',
-  payment_link: '',
-  payment_widget_id: '',
-  widget_chooser: false,
-  languages: ['Русский'],
-  speakers: [],
-  hide_speakers_gallery: true,
-  couple_discount: '',
-  child_half_price: false,
-  festival_program: [],
-  video_url: '',
-  photo_gallery: []
-});
+  const [event, setEvent] = useState({
+    id: '',
+    title: '',
+    short_description: '',
+    description: '',
+    event_type: 'Lecture',
+    bg_image: '',
+    original_bg_image: '',
+    start_time: '',
+    end_time: '',
+    location: '',
+    age_category: '0+',
+    price: '',
+    currency: 'RSD',
+    status: 'draft',
+    payment_type: 'cost',
+    payment_link: '',
+    payment_widget_id: '',
+    widget_chooser: false,
+    languages: ['Русский'],
+    speakers: [],
+    hide_speakers_gallery: true,
+    couple_discount: '',
+    child_half_price: false,
+    festival_program: [],
+    video_url: '',
+    photo_gallery: []
+  });
 
   const [errors, setErrors] = useState({
     title: false,
-    start_at: false,
-    end_at: false,
+    start_time: false,
+    end_time: false,
     location: false,
     price: false,
     payment_link: false
@@ -115,8 +115,8 @@ const [event, setEvent] = useState({
       setEvent(prev => ({
         ...prev,
         id: crypto.randomUUID(),
-        start_at: defaultStart.toISOString(),
-        end_at: defaultEnd.toISOString()
+        start_time: defaultStart.toISOString(),
+        end_time: defaultEnd.toISOString()
       }));
     }
   }, [id]);
@@ -147,18 +147,15 @@ const [event, setEvent] = useState({
 
       if (error) throw error;
 
-      // Обрабатываем временные данные - мигрируем со старого формата если нужно
-      let startAt = '';
-      let endAt = '';
+      // Обрабатываем временные данные
+      let startTime = data.start_time || '';
+      let endTime = data.end_time || '';
 
-      if (data.start_at && data.end_at) {
-        // Новый формат - используем как есть
-        startAt = data.start_at;
-        endAt = data.end_at;
-      } else if (data.date && data.start_time && data.end_time) {
-        // Старый формат - конвертируем
-        startAt = formatDateTimeForDatabase(parseISO(data.date), data.start_time);
-        endAt = formatDateTimeForDatabase(parseISO(data.date), data.end_time);
+      if (!startTime && data.date && data.start_time) {
+        startTime = formatDateTimeForDatabase(parseISO(data.date), data.start_time);
+      }
+      if (!endTime && data.date && data.end_time) {
+        endTime = formatDateTimeForDatabase(parseISO(data.date), data.end_time);
       }
 
       setEvent({
@@ -171,8 +168,8 @@ const [event, setEvent] = useState({
         festival_program: data.festival_program || [],
         video_url: data.video_url || '',
         photo_gallery: data.photo_gallery || [],
-        start_at: startAt,
-        end_at: endAt
+        start_time: startTime,
+        end_time: endTime
       });
     } catch (error) {
       console.error('Error fetching event:', error);
@@ -185,20 +182,20 @@ const [event, setEvent] = useState({
   const validateForm = () => {
     const newErrors = {
       title: !event.title.trim(),
-      start_at: !event.start_at,
-      end_at: !event.end_at,
+      start_time: !event.start_time,
+      end_time: !event.end_time,
       location: !event.location.trim(),
       price: false,
       payment_link: false
     };
 
     // Проверяем корректность временных меток
-    if (event.start_at && event.end_at) {
-      const startDate = new Date(event.start_at);
-      const endDate = new Date(event.end_at);
+    if (event.start_time && event.end_time) {
+      const startDate = new Date(event.start_time);
+      const endDate = new Date(event.end_time);
       
       if (endDate <= startDate) {
-        newErrors.end_at = true;
+        newErrors.end_time = true;
         toast.error('Время окончания должно быть позже времени начала');
       }
     }
@@ -238,7 +235,7 @@ const [event, setEvent] = useState({
     }
   };
 
-  const handleDateTimeChange = (field: 'start_at' | 'end_at', value: string) => {
+  const handleDateTimeChange = (field: 'start_time' | 'end_time', value: string) => {
     if (!value) return;
     
     // Создаем ISO timestamp для хранения
@@ -399,10 +396,10 @@ const [event, setEvent] = useState({
         ...event,
         price: event.price ? parseFloat(event.price) : null,
         couple_discount: event.couple_discount ? parseFloat(event.couple_discount) : null,
-        // Убираем старые поля времени если они есть
+        // Убираем старые поля если они есть
         date: undefined,
-        start_time: undefined,
-        end_time: undefined
+        start_at: undefined,
+        end_at: undefined
       };
       
       // Очищаем undefined поля
@@ -642,7 +639,7 @@ const [event, setEvent] = useState({
                 {event.description.length}/{DESC_MAX_LENGTH}
               </p>
             </div>
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="form-group">
                 <label htmlFor="event_type" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Тип мероприятия
@@ -710,45 +707,45 @@ const [event, setEvent] = useState({
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="form-group">
-                <label htmlFor="start_at" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                <label htmlFor="start_time" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Дата и время начала <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
-                  id="start_at"
-                  name="start_at"
-                  value={formatDateTimeForInput(event.start_at)}
-                  onChange={(e) => handleDateTimeChange('start_at', e.target.value)}
+                  id="start_time"
+                  name="start_time"
+                  value={formatDateTimeForInput(event.start_time)}
+                  onChange={(e) => handleDateTimeChange('start_time', e.target.value)}
                   className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                    errors.start_at 
+                    errors.start_time 
                       ? 'border-red-500 focus:border-red-500' 
                       : 'border-gray-300 dark:border-dark-600 focus:border-primary-500'
                   } bg-white dark:bg-dark-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800`}
                 />
-                {errors.start_at && (
+                {errors.start_time && (
                   <p className="text-red-500 text-sm mt-2">Обязательное поле</p>
                 )}
               </div>
               
               <div className="form-group">
-                <label htmlFor="end_at" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                <label htmlFor="end_time" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Дата и время окончания <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
-                  id="end_at"
-                  name="end_at"
-                  value={formatDateTimeForInput(event.end_at)}
-                  onChange={(e) => handleDateTimeChange('end_at', e.target.value)}
+                  id="end_time"
+                  name="end_time"
+                  value={formatDateTimeForInput(event.end_time)}
+                  onChange={(e) => handleDateTimeChange('end_time', e.target.value)}
                   className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                    errors.end_at 
+                    errors.end_time 
                       ? 'border-red-500 focus:border-red-500' 
                       : 'border-gray-300 dark:border-dark-600 focus:border-primary-500'
                   } bg-white dark:bg-dark-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800`}
                 />
-                {errors.end_at && (
+                {errors.end_time && (
                   <p className="text-red-500 text-sm mt-2">
-                    {errors.end_at === true ? 'Время окончания должно быть позже времени начала' : 'Обязательное поле'}
+                    {errors.end_time === true ? 'Время окончания должно быть позже времени начала' : 'Обязательное поле'}
                   </p>
                 )}
               </div>
