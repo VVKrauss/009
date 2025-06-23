@@ -2,15 +2,14 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Globe, Users, ArrowRight, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { formatTimeFromTimestamp, formatRussianDate } from '../../utils/dateTimeUtils';
+import { formatTimeFromTimestamp, formatRussianDateSafe as formatRussianDate } from '../../utils/dateTimeUtils';
 import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 type Event = {
   id: string;
   title: string;
-  date: string;
-  start_time: string;
-  end_time: string;
+  start_at: string;
+  end_at: string;
   languages: string[];
   event_type: string;
   age_category: string;
@@ -18,6 +17,10 @@ type Event = {
   price: number | null;
   currency: string;
   payment_type: string;
+  // Legacy fields for backward compatibility
+  date?: string;
+  start_time?: string;
+  end_time?: string;
 };
 
 type HomepageSettings = {
@@ -57,8 +60,8 @@ const EventsSection = () => {
           .from('events')
           .select('*')
           .eq('status', 'active')
-          .gte('end_time', now)  // Фильтруем по времени окончания события
-          .order('start_time', { ascending: true })  // Сортируем по времени начала
+          .gte('end_at', now)  // Фильтруем по времени окончания события
+          .order('start_at', { ascending: true })  // Сортируем по времени начала
           .limit(settingsData?.events_count || 3);
 
         if (eventsError) throw eventsError;
@@ -176,10 +179,10 @@ const EventsSection = () => {
                 )}
                 
                 <div className="space-y-3">
-                  {show_time && event.start_time && event.end_time && (
+                  {show_time && event.start_at && event.end_at && (
                     <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <Clock className="h-4 w-4 flex-shrink-0" />
-                      <span>{formatTimeFromTimestamp(event.start_time)} - {formatTimeFromTimestamp(event.end_time)}</span>
+                      <span>{formatTimeFromTimestamp(event.start_at)} - {formatTimeFromTimestamp(event.end_at)}</span>
                     </div>
                   )}
                   
