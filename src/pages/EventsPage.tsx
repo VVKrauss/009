@@ -18,7 +18,7 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
-type SortOption = 'date-asc' | 'date-desc' | 'title-asc' | 'title-desc';
+type SortOption = 'start-asc' | 'start-desc' | 'title-asc' | 'title-desc';
 type ViewMode = 'grid' | 'list';
 
 interface Event {
@@ -27,7 +27,7 @@ interface Event {
   description: string;
   event_type: string;
   bg_image: string;
-  // Новые поля времени
+  // Основные поля времени
   start_at: string;
   end_at: string;
   location: string;
@@ -40,15 +40,11 @@ interface Event {
   video_url?: string;
   photo_gallery?: { url: string; thumbnail: string }[];
   languages: string[];
-  // Legacy поля для совместимости
-  date?: string;
-  start_time?: string;
-  end_time?: string;
 }
 
 const EventsPage = () => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('date-asc');
+  const [sortBy, setSortBy] = useState<SortOption>('start-asc');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [events, setEvents] = useState<{ active: Event[]; past: Event[] }>({ active: [], past: [] });
   const [loading, setLoading] = useState(true);
@@ -117,12 +113,12 @@ const EventsPage = () => {
       // Сортировка активных событий
       let sortedActiveEvents = [...currentActiveEvents];
       switch (sortBy) {
-        case 'date-asc':
+        case 'start-asc':
           sortedActiveEvents.sort((a, b) => 
             new Date(a.start_at || 0).getTime() - new Date(b.start_at || 0).getTime()
           );
           break;
-        case 'date-desc':
+        case 'start-desc':
           sortedActiveEvents.sort((a, b) => 
             new Date(b.start_at || 0).getTime() - new Date(a.start_at || 0).getTime()
           );
@@ -230,8 +226,8 @@ const EventsPage = () => {
   };
 
   const sortOptions = [
-    { value: 'date-asc', label: <div className="flex items-center gap-2"><ArrowUp className="h-4 w-4" /> Дата</div> },
-    { value: 'date-desc', label: <div className="flex items-center gap-2"><ArrowDown className="h-4 w-4" /> Дата</div> },
+    { value: 'start-asc', label: <div className="flex items-center gap-2"><ArrowUp className="h-4 w-4" /> Дата</div> },
+    { value: 'start-desc', label: <div className="flex items-center gap-2"><ArrowDown className="h-4 w-4" /> Дата</div> },
     { value: 'title-asc', label: <div className="flex items-center gap-2"><AArrowUp className="h-4 w-4" /> Название</div> },
     { value: 'title-desc', label: <div className="flex items-center gap-2"><AArrowDown className="h-4 w-4" /> Название</div> },
   ];
