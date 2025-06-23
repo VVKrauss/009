@@ -51,14 +51,14 @@ const EventsSection = () => {
         if (settingsError) throw settingsError;
         setSettings(settingsData);
 
-        // Fetch upcoming events
-        const today = new Date().toISOString().split('T')[0];
+        // Fetch upcoming events - исправленная фильтрация
+        const now = new Date().toISOString();
         const { data: eventsData, error: eventsError } = await supabase
           .from('events')
           .select('*')
           .eq('status', 'active')
-          .gte('date', today)
-          .order('date', { ascending: true })
+          .gte('end_time', now)  // Фильтруем по времени окончания события
+          .order('start_time', { ascending: true })  // Сортируем по времени начала
           .limit(settingsData?.events_count || 3);
 
         if (eventsError) throw eventsError;
@@ -197,21 +197,21 @@ const EventsSection = () => {
                     </div>
                   )}
                 </div>
+                
                 {show_price && (
-                    <div className="mt-4 pt-4 border-t border-gray-100 dark:border-dark-700">
-                      <div className="text-base font-medium text-primary-600 dark:text-primary-400">
-                        {event.price === null 
-                          ? 'Подробнее'
-                          : event.payment_type === 'free' 
-                            ? 'Бесплатно'
-                            : event.payment_type === 'donation'
-                              ? 'Донейшн'
-                              : `${event.price} ${event.currency}`
-                        }
-                      </div>
+                  <div className="mt-4 pt-4 border-t border-gray-100 dark:border-dark-700">
+                    <div className="text-base font-medium text-primary-600 dark:text-primary-400">
+                      {event.payment_type === 'free' 
+                        ? 'Бесплатно'
+                        : event.payment_type === 'donation'
+                          ? 'Донейшн'
+                          : event.price === null
+                            ? 'Подробнее'
+                            : `${event.price} ${event.currency}`
+                      }
                     </div>
-                  )}
-                                  
+                  </div>
+                )}
               </div>
             </Link>
           ))}
