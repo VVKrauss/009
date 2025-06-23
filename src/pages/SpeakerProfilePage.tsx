@@ -748,4 +748,4 @@ const SpeakerProfilePage = () => {
   );
 };
 
-export default SpeakerProfilePage;
+export default SpeakerProfilePage;  
