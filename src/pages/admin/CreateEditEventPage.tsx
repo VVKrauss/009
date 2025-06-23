@@ -1221,66 +1221,64 @@ const handleSubmit = async (e: React.FormEvent) => {
         />
         
         {/* Кнопки управления */}
-        <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200 dark:border-dark-600">
-          <button
-            type="button"
-            onClick={() => navigate('/admin/events')}
-            className="px-6 py-3 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
-          >
-            Отмена
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="px-6 py-3 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Сохранение...
-              </>
-            ) : (
-              <>
-                <Save className="h-5 w-5" />
-                Сохранить
-              </>
-            )}
-          </button>
-        </div>
-      </form>
+         <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200 dark:border-dark-600">
+        <button
+          type="button"
+          onClick={() => navigate('/admin/events')}
+          className="px-6 py-3 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
+        >
+          Отмена
+        </button>
+        <button
+          type="submit"
+          disabled={saving}
+          className="px-6 py-3 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="h-5 w-5 animate-spin" />
+              Сохранение...
+            </>
+          ) : (
+            <>
+              <Save className="h-5 w-5" />
+              Сохранить
+            </>
+          )}
+        </button>
+      </div>
+    </form>
 
-      {/* Модальное окно подтверждения удаления */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-dark-800 rounded-lg max-w-md w-full p-6">
-            <div className="flex items-center gap-3 text-red-600 mb-4">
-              <AlertTriangle className="h-6 w-6" />
-              <h3 className="text-lg font-semibold">Подтверждение удаления</h3>
-            </div>
-            <p className="mb-6 text-gray-700 dark:text-gray-300">
-              Вы уверены, что хотите удалить это мероприятие? Это действие нельзя отменить.
-            </p>
-            <div className="flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setShowDeleteConfirm(false)}
-                className="px-4 py-2 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
-              >
-                Отмена
-              </button>
-              <button
-                type="button"
-                onClick={handleDelete}
-                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
-              >
-                Удалить
-              </button>
-            </div>
+    {/* Модальное окно подтверждения удаления */}
+    {showDeleteConfirm && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-dark-800 rounded-lg max-w-md w-full p-6">
+          <div className="flex items-center gap-3 text-red-600 mb-4">
+            <AlertTriangle className="h-6 w-6" />
+            <h3 className="text-lg font-semibold">Подтверждение удаления</h3>
+          </div>
+          <p className="mb-6 text-gray-700 dark:text-gray-300">
+            Вы уверены, что хотите удалить это мероприятие? Это действие нельзя отменить.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(false)}
+              className="px-4 py-2 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+            >
+              Удалить
+            </button>
           </div>
         </div>
-      )}
-    </div>
-  );
-};
+      </div>
+    )}
+  </div>
 
 export default CreateEditEventPage;
