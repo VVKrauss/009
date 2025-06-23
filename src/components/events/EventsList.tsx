@@ -91,12 +91,25 @@ const formatEventTimeRange = (
   customFormatTimeRange?: (start: string, end: string) => string
 ): string => {
   try {
-    if (customFormatTimeRange && event.start_time && event.end_time) {
-      return customFormatTimeRange(event.start_time, event.end_time);
+    // Сначала пытаемся использовать start_at/end_at (новые поля)
+    if (event.start_at && event.end_at) {
+      if (customFormatTimeRange) {
+        return customFormatTimeRange(event.start_at, event.end_at);
+      }
+      return formatTimeRange(event.start_at, event.end_at);
     }
-    return formatTimeRange(event.start_time, event.end_time);
+    
+    // Fallback на legacy поля
+    if (event.start_time && event.end_time) {
+      if (customFormatTimeRange) {
+        return customFormatTimeRange(event.start_time, event.end_time);
+      }
+      return formatTimeRange(event.start_time, event.end_time);
+    }
+    
+    return '';
   } catch (error) {
-    console.error('Error formatting time range:', event.start_time, event.end_time, error);
+    console.error('Error formatting time range in EventsList:', error);
     return '';
   }
 };
@@ -297,4 +310,4 @@ const EventsList = ({
   );
 };
 
-export default EventsList;  
+export default EventsList;
