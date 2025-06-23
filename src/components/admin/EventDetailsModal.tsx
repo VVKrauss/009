@@ -47,11 +47,11 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
   // Безопасная функция форматирования даты
   const formatEventDate = (): string => {
     // Сначала пытаемся использовать start_time
-    if (isValidDateString(event.start_time)) {
+    if (isValidDateString(event.start_at)) {
       try {
-        return format(parseISO(event.start_time), 'd MMMM yyyy', { locale: ru });
+        return format(parseISO(event.start_at), 'd MMMM yyyy', { locale: ru });
       } catch (error) {
-        console.error('Error formatting start_time:', event.start_time, error);
+        console.error('Error formatting start_time:', event.start_at, error);
       }
     }
     
