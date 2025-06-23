@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
 import Modal from '../ui/Modal';
 import { Registration, EventRegistrations } from '../../pages/admin/constants';
+import { isValidDateString } from '../../utils/dateTimeUtils';
 
 type EventDetailsModalProps = {
   isOpen: boolean;
@@ -15,7 +16,6 @@ type EventDetailsModalProps = {
     id: string;
     title: string;
     description: string;
-    date: string;
     start_time: string;
     end_time: string;
     location: string;
@@ -25,6 +25,7 @@ type EventDetailsModalProps = {
     payment_link_clicks?: number;
     registrations?: EventRegistrations;
     // Legacy fields - will be removed after migration
+    date?: string;
     max_registrations?: number;
     current_registration_count?: number;
     registrations_list?: Registration[];
@@ -42,6 +43,29 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
   useEffect(() => {
     setLocalEvent(event);
   }, [event]);
+
+  // Безопасная функция форматирования даты
+  const formatEventDate = (): string => {
+    // Сначала пытаемся использовать start_time
+    if (isValidDateString(event.start_time)) {
+      try {
+        return format(parseISO(event.start_time), 'd MMMM yyyy', { locale: ru });
+      } catch (error) {
+        console.error('Error formatting start_time:', event.start_time, error);
+      }
+    }
+    
+    // Fallback на legacy поле date
+    if (isValidDateString(event.date)) {
+      try {
+        return format(parseISO(event.date!), 'd MMMM yyyy', { locale: ru });
+      } catch (error) {
+        console.error('Error formatting date:', event.date, error);
+      }
+    }
+    
+    return 'Дата не указана';
+  };
 
   // Helper function to get registrations list from either new or legacy structure
   const getRegistrationsList = (): Registration[] => {
@@ -236,7 +260,7 @@ const EventDetailsModal = ({ isOpen, onClose, event }: EventDetailsModalProps) =
             <div className="space-y-3">
               <div className="flex items-center gap-2 text-dark-600 dark:text-dark-300">
                 <Calendar className="h-5 w-5" />
-                <span>{format(parseISO(event.date), 'd MMMM yyyy', { locale: ru })}</span>
+                <span>{formatEventDate()}</span>
               </div>
               <div className="flex items-center gap-2 text-dark-600 dark:text-dark-300">
                 <MapPin className="h-5 w-5" />
