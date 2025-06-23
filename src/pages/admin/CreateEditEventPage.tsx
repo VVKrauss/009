@@ -378,74 +378,94 @@ const handlePhotoGalleryChange = (photos: string[]) => {
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!validateForm()) {
+    toast.error('Пожалуйста, заполните все обязательные поля');
+    return;
+  }
+  
+  try {
+    setSaving(true);
     
-    if (!validateForm()) {
-      toast.error('Пожалуйста, заполните все обязательные поля');
-      return;
-    }
+    // Подготавливаем данные события с преобразованием типов
+    const eventData = {
+      ...event,
+      // Преобразуем price в число или null
+      price: event.price ? parseFloat(event.price) : null,
+      // Преобразуем couple_discount в число или null
+      couple_discount: event.couple_discount ? parseFloat(event.couple_discount) : null,
+      // Гарантируем, что photo_gallery - это массив
+      photo_gallery: Array.isArray(event.photo_gallery) 
+        ? event.photo_gallery.filter(url => typeof url === 'string' && url.trim() !== '')
+        : [],
+      // Гарантируем, что languages - это массив
+      languages: Array.isArray(event.languages) ? event.languages : ['Русский'],
+      // Гарантируем, что speakers - это массив
+      speakers: Array.isArray(event.speakers) ? event.speakers : [],
+      // Гарантируем, что festival_program - это массив
+      festival_program: Array.isArray(event.festival_program) ? event.festival_program : [],
+      // Убираем старые поля времени если они есть
+      date: undefined,
+      start_at: undefined,
+      end_at: undefined,
+      // Удаляем original_bg_image если он совпадает с bg_image
+      original_bg_image: event.original_bg_image === event.bg_image 
+        ? undefined 
+        : event.original_bg_image
+    };
     
-    try {
-      setSaving(true);
-      
-      // Подготавливаем данные события
-      const eventData = {
-        ...event,
-        price: event.price ? parseFloat(event.price) : null,
-        couple_discount: event.couple_discount ? parseFloat(event.couple_discount) : null,
-        // Убираем старые поля если они есть
-        date: undefined,
-        start_at: undefined,
-        end_at: undefined
-      };
-      
-      // Очищаем undefined поля
-      Object.keys(eventData).forEach(key => {
-        if (eventData[key] === undefined) {
-          delete eventData[key];
-        }
-      });
-      
-      // Определяем новое или существующее событие
-      const isNew = !id;
-      
-      // Вызываем Edge-функцию для сохранения
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/save-event`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
-          },
-          body: JSON.stringify({
-            eventData,
-            isNew
-          })
-        }
-      );
-      
-      const result = await response.json();
-      
-      if (!response.ok) {
-        if (result.code === 'PG_NET_EXTENSION_MISSING') {
-          console.warn('Database notification extension (pg_net) is not enabled. Notifications will not be sent.');
-        } else {
-          throw new Error(result.error || 'Error saving event');
-        }
+    // Очищаем undefined поля
+    Object.keys(eventData).forEach(key => {
+      if (eventData[key] === undefined) {
+        delete eventData[key];
       }
-      
-      toast.success(isNew ? 'Мероприятие создано' : 'Мероприятие обновлено');
-      navigate('/admin/events');
-    } catch (error) {
-      console.error('Error saving event:', error);
-      toast.error(`Ошибка при сохранении мероприятия: ${error.message}`);
-    } finally {
-      setSaving(false);
+    });
+    
+    // Логирование данных перед отправкой (для отладки)
+    console.log('Submitting event data:', eventData);
+    
+    // Определяем новое или существующее событие
+    const isNew = !id;
+    
+    // Вызываем Edge-функцию для сохранения
+    const response = await fetch(
+      `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/save-event`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`
+        },
+        body: JSON.stringify({
+          eventData,
+          isNew
+        })
+      }
+    );
+    
+    const result = await response.json();
+    
+    if (!response.ok) {
+      if (result.code === 'PG_NET_EXTENSION_MISSING') {
+        console.warn('Database notification extension (pg_net) is not enabled. Notifications will not be sent.');
+      } else {
+        throw new Error(result.error || 'Error saving event');
+      }
     }
-  };
+    
+    toast.success(isNew ? 'Мероприятие создано' : 'Мероприятие обновлено');
+    navigate('/admin/events');
+  } catch (error) {
+    console.error('Error saving event:', error);
+    toast.error(`Ошибка при сохранении мероприятия: ${error.message}`);
+  } finally {
+    setSaving(false);
+  }
+};
 
+  
   const handleDelete = async () => {
     if (!id) return;
     
