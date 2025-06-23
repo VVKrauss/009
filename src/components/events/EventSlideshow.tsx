@@ -11,7 +11,6 @@ type Event = {
   id: string;
   title: string;
   short_description: string;
-  date: string;
   start_time: string;
   end_time: string;
   location: string;
@@ -36,6 +35,42 @@ const EventSlideshow = ({
   formatTimeRange: customFormatTimeRange
 }: EventSlideshowProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Безопасная функция форматирования даты
+  const formatEventDate = (dateString: string | null | undefined): string => {
+    if (!dateString) return 'Дата не указана';
+    
+    try {
+      const trimmedDateString = dateString.trim();
+      if (!trimmedDateString) return 'Дата не указана';
+
+      const testDate = new Date(trimmedDateString);
+      if (isNaN(testDate.getTime())) {
+        console.warn('Invalid date string received:', dateString);
+        return 'Неверная дата';
+      }
+
+      return formatRussianDate(trimmedDateString, 'd MMMM');
+    } catch (error) {
+      console.error('Error formatting date:', dateString, error);
+      return 'Ошибка даты';
+    }
+  };
+
+  // Безопасная функция форматирования времени
+  const formatEventTimeRange = (startTime: string | null | undefined, endTime: string | null | undefined): string => {
+    if (!startTime && !endTime) return '';
+    
+    try {
+      if (customFormatTimeRange && startTime && endTime) {
+        return customFormatTimeRange(startTime, endTime);
+      }
+      return formatTimeRange(startTime, endTime);
+    } catch (error) {
+      console.error('Error formatting time range:', startTime, endTime, error);
+      return '';
+    }
+  };
 
   const settings = {
     dots: true,
@@ -108,11 +143,13 @@ const EventSlideshow = ({
                   <div className="flex items-center gap-2 text-base">
                     <Calendar className="h-5 w-5" />
                     <span>
-                      {formatRussianDate(event.date, 'd MMMM')}
-                      {' • '}
-                      {customFormatTimeRange 
-                        ? customFormatTimeRange(event.start_time, event.end_time)
-                        : formatTimeRange(event.start_time, event.end_time)}
+                      {formatEventDate(event.start_time)}
+                      {formatEventTimeRange(event.start_time, event.end_time) && (
+                        <>
+                          {' • '}
+                          {formatEventTimeRange(event.start_time, event.end_time)}
+                        </>
+                      )}
                     </span>
                   </div>
                 </div>
@@ -123,11 +160,13 @@ const EventSlideshow = ({
                     <div className="flex items-center gap-2 text-sm sm:text-base">
                       <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                       <span>
-                        {formatRussianDate(event.date, 'd MMMM')}
-                        {' • '}
-                        {customFormatTimeRange 
-                          ? customFormatTimeRange(event.start_time, event.end_time)
-                          : formatTimeRange(event.start_time, event.end_time)}
+                        {formatEventDate(event.start_time)}
+                        {formatEventTimeRange(event.start_time, event.end_time) && (
+                          <>
+                            {' • '}
+                            {formatEventTimeRange(event.start_time, event.end_time)}
+                          </>
+                        )}
                       </span>
                     </div>
                     <Link 
