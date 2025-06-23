@@ -1,12 +1,12 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, Calendar, Users, Globe, Tag, Clock, MapPin } from 'lucide-react';
-import { formatTimeFromTimestamp, formatTimeRange, formatRussianDate } from '../../utils/dateTimeUtils';
+import { formatTimeFromTimestamp, formatTimeRange, formatRussianDate, isValidDateString } from '../../utils/dateTimeUtils';
 import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 export type Event = {
   id: number;
   title: string;
-  date: string;
+  date?: string; // Legacy поле
   start_time: string;
   end_time: string;
   location?: string;
@@ -27,6 +27,7 @@ type EventsListProps = {
   viewMode?: 'grid' | 'list';
   showPrice?: boolean;
   className?: string;
+  formatTimeRange?: (start: string, end: string) => string;
 };
 
 // Map event types to Russian
@@ -46,15 +47,64 @@ const EVENT_TYPE_MAP: Record<string, string> = {
 }; 
 
 /**
+ * Безопасно форматирует дату события
+ */
+const formatEventDate = (event: Event): string => {
+  // Сначала пытаемся использовать start_time для получения даты
+  if (isValidDateString(event.start_time)) {
+    try {
+      return formatRussianDate(event.start_time, 'd MMMM');
+    } catch (error) {
+      console.error('Error formatting start_time:', event.start_time, error);
+    }
+  }
+  
+  // Fallback на legacy поле date
+  if (isValidDateString(event.date)) {
+    try {
+      return formatRussianDate(event.date!, 'd MMMM');
+    } catch (error) {
+      console.error('Error formatting date:', event.date, error);
+    }
+  }
+  
+  return 'Дата не указана';
+};
+
+/**
+ * Безопасно форматирует временной диапазон
+ */
+const formatEventTimeRange = (
+  event: Event, 
+  customFormatTimeRange?: (start: string, end: string) => string
+): string => {
+  try {
+    if (customFormatTimeRange && event.start_time && event.end_time) {
+      return customFormatTimeRange(event.start_time, event.end_time);
+    }
+    return formatTimeRange(event.start_time, event.end_time);
+  } catch (error) {
+    console.error('Error formatting time range:', event.start_time, event.end_time, error);
+    return '';
+  }
+};
+
+/**
  * Форматирует цену мероприятия
  */
 const formatPrice = (event: Event): string => {
-  if (event.payment_type === 'free') return 'Бесплатно';
-  if (event.payment_type === 'donation') return 'Донейшн';
-  if (event.price && event.currency) {
-    return `${event.price} ${event.currency}`;
+  try {
+    if (event.payment_type === 'free') return 'Бесплатно';
+    if (event.payment_type === 'donation') return 'Донейшн';
+    if (event.price === null || event.price === undefined) return 'Подробнее';
+    if (event.price && event.currency) {
+      return `${event.price} ${event.currency}`;
+    }
+    return 'Цена не указана';
+  } catch (error) {
+    console.error('Error formatting price:', error);
+    return 'Цена не указана';
   }
-  return '';
 };
 
 const EventsList = ({
@@ -63,7 +113,8 @@ const EventsList = ({
   searchQuery = '',
   viewMode = 'grid',
   showPrice = false,
-  className = ''
+  className = '',
+  formatTimeRange: customFormatTimeRange
 }: EventsListProps) => {
   const filteredEvents = events.filter(event => {
     const searchLower = searchQuery.toLowerCase();
@@ -111,7 +162,7 @@ const EventsList = ({
               <div className="p-5 md:w-2/3 flex flex-col">
                 <div className="flex-grow">
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {event.languages.map((lang, index) => (
+                    {event.languages?.map((lang, index) => (
                       <span key={index} className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                         <Globe className="h-4 w-4 mr-1.5" />
                         {lang}
@@ -128,11 +179,11 @@ const EventsList = ({
                   <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-sm text-gray-500 dark:text-gray-400 mb-3">
                     <div className="flex items-center">
                       <Calendar className="h-4 w-4 mr-1" />
-                      <span>{formatRussianDate(event.date)}</span>
+                      <span>{formatEventDate(event)}</span>
                     </div>
                     <div className="flex items-center">
                       <Clock className="h-4 w-4 mr-1" />
-                      <span>{formatTimeRange(event.start_time, event.end_time)}</span>
+                      <span>{formatEventTimeRange(event, customFormatTimeRange)}</span>
                     </div>
                     {event.location && (
                       <div className="flex items-center">
@@ -195,7 +246,7 @@ const EventsList = ({
               
               <div className="p-4">
                 <div className="flex flex-wrap gap-2 mb-3">
-                  {event.languages.slice(0, 2).map((lang, index) => (
+                  {event.languages?.slice(0, 2).map((lang, index) => (
                     <span key={index} className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300">
                       {lang}
                     </span>
@@ -212,11 +263,11 @@ const EventsList = ({
                 <div className="flex flex-col gap-1 text-sm text-gray-500 dark:text-gray-400">
                   <div className="flex items-center">
                     <Calendar className="h-4 w-4 mr-1 flex-shrink-0" />
-                    <span>{formatRussianDate(event.date)}</span>
+                    <span>{formatEventDate(event)}</span>
                   </div>
                   <div className="flex items-center">
                     <Clock className="h-4 w-4 mr-1 flex-shrink-0" />
-                    <span>{formatTimeRange(event.start_time, event.end_time)}</span>
+                    <span>{formatEventTimeRange(event, customFormatTimeRange)}</span>
                   </div>
                 </div>
                 
