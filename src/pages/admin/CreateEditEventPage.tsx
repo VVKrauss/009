@@ -307,12 +307,12 @@ const fetchEvent = async (eventId: string) => {
     }));
   };
 
-  const handlePhotoGalleryChange = (photos: string[]) => {
-    setEvent(prev => ({
-      ...prev,
-      photo_gallery: photos
-    }));
-  };
+const handlePhotoGalleryChange = (photos: string[]) => {
+  setEvent(prev => ({
+    ...prev,
+    photo_gallery: Array.isArray(photos) ? photos : [],
+  }));
+};
 
   // Форматирование datetime-local для input
   const formatDateTimeForInput = (timestamp: string): string => {
