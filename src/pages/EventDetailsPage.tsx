@@ -35,7 +35,6 @@ interface FestivalProgramItem {
   end_time: string;
   lecturer_id: string;
 }
-
 interface Event { 
   id: string;
   title: string;
@@ -59,13 +58,9 @@ interface Event {
   registrations?: EventRegistrations;
   video_url?: string;
   photo_gallery?: string[] | string;
-  // Legacy fields - больше не используем
-  date?: string;
-  start_time?: string;
-  end_time?: string;
-  max_registrations?: number;
-  current_registration_count?: number;
+  // Удаляем legacy поля полностью, так как они больше не используются
 }
+
 
 // Helper function to safely parse photo gallery
 const parsePhotoGallery = (photoGallery: string[] | string | null | undefined): string[] => {
