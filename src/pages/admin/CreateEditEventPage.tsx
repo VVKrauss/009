@@ -891,52 +891,107 @@ const handleSubmit = async (e: React.FormEvent) => {
             </div>
 
             {/* Галерея фотографий */}
-            <div className="form-group">
-              <label className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
-                <Camera className="h-5 w-5 inline mr-2" />
-                Галерея фотографий
-              </label>
-              <div className="space-y-2">
-                {event.photo_gallery?.map((photo, index) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-dark-700 rounded-lg">
-                    <input
-                      type="url"
-                      value={photo}
-                      onChange={(e) => {
-                        const newGallery = [...(event.photo_gallery || [])];
-                        newGallery[index] = e.target.value;
-                        handlePhotoGalleryChange(newGallery);
-                      }}
-                      className="flex-1 px-3 py-2 rounded border border-gray-300 dark:border-dark-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:outline-none focus:border-primary-500"
-                      placeholder="URL фотографии"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newGallery = event.photo_gallery.filter((_, i) => i !== index);
-                        handlePhotoGalleryChange(newGallery);
-                      }}
-                      className="p-2 text-red-600 hover:text-red-800 transition-colors"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+           <div className="form-group">
+  <label className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+    <Camera className="h-5 w-5 inline mr-2" />
+    Галерея фотографий
+  </label>
+  
+  <div className="space-y-2">
+    {Array.isArray(event.photo_gallery) && event.photo_gallery
+      .filter(photo => typeof photo === 'string' && photo.trim() !== '')
+      .map((photo, index) => (
+        <div key={index} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-dark-700 rounded-lg">
+          <input
+            type="url"
+            value={photo}
+            onChange={(e) => {
+              const newGallery = [...event.photo_gallery];
+              newGallery[index] = e.target.value;
+              setEvent(prev => ({
+                ...prev,
+                photo_gallery: newGallery
+              }));
+            }}
+            className="flex-1 px-3 py-2 rounded border border-gray-300 dark:border-dark-600 bg-white dark:bg-dark-800 text-gray-900 dark:text-white focus:outline-none focus:border-primary-500"
+            placeholder="URL фотографии"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const newGallery = event.photo_gallery.filter((_, i) => i !== index);
+              setEvent(prev => ({
+                ...prev,
+                photo_gallery: newGallery
+              }));
+            }}
+            className="p-2 text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition-colors"
+            title="Удалить фотографию"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      ))
+    }
+    
+    <button
+      type="button"
+      onClick={() => {
+        setEvent(prev => ({
+          ...prev,
+          photo_gallery: [...(Array.isArray(prev.photo_gallery) ? prev.photo_gallery : []), '']
+        }));
+      }}
+      className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 dark:hover:text-primary-400 transition-colors w-full"
+    >
+      <Plus className="h-4 w-4" />
+      Добавить фотографию
+    </button>
+    
+    {/* Подсказка для формата URL */}
+    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+      Вставьте прямую ссылку на изображение (например, из облачного хранилища)
+    </p>
+    
+    {/* Превью фотографий */}
+    {Array.isArray(event.photo_gallery) && event.photo_gallery.length > 0 && (
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-3">
+        {event.photo_gallery
+          .filter(photo => typeof photo === 'string' && photo.trim() !== '')
+          .map((photo, index) => (
+            <div key={index} className="relative group">
+              <img
+                src={photo}
+                alt={`Preview ${index + 1}`}
+                className="w-full h-32 object-cover rounded-lg"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = 'https://via.placeholder.com/300x200?text=Image+not+found';
+                }}
+              />
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity rounded-lg">
                 <button
                   type="button"
                   onClick={() => {
-                    const newGallery = [...(event.photo_gallery || []), ''];
-                    handlePhotoGalleryChange(newGallery);
+                    const newGallery = event.photo_gallery.filter((_, i) => i !== index);
+                    setEvent(prev => ({
+                      ...prev,
+                      photo_gallery: newGallery
+                    }));
                   }}
-                  className="flex items-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 dark:border-dark-600 rounded-lg text-gray-600 dark:text-gray-400 hover:border-primary-500 hover:text-primary-600 transition-colors"
+                  className="p-2 bg-red-600 text-white rounded-full hover:bg-red-700 transition-colors"
+                  title="Удалить"
                 >
-                  <Plus className="h-4 w-4" />
-                  Добавить фотографию
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+          ))
+        }
+      </div>
+    )}
+  </div>
+</div>
 
         {/* Информация об оплате */}
         <div className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-600 p-6">
