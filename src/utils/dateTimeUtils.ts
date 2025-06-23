@@ -213,7 +213,7 @@ const EventsSection = () => {
                   </div>
                 )}
               </div>
-            </Link>
+            </Link> 
           ))}
           
           {/* "All Events" card */}
