@@ -344,9 +344,6 @@ const CreateEditEventPage = () => {
     }
   };
 
-  Вот вторая часть кода (строки 401-800):
-
-```typescript
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -610,11 +607,8 @@ const CreateEditEventPage = () => {
                 </p>
               </div>
             </div>
-```
-
-Готов к следующей части!
-
-<div className="form-group">
+            
+            <div className="form-group">
               <label htmlFor="short_description" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 Краткое описание
               </label>
@@ -717,45 +711,45 @@ const CreateEditEventPage = () => {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="form-group">
-                <label htmlFor="start_at" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                <label htmlFor="start_time" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Дата и время начала <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
-                  id="start_at"
-                  name="start_at"
-                  value={formatDateTimeForInput(event.start_at)}
-                  onChange={(e) => handleDateTimeChange('start_at', e.target.value)}
+                  id="start_time"
+                  name="start_time"
+                  value={formatDateTimeForInput(event.start_time)}
+                  onChange={(e) => handleDateTimeChange('start_time', e.target.value)}
                   className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                    errors.start_at 
+                    errors.start_time 
                       ? 'border-red-500 focus:border-red-500' 
                       : 'border-gray-300 dark:border-dark-600 focus:border-primary-500'
                   } bg-white dark:bg-dark-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800`}
                 />
-                {errors.start_at && (
+                {errors.start_time && (
                   <p className="text-red-500 text-sm mt-2">Обязательное поле</p>
                 )}
               </div>
               
               <div className="form-group">
-                <label htmlFor="end_at" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                <label htmlFor="end_time" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Дата и время окончания <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
-                  id="end_at"
-                  name="end_at"
-                  value={formatDateTimeForInput(event.end_at)}
-                  onChange={(e) => handleDateTimeChange('end_at', e.target.value)}
+                  id="end_time"
+                  name="end_time"
+                  value={formatDateTimeForInput(event.end_time)}
+                  onChange={(e) => handleDateTimeChange('end_time', e.target.value)}
                   className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                    errors.end_at 
+                    errors.end_time 
                       ? 'border-red-500 focus:border-red-500' 
                       : 'border-gray-300 dark:border-dark-600 focus:border-primary-500'
                   } bg-white dark:bg-dark-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800`}
                 />
-                {errors.end_at && (
+                {errors.end_time && (
                   <p className="text-red-500 text-sm mt-2">
-                    {errors.end_at === true ? 'Время окончания должно быть позже времени начала' : 'Обязательное поле'}
+                    {errors.end_time === true ? 'Время окончания должно быть позже времени начала' : 'Обязательное поле'}
                   </p>
                 )}
               </div>
@@ -878,7 +872,8 @@ const CreateEditEventPage = () => {
                 placeholder="https://youtube.com/watch?v=..."
               />
             </div>
-<div className="form-group">
+
+            <div className="form-group">
               <label className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                 <Camera className="h-5 w-5 inline mr-2" />
                 Галерея фотографий
@@ -1133,3 +1128,131 @@ const CreateEditEventPage = () => {
                 </p>
               )}
             </div>
+            
+            <div className="form-group">
+              <label htmlFor="payment_widget_id" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                ID виджета оплаты
+              </label>
+              <textarea
+                id="payment_widget_id"
+                name="payment_widget_id"
+                value={event.payment_widget_id}
+                onChange={handleInputChange}
+                rows={3}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-dark-600 bg-white dark:bg-dark-700 text-gray-900 dark:text-white focus:outline-none focus:border-primary-500 focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800 transition-colors resize-vertical"
+                placeholder="ID виджета или HTML-код"
+              />
+            </div>
+            
+            <div className="form-group">
+              <label className="block font-medium mb-3 text-gray-700 dark:text-gray-300">
+                Виджет оплаты
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEvent(prev => ({ ...prev, widget_chooser: false }))}
+                  className={`p-4 rounded-xl border-2 text-center transition-all duration-200 ${
+                    !event.widget_chooser
+                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                      : 'border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-dark-500'
+                  }`}
+                >
+                  <div className="font-semibold text-lg mb-1">🔗 Ссылка</div>
+                  <div className="text-sm opacity-75">Переход по ссылке</div>
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => setEvent(prev => ({ ...prev, widget_chooser: true }))}
+                  className={`p-4 rounded-xl border-2 text-center transition-all duration-200 ${
+                    event.widget_chooser
+                      ? 'border-primary-500 bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-300'
+                      : 'border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-700 text-gray-700 dark:text-gray-300 hover:border-gray-300 dark:hover:border-dark-500'
+                  }`}
+                >
+                  <div className="font-semibold text-lg mb-1">🛠️ Виджет</div>
+                  <div className="text-sm opacity-75">Встроенная форма</div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <EventSpeakersSection
+          selectedSpeakerIds={event.speakers}
+          hideSpeakersGallery={event.hide_speakers_gallery}
+          onSpeakerToggle={handleSpeakerToggle}
+          onHideGalleryChange={handleHideSpeakersGalleryChange}
+          allSpeakers={speakers}
+        />
+        
+        <EventFestivalProgramSection
+          eventType={event.event_type}
+          festivalProgram={event.festival_program}
+          allSpeakers={speakers}
+          onFestivalProgramChange={handleFestivalProgramChange}
+        />
+        
+        <div className="flex flex-col sm:flex-row justify-end gap-4 pt-6 border-t border-gray-200 dark:border-dark-600">
+          <button
+            type="button"
+            onClick={() => navigate('/admin/events')}
+            className="px-6 py-3 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
+          >
+            Отмена
+          </button>
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-6 py-3 bg-primary-600 hover:bg-primary-700 disabled:opacity-50 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+          >
+            {saving ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Сохранение...
+              </>
+            ) : (
+              <>
+                <Save className="h-5 w-5" />
+                Сохранить
+              </>
+            )}
+          </button>
+        </div>
+      </form>
+
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-dark-800 rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center gap-3 text-red-600 mb-4">
+              <AlertTriangle className="h-6 w-6" />
+              <h3 className="text-lg font-semibold">Подтверждение удаления</h3>
+            </div>
+            <p className="mb-6 text-gray-700 dark:text-gray-300">
+              Вы уверены, что хотите удалить это мероприятие? Это действие нельзя отменить.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 border border-gray-300 dark:border-dark-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-dark-700 transition-colors"
+              >
+                Отмена
+              </button>
+              <button
+                type="button"
+                onClick={handleDelete}
+                className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              >
+                Удалить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default CreateEditEventPage;
