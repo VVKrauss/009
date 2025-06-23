@@ -5,6 +5,7 @@ import { ArrowLeft, Mail, Globe, MapPin, Link2, Calendar, Clock, Globe2, X } fro
 import Layout from '../components/layout/Layout';
 import { toast } from 'react-hot-toast';
 import { motion, AnimatePresence } from 'framer-motion';
+import { formatRussianDate, formatTimeFromTimestamp, isValidDateString } from '../utils/dateTimeUtils';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -37,7 +38,6 @@ interface Event {
   title: string;
   description: string;
   short_description: string;
-  date: string;
   start_time: string;
   end_time: string;
   location: string;
@@ -60,6 +60,49 @@ const SpeakerProfilePage = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const photoRef = useRef<HTMLDivElement>(null);
+
+  // Безопасная функция форматирования даты
+  const formatEventDate = (dateString: string | null | undefined): string => {
+    if (!isValidDateString(dateString)) {
+      return 'Дата не указана';
+    }
+    
+    try {
+      return formatRussianDate(dateString!, 'd MMMM yyyy');
+    } catch (error) {
+      console.error('Error formatting date in SpeakerProfile:', dateString, error);
+      return 'Ошибка даты';
+    }
+  };
+
+  // Безопасная функция форматирования времени
+  const formatEventTime = (timeString: string | null | undefined): string => {
+    if (!timeString) return '--:--';
+    
+    try {
+      return formatTimeFromTimestamp(timeString);
+    } catch (error) {
+      console.error('Error formatting time in SpeakerProfile:', timeString, error);
+      return '--:--';
+    }
+  };
+
+  // Функция для определения, прошло ли событие
+  const isEventPast = (event: Event): boolean => {
+    try {
+      if (event.status === 'past') return true;
+      
+      if (!event.end_time) return false;
+      
+      const eventEndTime = new Date(event.end_time);
+      if (isNaN(eventEndTime.getTime())) return false;
+      
+      return eventEndTime < new Date();
+    } catch (error) {
+      console.error('Error checking if event is past:', error);
+      return false;
+    }
+  };
 
   useEffect(() => {
     const fetchSpeaker = async () => {
@@ -104,7 +147,6 @@ const SpeakerProfilePage = () => {
             title,
             description,
             short_description,
-            date,
             start_time,
             end_time,
             location,
@@ -119,15 +161,11 @@ const SpeakerProfilePage = () => {
 
         if (error) throw error;
 
-        const now = new Date();
         const upcoming: Event[] = [];
         const past: Event[] = [];
 
         data?.forEach(event => {
-          const eventDate = new Date(event.date);
-          event.status === 'past' || eventDate < now 
-            ? past.push(event) 
-            : upcoming.push(event);
+          isEventPast(event) ? past.push(event) : upcoming.push(event);
         });
 
         setUpcomingEvents(upcoming);
@@ -259,22 +297,6 @@ const SpeakerProfilePage = () => {
       </div>
     );
   };
-  
-  const formatDate = (dateString: string) => {
-    const options: Intl.DateTimeFormatOptions = { 
-      day: 'numeric', 
-      month: 'long', 
-      year: 'numeric' 
-    };
-    return new Date(dateString).toLocaleDateString('ru-RU', options);
-  };
-
-  const formatTime = (timeString: string) => {
-    return new Date(timeString).toLocaleTimeString('ru-RU', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-  };
 
   const getEventDescription = (event: Event) => {
     if (event.short_description) return event.short_description;
@@ -287,8 +309,7 @@ const SpeakerProfilePage = () => {
   };
 
   const renderEventCard = (event: Event) => {
-    const eventDate = new Date(event.date);
-    const isPast = event.status === 'past' || eventDate < new Date();
+    const isPast = isEventPast(event);
     
     return (
       <div 
@@ -344,12 +365,12 @@ const SpeakerProfilePage = () => {
           <div className="space-y-2 text-sm">
             <div className="flex items-center text-dark-600 dark:text-dark-400">
               <Calendar className="h-4 w-4 mr-2 flex-shrink-0 text-primary-500" />
-              <span className="font-medium">{formatDate(event.date)}</span>
+              <span className="font-medium">{formatEventDate(event.start_time)}</span>
             </div>
             
             <div className="flex items-center text-dark-600 dark:text-dark-400">
               <Clock className="h-4 w-4 mr-2 flex-shrink-0 text-primary-500" />
-              <span>{formatTime(event.start_time)} - {formatTime(event.end_time)}</span>
+              <span>{formatEventTime(event.start_time)} - {formatEventTime(event.end_time)}</span>
             </div>
             
             {event.location && (
@@ -712,7 +733,9 @@ const SpeakerProfilePage = () => {
                       className="flex justify-between items-center py-3 border-b border-gray-200 dark:border-dark-700 last:border-0"
                     >
                       <span className="font-medium text-dark-800 dark:text-white">{event.title}</span>
-                      <span className="text-dark-500 dark:text-dark-400">{event.date}</span>
+                      <span className="text-dark-500 dark:text-dark-400">
+                        {formatEventDate(event.date)}
+                      </span>
                     </div>
                   ))}
                 </div>
