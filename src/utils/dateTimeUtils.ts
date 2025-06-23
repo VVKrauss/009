@@ -64,20 +64,52 @@ export const formatTimeRange = (startTime?: string, endTime?: string, timezone: 
 };
 
 /**
- * Formats a date in Russian locale
+ * Безопасно форматирует дату в русской локали
  * @param dateString ISO date string
  * @param formatStr Format string for date-fns
  * @param timezone Optional timezone (defaults to Belgrade)
  * @returns Formatted date string
  */
-export const formatRussianDate = (dateString: string, formatStr = 'd MMMM yyyy', timezone: string = BELGRADE_TIMEZONE): string => {
+export const formatRussianDate = (
+  dateString: string | null | undefined, 
+  formatStr = 'd MMMM yyyy', 
+  timezone: string = BELGRADE_TIMEZONE
+): string => {
+  // Проверяем на null/undefined
+  if (!dateString) {
+    console.warn('formatRussianDate: dateString is null or undefined');
+    return 'Дата не указана';
+  }
+
   try {
-    const date = parseISO(dateString);
+    // Проверяем, что строка не пустая
+    const trimmedDateString = String(dateString).trim();
+    if (!trimmedDateString) {
+      console.warn('formatRussianDate: dateString is empty');
+      return 'Дата не указана';
+    }
+
+    // Проверяем валидность даты перед парсингом
+    const testDate = new Date(trimmedDateString);
+    if (isNaN(testDate.getTime())) {
+      console.warn('formatRussianDate: Invalid date string:', dateString);
+      return 'Неверная дата';
+    }
+
+    // Парсим дату
+    const date = parseISO(trimmedDateString);
+    
+    // Дополнительная проверка после parseISO
+    if (isNaN(date.getTime())) {
+      console.warn('formatRussianDate: parseISO failed for:', dateString);
+      return 'Ошибка парсинга даты';
+    }
+
     const zonedDate = utcToZonedTime(date, timezone);
     return format(zonedDate, formatStr, { locale: ru });
   } catch (error) {
-    console.error('Error formatting date:', error);
-    return dateString;
+    console.error('formatRussianDate: Error formatting date:', dateString, error);
+    return 'Ошибка форматирования';
   }
 };
 
@@ -89,7 +121,11 @@ export const formatRussianDate = (dateString: string, formatStr = 'd MMMM yyyy',
  */
 export const isPastEvent = (eventDate: string, timezone: string = BELGRADE_TIMEZONE): boolean => {
   try {
+    if (!eventDate) return false;
+    
     const eventDateTime = parseISO(eventDate);
+    if (isNaN(eventDateTime.getTime())) return false;
+    
     const zonedEventDate = utcToZonedTime(eventDateTime, timezone);
     const now = new Date();
     const zonedNow = utcToZonedTime(now, timezone);
@@ -106,8 +142,16 @@ export const isPastEvent = (eventDate: string, timezone: string = BELGRADE_TIMEZ
  * @returns Date object in Belgrade timezone
  */
 export const convertToBedradeTimezone = (date: Date | string): Date => {
-  const dateObj = typeof date === 'string' ? parseISO(date) : date;
-  return utcToZonedTime(dateObj, BELGRADE_TIMEZONE);
+  try {
+    const dateObj = typeof date === 'string' ? parseISO(date) : date;
+    if (isNaN(dateObj.getTime())) {
+      throw new Error('Invalid date provided');
+    }
+    return utcToZonedTime(dateObj, BELGRADE_TIMEZONE);
+  } catch (error) {
+    console.error('Error converting to Belgrade timezone:', error);
+    return new Date(); // Return current date as fallback
+  }
 };
 
 /**
@@ -116,8 +160,16 @@ export const convertToBedradeTimezone = (date: Date | string): Date => {
  * @returns Date object in UTC
  */
 export const convertFromBelgradeToUTC = (date: Date | string): Date => {
-  const dateObj = typeof date === 'string' ? parseISO(date) : date;
-  return zonedTimeToUtc(dateObj, BELGRADE_TIMEZONE);
+  try {
+    const dateObj = typeof date === 'string' ? parseISO(date) : date;
+    if (isNaN(dateObj.getTime())) {
+      throw new Error('Invalid date provided');
+    }
+    return zonedTimeToUtc(dateObj, BELGRADE_TIMEZONE);
+  } catch (error) {
+    console.error('Error converting from Belgrade to UTC:', error);
+    return new Date(); // Return current date as fallback
+  }
 };
 
 /**
@@ -136,8 +188,16 @@ export const createBelgradeDate = (
   hours: number = 0,
   minutes: number = 0
 ): Date => {
-  const date = new Date(year, month, day, hours, minutes);
-  return utcToZonedTime(date, BELGRADE_TIMEZONE);
+  try {
+    const date = new Date(year, month, day, hours, minutes);
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid date parameters provided');
+    }
+    return utcToZonedTime(date, BELGRADE_TIMEZONE);
+  } catch (error) {
+    console.error('Error creating Belgrade date:', error);
+    return new Date(); // Return current date as fallback
+  }
 };
 
 /**
@@ -147,15 +207,31 @@ export const createBelgradeDate = (
  * @returns Combined date and time in Belgrade timezone
  */
 export const parseTimeWithBelgradeTimezone = (timeString: string, dateString: string): Date => {
-  const [hours, minutes] = timeString.split(':').map(Number);
-  const date = parseISO(dateString);
-  
-  // Create a new date with the specified hours and minutes
-  const combinedDate = new Date(date);
-  combinedDate.setHours(hours, minutes, 0, 0);
-  
-  // Convert to Belgrade timezone
-  return utcToZonedTime(combinedDate, BELGRADE_TIMEZONE);
+  try {
+    if (!timeString || !dateString) {
+      throw new Error('Time string and date string are required');
+    }
+
+    const [hours, minutes] = timeString.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) {
+      throw new Error('Invalid time format');
+    }
+
+    const date = parseISO(dateString);
+    if (isNaN(date.getTime())) {
+      throw new Error('Invalid date string');
+    }
+    
+    // Create a new date with the specified hours and minutes
+    const combinedDate = new Date(date);
+    combinedDate.setHours(hours, minutes, 0, 0);
+    
+    // Convert to Belgrade timezone
+    return utcToZonedTime(combinedDate, BELGRADE_TIMEZONE);
+  } catch (error) {
+    console.error('Error parsing time with Belgrade timezone:', error);
+    return new Date(); // Return current date as fallback
+  }
 };
 
 /**
@@ -164,6 +240,7 @@ export const parseTimeWithBelgradeTimezone = (timeString: string, dateString: st
  * @returns Boolean indicating if the time string is valid
  */
 export const isValidTimeFormat = (timeString: string): boolean => {
+  if (!timeString) return false;
   const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
   return timeRegex.test(timeString);
 };
@@ -175,14 +252,76 @@ export const isValidTimeFormat = (timeString: string): boolean => {
  * @returns ISO string in UTC for database storage
  */
 export const formatDateTimeForDatabase = (date: Date | string, time: string): string => {
-  const dateObj = typeof date === 'string' ? parseISO(date) : date;
-  const [hours, minutes] = time.split(':').map(Number);
+  try {
+    if (!date || !time) {
+      throw new Error('Date and time are required');
+    }
+
+    const dateObj = typeof date === 'string' ? parseISO(date) : date;
+    if (isNaN(dateObj.getTime())) {
+      throw new Error('Invalid date provided');
+    }
+
+    const [hours, minutes] = time.split(':').map(Number);
+    if (isNaN(hours) || isNaN(minutes)) {
+      throw new Error('Invalid time format');
+    }
+    
+    // Set the time on the date object
+    const combinedDate = new Date(dateObj);
+    combinedDate.setHours(hours, minutes, 0, 0);
+    
+    // Convert from Belgrade to UTC for storage
+    const utcDate = zonedTimeToUtc(combinedDate, BELGRADE_TIMEZONE);
+    return utcDate.toISOString();
+  } catch (error) {
+    console.error('Error formatting date time for database:', error);
+    return new Date().toISOString(); // Return current time as fallback
+  }
+};
+
+/**
+ * Проверяет валидность даты
+ * @param dateString Date string to validate
+ * @returns Boolean indicating if the date is valid
+ */
+export const isValidDateString = (dateString: string | null | undefined): boolean => {
+  if (!dateString) return false;
   
-  // Set the time on the date object
-  const combinedDate = new Date(dateObj);
-  combinedDate.setHours(hours, minutes, 0, 0);
-  
-  // Convert from Belgrade to UTC for storage
-  const utcDate = zonedTimeToUtc(combinedDate, BELGRADE_TIMEZONE);
-  return utcDate.toISOString();
+  try {
+    const trimmedDate = String(dateString).trim();
+    if (!trimmedDate) return false;
+    
+    const date = new Date(trimmedDate);
+    return !isNaN(date.getTime());
+  } catch {
+    return false;
+  }
+};
+
+/**
+ * Безопасно форматирует временной диапазон с проверками
+ * @param startTime Start time timestamp
+ * @param endTime End time timestamp
+ * @param timezone Optional timezone (defaults to Belgrade)
+ * @returns Formatted time range string
+ */
+export const formatTimeRangeSafe = (
+  startTime?: string | null, 
+  endTime?: string | null, 
+  timezone: string = BELGRADE_TIMEZONE
+): string => {
+  try {
+    const start = startTime ? formatTimeFromTimestamp(startTime, timezone) : null;
+    const end = endTime ? formatTimeFromTimestamp(endTime, timezone) : null;
+    
+    if (!start && !end) return '';
+    if (start && !end) return start;
+    if (!start && end) return end;
+    
+    return `${start} - ${end}`;
+  } catch (error) {
+    console.error('Error formatting time range:', error);
+    return '';
+  }
 };
