@@ -97,9 +97,10 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
     loadSpeakers();
   }, [event.speakers]);
 
+  // Используем поле registrations как JSONB объект
   const registrations = event.registrations || {};
   const currentRegs = parseInt(registrations.current || '0') || 0;
-  const maxRegs = registrations.max_regs || 0;
+  const maxRegs = parseInt(registrations.max_registrations || registrations.max_regs || '0') || 0;
   const fillPercentage = maxRegs > 0 ? (currentRegs / maxRegs) * 100 : 0;
 
   const getStatusColor = () => {
@@ -160,7 +161,7 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
             <div className={`flex items-center justify-center bg-primary-100 dark:bg-primary-900/30 rounded-lg mr-3 ${isCompact ? 'w-6 h-6' : 'w-8 h-8'}`}>
               <Calendar className={`text-primary-600 dark:text-primary-400 ${isCompact ? 'w-3 h-3' : 'w-4 h-4'}`} />
             </div>
-            <span className={`font-medium ${isCompact ? 'text-sm' : ''}`}>{formatDate(event.date || event.start_time)}</span>
+            <span className={`font-medium ${isCompact ? 'text-sm' : ''}`}>{formatDate(event.start_at)}</span>
           </div>
 
           <div className="flex items-center text-gray-700 dark:text-gray-300">
@@ -168,7 +169,7 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
               <Clock className={`text-primary-600 dark:text-primary-400 ${isCompact ? 'w-3 h-3' : 'w-4 h-4'}`} />
             </div>
             <span className={`font-medium ${isCompact ? 'text-sm' : ''}`}>
-              {formatTime(event.start_time)} - {formatTime(event.end_time)}
+              {formatTime(event.start_at)} - {formatTime(event.end_at)}
             </span>
           </div>
 
@@ -229,7 +230,7 @@ const EventCard = ({ event, isPast = false, isCompact = false }: { event: any, i
 const EventListItem = ({ event, isPast = false }: { event: any, isPast?: boolean }) => {
   const registrations = event.registrations || {};
   const currentRegs = parseInt(registrations.current || '0') || 0;
-  const maxRegs = registrations.max_regs || 0;
+  const maxRegs = parseInt(registrations.max_registrations || registrations.max_regs || '0') || 0;
 
   return (
     <div className="bg-white dark:bg-dark-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:border-primary-200 dark:hover:border-primary-600 transition-all duration-200 hover:shadow-md relative overflow-hidden">
@@ -253,11 +254,11 @@ const EventListItem = ({ event, isPast = false }: { event: any, isPast?: boolean
             <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-500 dark:text-gray-400">
               <div className="flex items-center">
                 <Calendar className="w-3 h-3 mr-1" />
-                {formatDateShort(event.date || event.start_time)}
+                {formatDateShort(event.start_at)}
               </div>
               <div className="flex items-center">
                 <Clock className="w-3 h-3 mr-1" />
-                {formatTime(event.start_time)}
+                {formatTime(event.start_at)}
               </div>
               <div className="flex items-center">
                 <Users className="w-3 h-3 mr-1" />
@@ -360,26 +361,29 @@ const loadEventsFromSupabase = async (type: string, offset = 0, limit = 10) => {
     if (type === 'nearest') {
       const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       query = query
-        .gte('start_time', now)
-        .lte('start_time', nextWeek)
+        .gte('start_at', now)
+        .lte('start_at', nextWeek)
         .eq('status', 'active')
-        .order('start_time', { ascending: true })
+        .order('start_at', { ascending: true })
         .limit(1);
     } else if (type === 'upcoming') {
       query = query
-        .gte('start_time', now)
+        .gte('start_at', now)
         .eq('status', 'active')
-        .order('start_time', { ascending: true })
+        .order('start_at', { ascending: true })
         .range(offset, offset + limit - 1);
     } else if (type === 'past') {
       query = query
-        .or(`start_time.lt.${now},status.eq.past`)
-        .order('start_time', { ascending: false })
+        .or(`start_at.lt.${now},status.eq.past`)
+        .order('start_at', { ascending: false })
         .range(offset, offset + limit - 1);
     }
 
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+      console.error('Database error:', error);
+      throw error;
+    }
 
     return {
       data: (data || []).filter(event => event && event.id),
@@ -436,8 +440,10 @@ const EventsStatistics = () => {
       
       for (const type of eventTypes) {
         for (const event of events[type]) {
-          if (event.registrations?.reg_list && Array.isArray(event.registrations.reg_list)) {
-            event.registrations.reg_list.forEach(reg => {
+          // Используем поле registrations как JSONB объект
+          const registrations = event.registrations || {};
+          if (registrations.reg_list && Array.isArray(registrations.reg_list)) {
+            registrations.reg_list.forEach((reg: any) => {
               if (reg.email && reg.full_name) {
                 const email = reg.email.toLowerCase().trim();
                 const current = registrationsMap.get(email);
@@ -496,13 +502,14 @@ const EventsStatistics = () => {
       
       for (const type of eventTypes) {
         for (const event of events[type]) {
-          const regs = event.registrations?.reg_list || [];
+          const registrations = event.registrations || {};
+          const regs = registrations.reg_list || [];
           const participants = regs.length;
-          const revenue = regs.reduce((sum, reg) => sum + (reg.total_amount || 0), 0);
+          const revenue = regs.reduce((sum: number, reg: any) => sum + (reg.total_amount || 0), 0);
           
           eventStats.push({
             title: event.title || 'Без названия',
-            date: formatDate(event.date || event.start_time),
+            date: formatDate(event.start_at),
             participants,
             revenue
           });
@@ -586,11 +593,11 @@ const EventsStatistics = () => {
 
       if (timeFilter !== 'all') {
         if (startDate) {
-          query = query.gte('start_time', startDate);
+          query = query.gte('start_at', startDate);
         }
-        query = query.lte('start_time', endDate);
+        query = query.lte('start_at', endDate);
       } else {
-        query = query.or(`start_time.lt.${new Date().toISOString()},status.eq.past`);
+        query = query.or(`start_at.lt.${new Date().toISOString()},status.eq.past`);
       }
 
       const { data: pastEvents, error } = await query;
@@ -633,11 +640,14 @@ const EventsStatistics = () => {
       setLoading({ nearest: true, upcoming: true, past: true });
       
       try {
+        console.log('Loading initial data...');
         const [nearestResult, upcomingResult, pastResult] = await Promise.all([
           loadEventsFromSupabase('nearest', 0, 1),
           loadEventsFromSupabase('upcoming', 0, 6),
           loadEventsFromSupabase('past', 0, 10)
         ]);
+
+        console.log('Loaded data:', { nearestResult, upcomingResult, pastResult });
 
         setEvents({
           nearest: nearestResult.data,
