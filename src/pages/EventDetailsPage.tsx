@@ -58,7 +58,7 @@ interface Event {
   festival_program?: FestivalProgramItem[];
   registrations?: EventRegistrations;
   video_url?: string;
-  photo_gallery?: string[];
+  photo_gallery?: string[] | string;
   // Legacy fields - больше не используем
   date?: string;
   start_time?: string;
@@ -66,6 +66,29 @@ interface Event {
   max_registrations?: number;
   current_registration_count?: number;
 }
+
+// Helper function to safely parse photo gallery
+const parsePhotoGallery = (photoGallery: string[] | string | null | undefined): string[] => {
+  if (!photoGallery) {
+    return [];
+  }
+  
+  if (Array.isArray(photoGallery)) {
+    return photoGallery;
+  }
+  
+  if (typeof photoGallery === 'string') {
+    try {
+      const parsed = JSON.parse(photoGallery);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error('Error parsing photo_gallery JSON:', e);
+      return [];
+    }
+  }
+  
+  return [];
+};
 
 const renderDescriptionWithLinks = (description: string) => {
   if (!description) {
@@ -293,6 +316,9 @@ const EventDetailsPage = () => {
 
   const maxRegistrations = getMaxRegistrations();
   const currentRegistrationCount = getCurrentRegistrationCount();
+  
+  // Safely parse photo gallery
+  const photoGallery = parsePhotoGallery(event.photo_gallery);
 
   return (
     <Layout>
@@ -393,11 +419,11 @@ const EventDetailsPage = () => {
               )}
 
               {/* Галерея фотографий (если есть) */}
-              {event.photo_gallery && event.photo_gallery.length > 0 && (
+              {photoGallery.length > 0 && (
                 <div className="card p-6">
                   <h2 className="text-2xl font-semibold mb-4">Фотогалерея</h2>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {event.photo_gallery.map((photo, index) => (
+                    {photoGallery.map((photo, index) => (
                       <img
                         key={index}
                         src={photo}
