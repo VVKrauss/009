@@ -11,10 +11,14 @@ type Event = {
   id: string;
   title: string;
   short_description: string;
-  start_time: string;
-  end_time: string;
+  start_at: string;
+  end_at: string;
   location: string;
   bg_image: string;
+  // Legacy fields for backward compatibility
+  date?: string;
+  start_time?: string;
+  end_time?: string;
 };
 
 type EventSlideshowProps = {
@@ -37,37 +41,59 @@ const EventSlideshow = ({
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // Безопасная функция форматирования даты
-  const formatEventDate = (dateString: string | null | undefined): string => {
-    if (!dateString) return 'Дата не указана';
-    
-    try {
-      const trimmedDateString = dateString.trim();
-      if (!trimmedDateString) return 'Дата не указана';
-
-      const testDate = new Date(trimmedDateString);
-      if (isNaN(testDate.getTime())) {
-        console.warn('Invalid date string received:', dateString);
-        return 'Неверная дата';
+  const formatEventDate = (event: Event): string => {
+    // Сначала пытаемся использовать start_at (новое поле)
+    if (isValidDateString(event.start_at)) {
+      try {
+        return formatRussianDate(event.start_at, 'd MMMM');
+      } catch (error) {
+        console.error('Error formatting start_at:', event.start_at, error);
       }
-
-      return formatRussianDate(trimmedDateString, 'd MMMM');
-    } catch (error) {
-      console.error('Error formatting date:', dateString, error);
-      return 'Ошибка даты';
     }
+    
+    // Fallback на legacy поле start_time
+    if (isValidDateString(event.start_time)) {
+      try {
+        return formatRussianDate(event.start_time!, 'd MMMM');
+      } catch (error) {
+        console.error('Error formatting start_time:', event.start_time, error);
+      }
+    }
+    
+    // Fallback на legacy поле date
+    if (isValidDateString(event.date)) {
+      try {
+        return formatRussianDate(event.date!, 'd MMMM');
+      } catch (error) {
+        console.error('Error formatting date:', event.date, error);
+      }
+    }
+    
+    return 'Дата не указана';
   };
 
   // Безопасная функция форматирования времени
-  const formatEventTimeRange = (startTime: string | null | undefined, endTime: string | null | undefined): string => {
-    if (!startTime && !endTime) return '';
-    
+  const formatEventTimeRange = (event: Event): string => {
     try {
-      if (customFormatTimeRange && startTime && endTime) {
-        return customFormatTimeRange(startTime, endTime);
+      // Сначала пытаемся использовать start_at/end_at
+      if (event.start_at && event.end_at) {
+        if (customFormatTimeRange) {
+          return customFormatTimeRange(event.start_at, event.end_at);
+        }
+        return formatTimeRange(event.start_at, event.end_at);
       }
-      return formatTimeRange(startTime, endTime);
+      
+      // Fallback на legacy поля
+      if (event.start_time && event.end_time) {
+        if (customFormatTimeRange) {
+          return customFormatTimeRange(event.start_time, event.end_time);
+        }
+        return formatTimeRange(event.start_time, event.end_time);
+      }
+      
+      return '';
     } catch (error) {
-      console.error('Error formatting time range:', startTime, endTime, error);
+      console.error('Error formatting time range:', error);
       return '';
     }
   };
@@ -143,11 +169,11 @@ const EventSlideshow = ({
                   <div className="flex items-center gap-2 text-base">
                     <Calendar className="h-5 w-5" />
                     <span>
-                      {formatEventDate(event.start_time)}
-                      {formatEventTimeRange(event.start_time, event.end_time) && (
+                      {formatEventDate(event)}
+                      {formatEventTimeRange(event) && (
                         <>
                           {' • '}
-                          {formatEventTimeRange(event.start_time, event.end_time)}
+                          {formatEventTimeRange(event)}
                         </>
                       )}
                     </span>
@@ -160,11 +186,11 @@ const EventSlideshow = ({
                     <div className="flex items-center gap-2 text-sm sm:text-base">
                       <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
                       <span>
-                        {formatEventDate(event.start_time)}
-                        {formatEventTimeRange(event.start_time, event.end_time) && (
+                        {formatEventDate(event)}
+                        {formatEventTimeRange(event) && (
                           <>
                             {' • '}
-                            {formatEventTimeRange(event.start_time, event.end_time)}
+                            {formatEventTimeRange(event)}
                           </>
                         )}
                       </span>
@@ -182,7 +208,7 @@ const EventSlideshow = ({
             </div>
           </div>
         ))}
-      </Slider> 
+      </Slider>
 
       {/* Блок с названием и описанием для мобильной версии */}
       <div className="md:hidden container px-4 sm:px-6 mt-4">
