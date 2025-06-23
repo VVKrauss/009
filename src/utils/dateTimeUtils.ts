@@ -1,188 +1,240 @@
-import { format, parseISO } from 'date-fns';
-import { ru } from 'date-fns/locale';
-import { formatInTimeZone, utcToZonedTime, zonedTimeToUtc } from 'date-fns-tz';
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { Calendar, Globe, Users, ArrowRight, Clock } from 'lucide-react';
+import { supabase } from '../../lib/supabase';
+import { formatTimeRange, formatRussianDate } from '../../utils/dateTimeUtils';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
-// Define Belgrade timezone constant
-export const BELGRADE_TIMEZONE = 'Europe/Belgrade';
+type Event = {
+  id: string;
+  title: string;
+  date: string;
+  start_time: string;
+  end_time: string;
+  languages: string[];
+  event_type: string;
+  age_category: string;
+  bg_image: string;
+  price: number | null;
+  currency: string;
+  payment_type: string;
+};
 
-/**
- * Formats a timestamp string to HH:MM format
- * @param timeString The timestamp string to format
- * @param timezone Optional timezone (defaults to Belgrade)
- * @returns Formatted time string
- */
-export const formatTimeFromTimestamp = (timeString?: string, timezone: string = BELGRADE_TIMEZONE): string => {
-  if (!timeString) return '--:--';
+type HomepageSettings = {
+  events_count: number;
+  show_title: boolean;
+  show_date: boolean;
+  show_time: boolean;
+  show_language: boolean;
+  show_type: boolean;
+  show_age: boolean;
+  show_image: boolean;
+  show_price: boolean;
+};
 
-  // If time is already in HH:MM format
-  if (/^\d{2}:\d{2}$/.test(timeString)) {
-    return timeString;
+const EventsSection = () => {
+  const [events, setEvents] = useState<Event[]>([]);
+  const [settings, setSettings] = useState<HomepageSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        // Fetch settings
+        const { data: settingsData, error: settingsError } = await supabase
+          .from('homepage_settings')
+          .select('*')
+          .single();
+
+        if (settingsError) throw settingsError;
+        setSettings(settingsData);
+
+        // Fetch upcoming events - исправленная фильтрация
+        const now = new Date().toISOString();
+        const { data: eventsData, error: eventsError } = await supabase
+          .from('events')
+          .select('*')
+          .eq('status', 'active')
+          .gte('end_time', now)  // Фильтруем по времени окончания события
+          .order('start_time', { ascending: true })  // Сортируем по времени начала
+          .limit(settingsData?.events_count || 3);
+
+        if (eventsError) throw eventsError;
+        setEvents(eventsData || []);
+      } catch (err) {
+        console.error('Error fetching data:', err);
+        setError('Failed to load events');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <section className="py-16 bg-gray-50 dark:bg-dark-800">
+        <div className="container mx-auto px-4">
+          <div className="animate-pulse">
+            <div className="h-8 w-48 bg-gray-200 dark:bg-dark-700 rounded mb-8 mx-auto"></div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="bg-white dark:bg-dark-900 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                  <div className="h-48 bg-gray-200 dark:bg-dark-700"></div>
+                  <div className="p-5 space-y-3">
+                    <div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-3/4"></div>
+                    <div className="h-4 bg-gray-200 dark:bg-dark-700 rounded w-1/2"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+    );
   }
 
-  // If time is in HH:MM:SS format
-  if (/^\d{2}:\d{2}:\d{2}$/.test(timeString)) {
-    return timeString.substring(0, 5);
+  if (error) {
+    return (
+      <section className="py-16 bg-gray-50 dark:bg-dark-800">
+        <div className="container mx-auto px-4">
+          <div className="text-center text-red-600 dark:text-red-400">
+            {error}
+          </div>
+        </div>
+      </section>
+    );
   }
 
-  // Try to parse as ISO date
-  try {
-    const date = new Date(timeString);
-    if (!isNaN(date.getTime())) {
-      return formatInTimeZone(date, timezone, 'HH:mm');
-    }
-  } catch (e) {
-    console.error('Error parsing timestamp:', timeString, e);
+  if (!settings) {
+    return null;
   }
 
-  // Try to extract time from string
-  const timeMatch = timeString.match(/(\d{1,2}):(\d{2})/);
-  if (timeMatch) {
-    const hours = timeMatch[1].padStart(2, '0');
-    const minutes = timeMatch[2];
-    return `${hours}:${minutes}`;
-  }
+  const {
+    show_title = true,
+    show_date = true,
+    show_time = true,
+    show_language = true,
+    show_type = true,
+    show_age = true,
+    show_image = true,
+    show_price = true,
+    events_count = 3,
+  } = settings;
 
-  return timeString;
+  return (
+    <section className="py-16 bg-gray-50 dark:bg-dark-800">
+      <div className="container mx-auto px-4">
+        <h2 className="text-3xl font-semibold mb-12 text-left text-gray-900 dark:text-white">
+          Наши мероприятия
+        </h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {events.map(event => (
+            <Link 
+              key={event.id}
+              to={`/events/${event.id}`}
+              className="group bg-white dark:bg-dark-900 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow"
+            >
+              {show_image && (
+                <div className="relative h-48">
+                  <div 
+                    className="absolute inset-0 bg-cover bg-center"
+                    style={{ backgroundImage: `url(${getSupabaseImageUrl(event.bg_image)})` }}
+                  >
+                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-colors" />
+                  </div>
+                  
+                  {/* Title overlay */}
+                  {show_title && (
+                    <div className="absolute inset-0 flex items-end p-4">
+                      <h3 className="text-white text-lg font-semibold drop-shadow-md">
+                        {event.title}
+                      </h3>
+                    </div>
+                  )}
+                  
+                  {show_age && (
+                    <div className="absolute top-3 right-3">
+                      <span className="px-2 py-1 bg-black/70 text-white rounded-full text-xs font-medium">
+                        {event.age_category}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+              
+              <div className="p-5">
+                {show_date && event.start_time && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-3">
+                    <Calendar className="h-4 w-4 flex-shrink-0" />
+                    <span>{formatRussianDate(event.start_time, 'd MMMM')}</span>
+                  </div>
+                )}
+                
+                <div className="space-y-3">
+                  {show_time && event.start_time && event.end_time && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                      <Clock className="h-4 w-4 flex-shrink-0" />
+                      <span>{formatTimeRange(event.start_time, event.end_time)}</span>
+                    </div>
+                  )}
+                  
+                  {show_language && event.languages.length > 0 && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                      <Globe className="h-4 w-4 flex-shrink-0" />
+                      <span>{event.languages.join(', ')}</span>
+                    </div>
+                  )}
+                  
+                  {show_type && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                      <Users className="h-4 w-4 flex-shrink-0" />
+                      <span>{event.event_type}</span>
+                    </div>
+                  )}
+                </div>
+                
+                {show_price && (
+                  <div className="mt-4 pt-4 border-t border-gray-100 dark:border-dark-700">
+                    <div className="text-base font-medium text-primary-600 dark:text-primary-400">
+                      {event.payment_type === 'free' 
+                        ? 'Бесплатно'
+                        : event.payment_type === 'donation'
+                          ? 'Донейшн'
+                          : event.price === null
+                            ? 'Подробнее'
+                            : `${event.price} ${event.currency}`
+                      }
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Link>
+          ))}
+          
+          {/* "All Events" card */}
+          <Link 
+            to="/events"
+            className="group bg-white dark:bg-dark-900 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col items-center justify-center p-6 text-center"
+          >
+            <div className="mb-3 p-3 bg-gray-100 dark:bg-dark-800 rounded-full">
+              <ArrowRight className="h-6 w-6 text-gray-600 dark:text-gray-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
+              Все мероприятия
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Смотреть полное расписание
+            </p>
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
 };
 
-/**
- * Formats a time range from start and end timestamps
- * @param startTime Start time timestamp
- * @param endTime End time timestamp
- * @param timezone Optional timezone (defaults to Belgrade)
- * @returns Formatted time range string
- */
-export const formatTimeRange = (startTime?: string, endTime?: string, timezone: string = BELGRADE_TIMEZONE): string => {
-  const start = formatTimeFromTimestamp(startTime, timezone);
-  const end = formatTimeFromTimestamp(endTime, timezone);
-  
-  if (!start && !end) return '';
-  if (start && !end) return start;
-  if (!start && end) return end;
-  
-  return `${start} - ${end}`;
-};
-
-/**
- * Formats a date in Russian locale
- * @param dateString ISO date string
- * @param formatStr Format string for date-fns
- * @param timezone Optional timezone (defaults to Belgrade)
- * @returns Formatted date string
- */
-export const formatRussianDate = (dateString: string, formatStr = 'd MMMM yyyy', timezone: string = BELGRADE_TIMEZONE): string => {
-  try {
-    const date = parseISO(dateString);
-    const zonedDate = utcToZonedTime(date, timezone);
-    return format(zonedDate, formatStr, { locale: ru });
-  } catch (error) {
-    console.error('Error formatting date:', error);
-    return dateString;
-  }
-};
-
-/**
- * Checks if an event date is in the past
- * @param eventDate Event date string
- * @param timezone Optional timezone (defaults to Belgrade)
- * @returns Boolean indicating if the event is in the past
- */
-export const isPastEvent = (eventDate: string, timezone: string = BELGRADE_TIMEZONE): boolean => {
-  try {
-    const eventDateTime = parseISO(eventDate);
-    const zonedEventDate = utcToZonedTime(eventDateTime, timezone);
-    const now = new Date();
-    const zonedNow = utcToZonedTime(now, timezone);
-    return zonedEventDate < zonedNow;
-  } catch (e) {
-    console.error('Error checking event date:', e);
-    return false;
-  }
-};
-
-/**
- * Converts a local time to Belgrade timezone
- * @param date Date object or ISO string
- * @returns Date object in Belgrade timezone
- */
-export const convertToBedradeTimezone = (date: Date | string): Date => {
-  const dateObj = typeof date === 'string' ? parseISO(date) : date;
-  return utcToZonedTime(dateObj, BELGRADE_TIMEZONE);
-};
-
-/**
- * Converts a Belgrade timezone time to UTC
- * @param date Date object or ISO string
- * @returns Date object in UTC
- */
-export const convertFromBelgradeToUTC = (date: Date | string): Date => {
-  const dateObj = typeof date === 'string' ? parseISO(date) : date;
-  return zonedTimeToUtc(dateObj, BELGRADE_TIMEZONE);
-};
-
-/**
- * Creates a date object with Belgrade timezone
- * @param year Year
- * @param month Month (0-11)
- * @param day Day
- * @param hours Hours
- * @param minutes Minutes
- * @returns Date object in Belgrade timezone
- */
-export const createBelgradeDate = (
-  year: number,
-  month: number,
-  day: number,
-  hours: number = 0,
-  minutes: number = 0
-): Date => {
-  const date = new Date(year, month, day, hours, minutes);
-  return utcToZonedTime(date, BELGRADE_TIMEZONE);
-};
-
-/**
- * Parses a time string (HH:MM) and combines it with a date in Belgrade timezone
- * @param timeString Time string in HH:MM format
- * @param dateString Date string in ISO format
- * @returns Combined date and time in Belgrade timezone
- */
-export const parseTimeWithBelgradeTimezone = (timeString: string, dateString: string): Date => {
-  const [hours, minutes] = timeString.split(':').map(Number);
-  const date = parseISO(dateString);
-  
-  // Create a new date with the specified hours and minutes
-  const combinedDate = new Date(date);
-  combinedDate.setHours(hours, minutes, 0, 0);
-  
-  // Convert to Belgrade timezone
-  return utcToZonedTime(combinedDate, BELGRADE_TIMEZONE);
-};
-
-/**
- * Validates if a time string is in valid HH:MM format
- * @param timeString Time string to validate
- * @returns Boolean indicating if the time string is valid
- */
-export const isValidTimeFormat = (timeString: string): boolean => {
-  const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-  return timeRegex.test(timeString);
-};
-
-/**
- * Formats a date for database storage in ISO format
- * @param date Date object or ISO string
- * @param time Time string in HH:MM format
- * @returns ISO string in UTC for database storage
- */
-export const formatDateTimeForDatabase = (date: Date | string, time: string): string => {
-  const dateObj = typeof date === 'string' ? parseISO(date) : date;
-  const [hours, minutes] = time.split(':').map(Number);
-  
-  // Set the time on the date object
-  const combinedDate = new Date(dateObj);
-  combinedDate.setHours(hours, minutes, 0, 0);
-  
-  // Convert from Belgrade to UTC for storage
-  const utcDate = zonedTimeToUtc(combinedDate, BELGRADE_TIMEZONE);
-  return utcDate.toISOString();
-};
+export default EventsSection;
