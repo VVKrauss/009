@@ -702,7 +702,7 @@ const CreateEditEventPage = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-600 p-6">
+<div className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-600 p-6">
           <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
             <Calendar className="h-5 w-5 text-primary-600" />
             Дата и время проведения
@@ -711,45 +711,45 @@ const CreateEditEventPage = () => {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="form-group">
-                <label htmlFor="start_time" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                <label htmlFor="start_at" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Дата и время начала <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
-                  id="start_time"
-                  name="start_time"
-                  value={formatDateTimeForInput(event.start_time)}
-                  onChange={(e) => handleDateTimeChange('start_time', e.target.value)}
+                  id="start_at"
+                  name="start_at"
+                  value={formatDateTimeForInput(event.start_at)}
+                  onChange={(e) => handleDateTimeChange('start_at', e.target.value)}
                   className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                    errors.start_time 
+                    errors.start_at 
                       ? 'border-red-500 focus:border-red-500' 
                       : 'border-gray-300 dark:border-dark-600 focus:border-primary-500'
                   } bg-white dark:bg-dark-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800`}
                 />
-                {errors.start_time && (
+                {errors.start_at && (
                   <p className="text-red-500 text-sm mt-2">Обязательное поле</p>
                 )}
               </div>
               
               <div className="form-group">
-                <label htmlFor="end_time" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
+                <label htmlFor="end_at" className="block font-medium mb-2 text-gray-700 dark:text-gray-300">
                   Дата и время окончания <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="datetime-local"
-                  id="end_time"
-                  name="end_time"
-                  value={formatDateTimeForInput(event.end_time)}
-                  onChange={(e) => handleDateTimeChange('end_time', e.target.value)}
+                  id="end_at"
+                  name="end_at"
+                  value={formatDateTimeForInput(event.end_at)}
+                  onChange={(e) => handleDateTimeChange('end_at', e.target.value)}
                   className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                    errors.end_time 
+                    errors.end_at 
                       ? 'border-red-500 focus:border-red-500' 
                       : 'border-gray-300 dark:border-dark-600 focus:border-primary-500'
                   } bg-white dark:bg-dark-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary-200 dark:focus:ring-primary-800`}
                 />
-                {errors.end_time && (
+                {errors.end_at && (
                   <p className="text-red-500 text-sm mt-2">
-                    {errors.end_time === true ? 'Время окончания должно быть позже времени начала' : 'Обязательное поле'}
+                    {errors.end_at === true ? 'Время окончания должно быть позже времени начала' : 'Обязательное поле'}
                   </p>
                 )}
               </div>
@@ -778,6 +778,7 @@ const CreateEditEventPage = () => {
             </div>
           </div>
         </div>
+
 
         <div className="bg-white dark:bg-dark-800 rounded-lg shadow-sm border border-gray-200 dark:border-dark-600 p-6">
           <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
