@@ -171,10 +171,15 @@ const EventsSection = () => {
               )}
               
               <div className="p-5">
-                {show_date && event.start_time && (
+                {show_date && event.start_at && (
                   <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-3">
                     <Calendar className="h-4 w-4 flex-shrink-0" />
-                    <span>{formatRussianDate(event.start_time, 'd MMMM')}</span>
+                    <span>
+                      {event.start_at && new Date(event.start_at).getTime() 
+                        ? formatRussianDate(event.start_at, 'd MMMM')
+                        : 'Дата не указана'
+                      }
+                    </span>
                   </div>
                 )}
                 
