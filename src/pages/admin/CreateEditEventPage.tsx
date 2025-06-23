@@ -61,36 +61,34 @@ const CreateEditEventPage = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   
-  const [event, setEvent] = useState({
-    id: '',
-    title: '',
-    short_description: '',
-    description: '',
-    event_type: 'Lecture',
-    bg_image: '',
-    original_bg_image: '',
-    // Заменяем три поля на два timestamptz
-    start_at: '',
-    end_at: '',
-    location: '',
-    age_category: '0+',
-    price: '',
-    currency: 'RSD',
-    status: 'draft',
-    payment_type: 'cost',
-    payment_link: '',
-    payment_widget_id: '',
-    widget_chooser: false,
-    languages: ['Русский'],
-    speakers: [],
-    hide_speakers_gallery: true,
-    couple_discount: '',
-    child_half_price: false,
-    festival_program: [],
-    // Добавляем новые поля
-    video_url: '',
-    photo_gallery: []
-  });
+const [event, setEvent] = useState({
+  id: '',
+  title: '',
+  short_description: '',
+  description: '',
+  event_type: 'Lecture',
+  bg_image: '',
+  original_bg_image: '',
+  start_time: '', // изменили с start_at
+  end_time: '',   // изменили с end_at
+  location: '',
+  age_category: '0+',
+  price: '',
+  currency: 'RSD',
+  status: 'draft',
+  payment_type: 'cost',
+  payment_link: '',
+  payment_widget_id: '',
+  widget_chooser: false,
+  languages: ['Русский'],
+  speakers: [],
+  hide_speakers_gallery: true,
+  couple_discount: '',
+  child_half_price: false,
+  festival_program: [],
+  video_url: '',
+  photo_gallery: []
+});
 
   const [errors, setErrors] = useState({
     title: false,
