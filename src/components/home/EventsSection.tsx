@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, Globe, Users, ArrowRight, Clock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
-import { formatTimeFromTimestamp, formatRussianDateSafe as formatRussianDate } from '../../utils/dateTimeUtils';
+import { formatTimeFromTimestamp, formatRussianDate } from '../../utils/dateTimeUtils';
 import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 type Event = {
