@@ -38,8 +38,8 @@ interface Event {
   title: string;
   description: string;
   short_description: string;
-  start_time: string;
-  end_time: string;
+  start_at: string;
+  end_at: string;
   location: string;
   event_type: string;
   languages: string[];
@@ -92,9 +92,9 @@ const SpeakerProfilePage = () => {
     try {
       if (event.status === 'past') return true;
       
-      if (!event.end_time) return false;
+      if (!event.end_at) return false;
       
-      const eventEndTime = new Date(event.end_time);
+      const eventEndTime = new Date(event.end_at);
       if (isNaN(eventEndTime.getTime())) return false;
       
       return eventEndTime < new Date();
@@ -147,8 +147,8 @@ const SpeakerProfilePage = () => {
             title,
             description,
             short_description,
-            start_time,
-            end_time,
+            start_at,
+            end_at,
             location,
             event_type,
             languages,
@@ -365,12 +365,12 @@ const SpeakerProfilePage = () => {
           <div className="space-y-2 text-sm">
             <div className="flex items-center text-dark-600 dark:text-dark-400">
               <Calendar className="h-4 w-4 mr-2 flex-shrink-0 text-primary-500" />
-              <span className="font-medium">{formatEventDate(event.start_time)}</span>
+              <span className="font-medium">{formatEventDate(event.start_at)}</span>
             </div>
             
             <div className="flex items-center text-dark-600 dark:text-dark-400">
               <Clock className="h-4 w-4 mr-2 flex-shrink-0 text-primary-500" />
-              <span>{formatEventTime(event.start_time)} - {formatEventTime(event.end_time)}</span>
+              <span>{formatEventTime(event.start_at)} - {formatEventTime(event.end_at)}</span>
             </div>
             
             {event.location && (
