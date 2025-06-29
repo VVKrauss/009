@@ -36,9 +36,8 @@ export function Footer() {
     const fetchFooterSettings = async () => {
       try {
         const { data, error } = await supabase
-          .from('footer_settings')
-          .select('*')
-          .eq('is_active', true)
+          .from('site_settings')
+          .select('footer_settings')
           .single();
         
         if (error) {
@@ -46,10 +45,10 @@ export function Footer() {
           return;
         }
 
-        if (data) {
+        if (data && data.footer_settings && data.footer_settings.is_active) {
           setSettings({
-            ...data,
-            text_align: data.text_align || 'center'
+            ...data.footer_settings,
+            text_align: data.footer_settings.text_align || 'center'
           });
         }
       } catch (error) {
