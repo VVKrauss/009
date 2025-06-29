@@ -304,13 +304,20 @@ const RentPage = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
+        // Fetch from site_settings table instead of rent_info_settings
         const { data, error } = await supabase
-          .from('rent_info_settings')
-          .select('*')
+          .from('site_settings')
+          .select('rent_info_settings')
           .single();
 
         if (error) throw error;
-        setSettings(data);
+        
+        // Extract the rent_info_settings JSONB field from the response
+        if (data && data.rent_info_settings) {
+          setSettings(data.rent_info_settings);
+        } else {
+          throw new Error('Rent info settings not found');
+        }
       } catch (err) {
         console.error('Error fetching data:', err);
         setError('Не удалось загрузить информацию о пространстве');
