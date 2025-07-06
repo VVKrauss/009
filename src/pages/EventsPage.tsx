@@ -76,17 +76,10 @@ const EventsPage = () => {
     try {
       setLoading(true);
       
-      // Получаем события с их временными слотами
+      // Получаем активные события
       let activeQuery = supabase
         .from('events')
-        .select(`
-          *,
-          time_slot:time_slots_table!fk_time_slots_event(
-            id,
-            start_at,
-            end_at
-          )
-        `)
+        .select('*')
         .eq('status', 'active');
 
       // Фильтрация по типам событий
@@ -97,15 +90,8 @@ const EventsPage = () => {
       const { data: activeEvents, error: activeError } = await activeQuery;
       if (activeError) throw activeError;
 
-      // Обогащаем активные события временными данными
-      const enrichedActiveEvents = (activeEvents || []).map(event => ({
-        ...event,
-        start_at: event.time_slot?.[0]?.start_at || event.start_at,
-        end_at: event.time_slot?.[0]?.end_at || event.end_at
-      }));
-
       // Фильтруем активные события - убираем прошедшие
-      const currentActiveEvents = enrichedActiveEvents.filter(event => {
+      const currentActiveEvents = (activeEvents || []).filter(event => {
         if (!event.end_at) return true; // Если нет времени окончания, считаем активным
         return !isPastEvent(event.end_at);
       });
@@ -134,34 +120,20 @@ const EventsPage = () => {
       // Получаем прошедшие события
       const { data: pastEvents, error: pastError } = await supabase
         .from('events')
-        .select(`
-          *,
-          time_slot:time_slots_table!fk_time_slots_event(
-            id,
-            start_at,
-            end_at
-          )
-        `)
+        .select('*')
         .or('status.eq.past')
-        .order('start_at', { ascending: false, foreignTable: 'time_slot' })
+        .order('start_at', { ascending: false })
         .limit(6);
 
       if (pastError) throw pastError;
 
-      // Обогащаем прошедшие события и добавляем активные которые стали прошедшими
-      const enrichedPastEvents = (pastEvents || []).map(event => ({
-        ...event,
-        start_at: event.time_slot?.[0]?.start_at || event.start_at,
-        end_at: event.time_slot?.[0]?.end_at || event.end_at
-      }));
-
       // Добавляем активные события которые уже прошли
-      const pastActiveEvents = enrichedActiveEvents.filter(event => 
+      const pastActiveEvents = (activeEvents || []).filter(event => 
         event.end_at && isPastEvent(event.end_at)
       );
 
       // Объединяем и сортируем все прошедшие события
-      const allPastEvents = [...enrichedPastEvents, ...pastActiveEvents]
+      const allPastEvents = [...(pastEvents || []), ...pastActiveEvents]
         .sort((a, b) => new Date(b.start_at || 0).getTime() - new Date(a.start_at || 0).getTime())
         .slice(0, 6); // Берем только последние 6
 

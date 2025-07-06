@@ -72,17 +72,10 @@ const AdminEvents = () => {
     try {
       setLoading(true);
 
-      // Получаем события с их временными слотами
+      // Получаем события
       let query = supabase
         .from('events')
-        .select(`
-          *,
-          time_slot:time_slots_table!fk_time_slots_event(
-            id,
-            start_at,
-            end_at
-          )
-        `);
+        .select('*');
 
       // Фильтрация по статусу
       if (statusFilter === 'past') {
@@ -95,23 +88,16 @@ const AdminEvents = () => {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Обогащаем события временными данными
-      const enrichedEvents = (data || []).map(event => ({
-        ...event,
-        start_at: event.time_slot?.[0]?.start_at || event.start_at,
-        end_at: event.time_slot?.[0]?.end_at || event.end_at
-      }));
-
       // Дополнительная фильтрация для прошедших мероприятий
-      let filteredData = enrichedEvents;
+      let filteredData = data || [];
       if (statusFilter === 'past') {
-        filteredData = enrichedEvents.filter(event => 
+        filteredData = (data || []).filter(event => 
           event.status === 'past' || 
           (event.end_at && isPastEvent(event.end_at))
         );
       } else if (statusFilter === 'active') {
         // Для активных показываем только те что еще не прошли
-        filteredData = enrichedEvents.filter(event => 
+        filteredData = (data || []).filter(event => 
           event.status === 'active' && 
           (!event.end_at || !isPastEvent(event.end_at))
         );

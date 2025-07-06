@@ -182,30 +182,16 @@ const EventDetailsPage = () => {
     try {
       setLoading(true);
       
-      // Получаем событие с временным слотом
+      // Получаем событие
       const { data: eventData, error: eventError } = await supabase
         .from('events')
-        .select(`
-          *,
-          time_slot:time_slots_table!fk_time_slots_event(
-            id,
-            start_at,
-            end_at
-          )
-        `)
+        .select('*')
         .eq('id', id)
         .single();
 
       if (eventError) throw eventError;
 
-      // Обогащаем событие временными данными из слота
-      const enrichedEvent = {
-        ...eventData,
-        start_at: eventData.time_slot?.[0]?.start_at || eventData.start_at,
-        end_at: eventData.time_slot?.[0]?.end_at || eventData.end_at
-      };
-
-      setEvent(enrichedEvent);
+      setEvent(eventData);
 
       if (eventData.speakers?.length) {
         const { data: speakersData, error: speakersError } = await supabase
