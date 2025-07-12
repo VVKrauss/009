@@ -86,6 +86,67 @@ Deno.serve(async (req) => {
 
     console.log(`Processing ${isNew ? 'new' : 'existing'} event:`, eventData.id);
 
+    // Clean the eventData to ensure we're only sending valid fields for the events table
+    const cleanEventData = {
+      id: eventData.id,
+      title: eventData.title,
+      description: eventData.description,
+      event_type: eventData.event_type,
+      bg_image: eventData.bg_image,
+      start_at: eventData.start_at,
+      end_at: eventData.end_at,
+      location: eventData.location,
+      age_category: eventData.age_category,
+      price: eventData.price,
+      currency: eventData.currency,
+      status: eventData.status, // This should be text type for events table
+      created_at: eventData.created_at,
+      updated_at: eventData.updated_at,
+      speakers: eventData.speakers,
+      max_registrations: eventData.max_registrations,
+      current_registration_count: eventData.current_registration_count,
+      location_coordinates: eventData.location_coordinates,
+      video_url: eventData.video_url,
+      photo_gallery: eventData.photo_gallery,
+      festival_structure: eventData.festival_structure,
+      price_comment: eventData.price_comment,
+      payment_type: eventData.payment_type,
+      languages: eventData.languages,
+      payment_link: eventData.payment_link,
+      original_bg_image: eventData.original_bg_image,
+      couple_discount: eventData.couple_discount,
+      child_half_price: eventData.child_half_price,
+      hide_speakers_gallery: eventData.hide_speakers_gallery,
+      registrations_list: eventData.registrations_list,
+      registration_enabled: eventData.registration_enabled,
+      registration_deadline: eventData.registration_deadline,
+      registration_limit_per_user: eventData.registration_limit_per_user,
+      payment_link_clicks: eventData.payment_link_clicks,
+      temp_end_time: eventData.temp_end_time,
+      festival_program: eventData.festival_program,
+      short_description: eventData.short_description,
+      payment_widget_id: eventData.payment_widget_id,
+      widget_chooser: eventData.widget_chooser,
+      registrations: eventData.registrations,
+      oblakkarte_data_event_id: eventData.oblakkarte_data_event_id,
+      simple_payment_type: eventData.simple_payment_type,
+      online_payment_url: eventData.online_payment_url,
+      online_payment_type: eventData.online_payment_type,
+      current_registrations: eventData.current_registrations,
+      active_registrations_count: eventData.active_registrations_count,
+      active_tickets_count: eventData.active_tickets_count,
+      total_registrations_count: eventData.total_registrations_count,
+      available_spots: eventData.available_spots,
+      registration_available: eventData.registration_available
+    };
+
+    // Remove undefined values
+    Object.keys(cleanEventData).forEach(key => {
+      if (cleanEventData[key] === undefined) {
+        delete cleanEventData[key];
+      }
+    });
+
     let result;
     let eventSaveError = null;
     
@@ -94,7 +155,7 @@ Deno.serve(async (req) => {
         // Insert new event
         const { data, error } = await supabaseAdmin
           .from('events')
-          .insert([eventData])
+          .insert([cleanEventData])
           .select();
 
         if (error) throw error;
@@ -103,8 +164,8 @@ Deno.serve(async (req) => {
         // Update existing event
         const { data, error } = await supabaseAdmin
           .from('events')
-          .update(eventData)
-          .eq('id', eventData.id)
+          .update(cleanEventData)
+          .eq('id', cleanEventData.id)
           .select();
 
         if (error) throw error;
@@ -145,12 +206,12 @@ Deno.serve(async (req) => {
       const message = `
 ${isNew ? '🎉 <b>Новое мероприятие создано</b>' : '🔄 <b>Мероприятие обновлено</b>'}
 
-📅 Название: ${eventData.title}
-📆 Дата: ${eventData.date}
-⏰ Время: ${eventData.start_time ? new Date(eventData.start_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'Не указано'} - ${eventData.end_time ? new Date(eventData.end_time).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'Не указано'}
-📍 Место: ${eventData.location || 'Не указано'}
-💰 Стоимость: ${eventData.payment_type === 'free' ? 'Бесплатно' : `${eventData.price} ${eventData.currency}`}
-🏷️ Статус: ${eventData.status === 'active' ? 'Активно' : 'Черновик'}
+📅 Название: ${cleanEventData.title}
+📆 Дата: ${cleanEventData.start_at ? new Date(cleanEventData.start_at).toLocaleDateString('ru-RU') : 'Не указано'}
+⏰ Время: ${cleanEventData.start_at ? new Date(cleanEventData.start_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'Не указано'} - ${cleanEventData.end_at ? new Date(cleanEventData.end_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }) : 'Не указано'}
+📍 Место: ${cleanEventData.location || 'Не указано'}
+💰 Стоимость: ${cleanEventData.payment_type === 'free' ? 'Бесплатно' : `${cleanEventData.price} ${cleanEventData.currency}`}
+🏷️ Статус: ${cleanEventData.status === 'active' ? 'Активно' : 'Черновик'}
 `;
 
       // Send notification without awaiting to prevent blocking the main operation
