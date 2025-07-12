@@ -13,19 +13,6 @@ const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 );
 
-// Map event status to valid sh_slot_status enum values
-function mapToSlotStatus(status: string): string {
-  const statusMap: Record<string, string> = {
-    'draft': 'draft',
-    'active': 'active', 
-    'past': 'past',
-    'cancelled': 'cancelled',
-    'completed': 'completed'
-  };
-  
-  return statusMap[status] || 'draft'; // Default to 'draft' if unknown status
-}
-
 // Send notification to Telegram
 async function sendTelegramNotification(message: string) {
   try {
@@ -152,12 +139,6 @@ Deno.serve(async (req) => {
       available_spots: eventData.available_spots,
       registration_available: eventData.registration_available
     };
-
-    // Handle slot_status mapping if it exists in the data
-    if (eventData.slot_status) {
-      // Map the slot_status to a valid enum value
-      cleanEventData.slot_status = mapToSlotStatus(eventData.slot_status);
-    }
 
     // Remove undefined values
     Object.keys(cleanEventData).forEach(key => {
