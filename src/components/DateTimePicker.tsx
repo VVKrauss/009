@@ -6,12 +6,23 @@ const supabase = createClient(
   import.meta.env.VITE_SUPABASE_ANON_KEY
 );
 
+// Обновляем интерфейс чтобы соответствовать реальной структуре БД
 interface TimeSlot {
   id: string;
   date: string;
   start_time: string;
   end_time: string;
-  is_available: boolean;
+  slot_details: {
+    type?: string;
+    title?: string;
+    description?: string;
+    booked?: boolean;
+    user_name?: string;
+    user_contact?: string;
+    event_id?: string;
+  };
+  created_at: string;
+  updated_at: string;
 }
 
 interface DateAvailability {
@@ -61,9 +72,10 @@ const DateTimePicker = ({
       setLoading(true);
       try {
         const today = new Date().toISOString().split('T')[0];
+        // ИСПРАВЛЕНИЕ: используем правильное имя таблицы и структуру
         const { data, error } = await supabase
-          .from('time_slots')
-          .select('date, is_available')
+          .from('time_slots_table')
+          .select('date, slot_details')
           .gte('date', today)
           .order('date', { ascending: true });
 
@@ -72,11 +84,13 @@ const DateTimePicker = ({
         const dateMap = new Map<string, { total: number; available: number }>();
         
         data?.forEach(slot => {
-          const date = slot.date.split('T')[0];
+          const date = slot.date;
           const current = dateMap.get(date) || { total: 0, available: 0 };
+          // ИСПРАВЛЕНИЕ: проверяем доступность через slot_details
+          const isBooked = slot.slot_details?.booked || slot.slot_details?.type === 'event';
           dateMap.set(date, {
             total: current.total + 1,
-            available: current.available + (slot.is_available ? 1 : 0)
+            available: current.available + (isBooked ? 0 : 1)
           });
         });
 
@@ -109,8 +123,9 @@ const DateTimePicker = ({
       
       setLoading(true);
       try {
+        // ИСПРАВЛЕНИЕ: используем правильное имя таблицы
         const { data, error } = await supabase
-          .from('time_slots')
+          .from('time_slots_table')
           .select('*')
           .eq('date', currentDate)
           .order('start_time', { ascending: true });
@@ -160,11 +175,13 @@ const DateTimePicker = ({
     if (!currentDate) return false;
     
     const slot = timeSlots.find(s => 
-      s.start_time <= `${currentDate}T${time}:00` && 
-      s.end_time >= `${currentDate}T${time}:00`
+      s.start_time <= `${time}:00` && 
+      s.end_time >= `${time}:00`
     );
     
-    return slot ? slot.is_available : false;
+    // ИСПРАВЛЕНИЕ: проверяем доступность через slot_details
+    if (!slot) return true; // если слота нет, то время доступно
+    return !(slot.slot_details?.booked || slot.slot_details?.type === 'event');
   };
 
   const formatDisplayDate = (dateStr: string) => {
@@ -264,7 +281,7 @@ const DateTimePicker = ({
                           } ${
                             isSelected ? 'bg-blue-100 border-blue-400' : ''
                           } ${
-                            isBetween ? 'bg-blue-50' : ''
+                            isBetween ? 'bg-blue-50 border-blue-200' : ''
                           }`}
                         >
                           {display}
@@ -272,31 +289,14 @@ const DateTimePicker = ({
                       );
                     })}
                   </div>
+                  
+                  {startTime && !endTime && (
+                    <div className="mt-4 text-sm text-gray-600">
+                      Выбрано начало: {startTime}. Теперь выберите время окончания.
+                    </div>
+                  )}
                 </div>
               )}
-              
-              <div className="flex justify-end mt-6 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setShowPicker(false)}
-                  className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-                >
-                  Отмена
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (currentDate && startTime && endTime) {
-                      onDateTimeChange(currentDate, startTime, endTime);
-                      setShowPicker(false);
-                    }
-                  }}
-                  disabled={!currentDate || !startTime || !endTime}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-                >
-                  Применить
-                </button>
-              </div>
             </>
           )}
         </div>
