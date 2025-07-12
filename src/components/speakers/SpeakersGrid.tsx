@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowRight, User, Link2 } from 'lucide-react';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 export type Speaker = {
   id: string;
@@ -50,7 +51,7 @@ const SpeakersGrid = ({
             <div className="md:w-1/3 lg:w-full h-60 md:h-auto lg:h-60 bg-cover bg-center relative">
               {speaker.photos?.[0]?.url ? (
                 <img
-                  src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos[0].url}`}
+                  src={getSupabaseImageUrl(speaker.photos[0].url)}
                   alt={speaker.name}
                   className="w-full h-full object-cover"
                   onError={(e) => {

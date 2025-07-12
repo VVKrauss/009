@@ -1,11 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 import QRCode from 'react-qr-code';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from '../../lib/supabase';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 const PostersPage = () => {
   const [activeEvents, setActiveEvents] = useState([]);
@@ -94,7 +90,7 @@ const PostersPage = () => {
         <div 
           className="poster-bg-image" 
           style={{ 
-           backgroundImage: `url(${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${currentEvent.bg_image})`,
+           backgroundImage: `url(${getSupabaseImageUrl(currentEvent.bg_image)})`,
             height: '50vh'
           }}
         >
@@ -112,19 +108,13 @@ const PostersPage = () => {
                 <div 
                   className="hexagon-inner" 
                   style={{ 
-                   backgroundImage: `url(${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${mainSpeaker.photos?.[0]?.url || ''})`,
-
-                  
+                   backgroundImage: `url(${getSupabaseImageUrl(mainSpeaker.photos?.[0]?.url || '')})`,
                   }}
                 />
               </div>
             </div>
             <div className="speaker-info">
               <h3 className="speaker-name">{mainSpeaker.name}</h3>
-              {/* <p className="speaker-description"> 
-                {mainSpeaker.description?.substring(0, 200)}
-                {mainSpeaker.description?.length > 200 ? '...' : ''}
-              </p> */}
             </div>
           </div>
         )}

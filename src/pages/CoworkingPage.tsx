@@ -64,27 +64,32 @@ const CoworkingPage = () => {
         setLoading(true);
         setError(null);
 
-        const [headerResponse, servicesResponse] = await Promise.all([
-          supabase
-            .from('coworking_header')
-            .select('*')
-            .single(),
-          supabase
-            .from('coworking_info_table')
-            .select('*')
-            .eq('active', true)
-        ]);
+        // Fetch header data from site_settings
+        const { data: siteSettings, error: siteSettingsError } = await supabase
+          .from('site_settings')
+          .select('coworking_header_settings')
+          .single();
+
+        if (siteSettingsError) throw siteSettingsError;
+
+        // Fetch services from coworking_info_table
+        const { data: servicesData, error: servicesError } = await supabase
+          .from('coworking_info_table')
+          .select('*')
+          .eq('active', true);
+
+        if (servicesError) throw servicesError;
 
         if (!isMounted) return;
 
-        if (headerResponse.error) throw headerResponse.error;
-        if (servicesResponse.error) throw servicesResponse.error;
-
-        setHeaderData(headerResponse.data);
+        // Set header data
+        if (siteSettings?.coworking_header_settings) {
+          setHeaderData(siteSettings.coworking_header_settings);
+        }
         
         // Разделяем услуги на основные и дополнительные
-        const main = servicesResponse.data?.filter(service => service.main_service) || [];
-        const additional = servicesResponse.data?.filter(service => !service.main_service) || [];
+        const main = servicesData?.filter(service => service.main_service) || [];
+        const additional = servicesData?.filter(service => !service.main_service) || [];
         
         setMainServices(main);
         setAdditionalServices(additional);

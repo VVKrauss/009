@@ -16,9 +16,9 @@ import AdminSpeakers from './pages/admin/AdminSpeakers';
 import AdminRent from './pages/admin/AdminRent';
 import AdminCoworking from './pages/admin/AdminCoworking';
 import AdminAbout from './pages/admin/AdminAbout';
-import AdminAnalytics from './pages/admin/AdminAnalytics';
 import AdminNavigation from './pages/admin/AdminNavigation';
 import AdminExport from './pages/admin/AdminExport';
+import AdminEventStatistics from './pages/admin/AdminEventStatistics';
 import ProtectedRoute from './components/admin/ProtectedRoute';
 import AdminCalendarPage from './pages/admin/AdminCalendarPage';
 import PostersPage from './components/posters/PostersPage';
@@ -51,10 +51,10 @@ function App() {
           <Route path="rent" element={<AdminRent />} />
           <Route path="coworking" element={<AdminCoworking />} />
           <Route path="about" element={<AdminAbout />} />
-          <Route path="analytics" element={<AdminAnalytics />} />
           <Route path="navigation" element={<AdminNavigation />} />
           <Route path="export" element={<AdminExport />} />
           <Route path="calendar" element={<AdminCalendarPage />} />
+          <Route path="event-statistics" element={<AdminEventStatistics />} />
         </Route>
 
         <Route path="*" element={<NotFoundPage />} />

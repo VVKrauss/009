@@ -1,17 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { createClient } from '@supabase/supabase-js';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { format, addMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isPast, getDay } from 'date-fns';
 import { ru } from 'date-fns/locale';
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
-
-const TELEGRAM_BOT_TOKEN = import.meta.env.VITE_TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = import.meta.env.VITE_TELEGRAM_CHAT_ID;
+import { supabase } from '../../lib/supabase';
+import { sendTelegramNotification } from '../../utils/telegramNotifications';
 
 interface TimeSlot {
   id: string;
@@ -90,7 +83,6 @@ const BookingForm = () => {
 
   useEffect(() => {
     fetchTimeSlots();
-
   }, []);
 
   const showErrorToast = (message: React.ReactNode) => {
@@ -308,7 +300,7 @@ const BookingForm = () => {
     });
   };
 
-  const sendTelegramNotification = async (bookingDetails: {
+  const sendTelegramNotification2 = async (bookingDetails: {
     date: string;
     startTime: string;
     endTime: string;
@@ -318,7 +310,7 @@ const BookingForm = () => {
     social_contact?: string;
   }) => {
     try {
-      const text = `📅 Новая бронь пространства:\n\n` +
+      const message = `📅 Новая бронь пространства:\n\n` +
         `📌 Дата: ${bookingDetails.date}\n` +
         `⏰ Время: ${bookingDetails.startTime}-${bookingDetails.endTime}\n` +
         `👤 Имя: ${bookingDetails.name}\n` +
@@ -326,17 +318,9 @@ const BookingForm = () => {
         `${bookingDetails.phone ? `📞 Телефон: ${bookingDetails.phone}\n` : ''}` +
         `${bookingDetails.social_contact ? `💬 Соцсети: ${bookingDetails.social_contact}\n` : ''}`;
       
-      await fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          chat_id: TELEGRAM_CHAT_ID,
-          text: text,
-          parse_mode: 'Markdown'
-        })
-      });
+      const chatId = import.meta.env.VITE_TELEGRAM_CHAT_ID;
+      await sendTelegramNotification(chatId, message);
+      
     } catch (err) {
       console.error('Ошибка отправки в Telegram:', err);
     }
@@ -384,7 +368,7 @@ const BookingForm = () => {
       
       if (errors.length > 0) throw errors[0].error;
       
-      await sendTelegramNotification({
+      await sendTelegramNotification2({
         date: format(selectedDate!, 'dd.MM.yyyy'),
         startTime: firstSlot.start_time,
         endTime: lastSlot.end_time,

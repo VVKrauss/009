@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
-import { format, parseISO } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { Calendar, Clock, MapPin, Users, Globe, Share2, ArrowLeft } from 'lucide-react';
 import Layout from '../components/layout/Layout';
-import SpeakerCard from '../components/events/SpeakerCard';
 import RegistrationModal from '../components/events/RegistrationModal';
 import PaymentOptionsModal from '../components/events/PaymentOptionsModal';
 import { toast } from 'react-hot-toast';
+import { EventRegistrations } from './admin/constants';
+import { 
+  formatRussianDate, 
+  formatTimeFromTimestamp, 
+  formatTimeRange,
+  isPastEvent 
+} from '../utils/dateTimeUtils';
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -31,38 +35,132 @@ interface FestivalProgramItem {
   end_time: string;
   lecturer_id: string;
 }
-
-interface Event {
+interface Event { 
   id: string;
   title: string;
   description: string;
   event_type: string;
   bg_image: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  location: string;
+  // Используем новые поля timestamptz
+  start_at: string;
+  end_at: string;
+  location?: string;
   age_category: string;
-  price: number;
-  currency: string;
+  price: number | null;
+  currency?: string;
   status: string;
-  max_registrations: number;
   payment_type: string;
   payment_link?: string;
   payment_widget_id?: string;
   languages: string[];
   speakers: string[];
   festival_program?: FestivalProgramItem[];
+  registrations?: EventRegistrations;
+  video_url?: string;
+  photo_gallery?: string[] | string;
+  // Удаляем legacy поля полностью, так как они больше не используются
 }
 
-const formatTimeFromTimestamp = (timestamp: string) => {
-  if (!timestamp) return '';
-  try {
-    return format(parseISO(timestamp), 'HH:mm');
-  } catch (e) {
-    console.error('Error formatting time:', e);
-    return '';
+
+// Helper function to safely parse photo gallery
+const parsePhotoGallery = (photoGallery: string[] | string | null | undefined): string[] => {
+  if (!photoGallery) {
+    return [];
   }
+  
+  if (Array.isArray(photoGallery)) {
+    return photoGallery;
+  }
+  
+  if (typeof photoGallery === 'string') {
+    try {
+      const parsed = JSON.parse(photoGallery);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      console.error('Error parsing photo_gallery JSON:', e);
+      return [];
+    }
+  }
+  
+  return [];
+};
+
+const renderDescriptionWithLinks = (description: string) => {
+  if (!description) {
+    return <p className="text-gray-500 dark:text-gray-400">Описание отсутствует</p>;
+  }
+
+  const parts = [];
+  let lastIndex = 0;
+  let match;
+  const linkRegex = /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1(?:[^>]*?)>(.*?)<\/a>/g;
+
+  while ((match = linkRegex.exec(description)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({
+        type: 'text',
+        content: description.substring(lastIndex, match.index)
+      });
+    }
+
+    parts.push({
+      type: 'link',
+      url: match[2],
+      text: match[3]
+    });
+
+    lastIndex = linkRegex.lastIndex;
+  }
+
+  if (lastIndex < description.length) {
+    parts.push({
+      type: 'text',
+      content: description.substring(lastIndex)
+    });
+  }
+
+  if (parts.length === 0) {
+    return <span>{description}</span>;
+  }
+
+  return (
+    <>
+      {parts.map((part, index) => {
+        if (part.type === 'text') {
+          return <span key={index}>{part.content}</span>;
+        } else if (part.type === 'link') {
+          return (
+            <a
+              key={index}
+              href={part.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary-600 dark:text-primary-400 hover:opacity-80 underline"
+            >
+              {part.text}
+            </a>
+          );
+        }
+        return null;
+      })}
+    </>
+  );
+};
+
+const renderEventDescription = (text: string) => {
+  if (!text) return null;
+  
+  const paragraphs = text.split(/\n\s*\n/);
+  
+  return (
+    <div className="prose dark:prose-invert max-w-none">
+      {paragraphs.map((paragraph, i) => (
+        <p key={i} className="mb-4">
+          {renderDescriptionWithLinks(paragraph)}
+        </p>
+      ))}
+    </div>
+  );
 };
 
 const EventDetailsPage = () => {
@@ -84,6 +182,7 @@ const EventDetailsPage = () => {
     try {
       setLoading(true);
       
+      // Получаем событие
       const { data: eventData, error: eventError } = await supabase
         .from('events')
         .select('*')
@@ -91,6 +190,7 @@ const EventDetailsPage = () => {
         .single();
 
       if (eventError) throw eventError;
+
       setEvent(eventData);
 
       if (eventData.speakers?.length) {
@@ -112,7 +212,8 @@ const EventDetailsPage = () => {
 
   const handleShare = async (platform: string) => {
     const url = window.location.href;
-    const text = `${event?.title} - ${format(parseISO(event?.date || ''), 'd MMMM yyyy', { locale: ru })}`;
+    const eventDate = event?.start_at ? formatRussianDate(event.start_at) : '';
+    const text = `${event?.title} - ${eventDate}`;
 
     switch (platform) {
       case 'telegram':
@@ -147,22 +248,32 @@ const EventDetailsPage = () => {
   const handleRegisterClick = () => {
     if (event?.payment_type === 'free' || event?.payment_type === 'donation') {
       setShowRegistrationModal(true);
+    } else if (event?.price === null && event?.payment_link) {
+      // For online payment only events, redirect directly to payment link
+      window.open(event.payment_link, '_blank');
     } else {
       setShowPaymentOptions(true);
     }
   };
 
-  const formatDescription = (text: string) => {
-    if (!text) return '';
-    
-    return text
-      .replace(/\r\n/g, '\n')
-      .replace(/\n{3,}/g, '\n\n')
-      .replace(/\n/g, '<br/>')
-      .replace(/<br\/>\s*<br\/>/g, '</p><p>')
-      .replace(/<p><\/p>/g, '')
-      .replace(/<p>(.*?)<\/p>/g, '<p class="mb-4">$1</p>');
+  // Helper function to get max registrations from either new or legacy structure
+  const getMaxRegistrations = (): number | null => {
+    if (event?.registrations?.max_regs !== undefined) {
+      return event.registrations.max_regs;
+    }
+    return event?.max_registrations || null;
   };
+
+  // Helper function to get current registration count from either new or legacy structure
+  const getCurrentRegistrationCount = (): number => {
+    if (event?.registrations?.current !== undefined) {
+      return event.registrations.current;
+    }
+    return event?.current_registration_count || 0;
+  };
+
+  // Проверяем является ли событие прошедшим используя утилиту
+  const isEventPast = event?.end_at ? isPastEvent(event.end_at) : false;
 
   if (loading) {
     return (
@@ -183,6 +294,12 @@ const EventDetailsPage = () => {
       </Layout>
     );
   }
+
+  const maxRegistrations = getMaxRegistrations();
+  const currentRegistrationCount = getCurrentRegistrationCount();
+  
+  // Safely parse photo gallery
+  const photoGallery = parsePhotoGallery(event.photo_gallery);
 
   return (
     <Layout>
@@ -209,14 +326,18 @@ const EventDetailsPage = () => {
             <div className="hidden md:block">
               <h1 className="text-4xl font-bold mb-4">{event.title}</h1>
               <div className="flex flex-wrap gap-6 text-white/90">
-                <div className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5" />
-                  <span>{format(parseISO(event.date), 'd MMMM yyyy', { locale: ru })}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Clock className="h-5 w-5" />
-                  <span>{formatTimeFromTimestamp(event.start_time)} - {formatTimeFromTimestamp(event.end_time)}</span>
-                </div>
+                {event.start_at && (
+                  <div className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    <span>{formatRussianDate(event.start_at)}</span>
+                  </div>
+                )}
+                {event.start_at && event.end_at && (
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    <span>{formatTimeRange(event.start_at, event.end_at)}</span>
+                  </div>
+                )}
                 {event.location && (
                   <div className="flex items-center gap-2">
                     <MapPin className="h-5 w-5" />
@@ -233,14 +354,18 @@ const EventDetailsPage = () => {
       <div className="md:hidden bg-white dark:bg-dark-800 py-6 px-4">
         <h1 className="text-3xl font-bold text-dark-900 dark:text-white mb-4">{event.title}</h1>
         <div className="flex flex-col gap-3 text-dark-600 dark:text-dark-300">
-          <div className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            <span>{format(parseISO(event.date), 'd MMMM yyyy', { locale: ru })}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            <span>{formatTimeFromTimestamp(event.start_time)} - {formatTimeFromTimestamp(event.end_time)}</span>
-          </div>
+          {event.start_at && (
+            <div className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              <span>{formatRussianDate(event.start_at)}</span>
+            </div>
+          )}
+          {event.start_at && event.end_at && (
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              <span>{formatTimeRange(event.start_at, event.end_at)}</span>
+            </div>
+          )}
           {event.location && (
             <div className="flex items-center gap-2">
               <MapPin className="h-5 w-5" />
@@ -256,11 +381,40 @@ const EventDetailsPage = () => {
             <div className="lg:col-span-2 space-y-8">
               <div className="card p-6">
                 <h2 className="text-2xl font-semibold mb-4">О мероприятии</h2>
-                <div 
-                  className="prose dark:prose-invert max-w-none"
-                  dangerouslySetInnerHTML={{ __html: formatDescription(event.description) }}
-                />
+                {renderEventDescription(event.description)}
               </div>
+
+              {/* Видео (если есть) */}
+              {event.video_url && (
+                <div className="card p-6">
+                  <h2 className="text-2xl font-semibold mb-4">Видео</h2>
+                  <div className="aspect-video">
+                    <iframe
+                      src={event.video_url}
+                      className="w-full h-full rounded-lg"
+                      allowFullScreen
+                      title="Event video"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Галерея фотографий (если есть) */}
+              {photoGallery.length > 0 && (
+                <div className="card p-6">
+                  <h2 className="text-2xl font-semibold mb-4">Фотогалерея</h2>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {photoGallery.map((photo, index) => (
+                      <img
+                        key={index}
+                        src={photo}
+                        alt={`Фото ${index + 1}`}
+                        className="w-full h-32 object-cover rounded-lg"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {event.event_type === 'Festival' && event.festival_program && event.festival_program.length > 0 && (
                 <div className="card p-6">
@@ -274,7 +428,6 @@ const EventDetailsPage = () => {
                           console.error('Error sorting program items:', e);
                           return 0;
                         }
-                
                       })
                       .map((item, index) => {
                         const speaker = item.lecturer_id 
@@ -300,22 +453,28 @@ const EventDetailsPage = () => {
                                   </span>
                                 </div>
                                 <h3 className="text-xl font-semibold mb-2">{item.title}</h3>
-                                <div 
-                                  className="prose dark:prose-invert max-w-none mb-4"
-                                  dangerouslySetInnerHTML={{ __html: formatDescription(item.description) }}
-                                />
+                                <div className="prose dark:prose-invert max-w-none mb-4">
+                                  {renderDescriptionWithLinks(item.description)}
+                                </div>
                                 
                                 {speaker && (
                                   <div className="mt-4 flex items-center gap-3">
-                                    {speaker.photos?.find(p => p.isMain)?.url && (
-                                      <img
-                                        src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos.find(p => p.isMain)?.url}`}
-                                        alt={speaker.name}
-                                        className="w-12 h-12 rounded-full object-cover"
-                                      />
-                                    )}
+                                    <Link to={`/speakers/${speaker.id}`} className="shrink-0">
+                                      {speaker.photos?.find(p => p.isMain)?.url && (
+                                        <img
+                                          src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos.find(p => p.isMain)?.url}`}
+                                          alt={speaker.name}
+                                          className="w-12 h-12 rounded-full object-cover"
+                                        />
+                                      )}
+                                    </Link>
                                     <div>
-                                      <p className="font-medium">{speaker.name}</p>
+                                      <Link 
+                                        to={`/speakers/${speaker.id}`}
+                                        className="font-medium hover:text-primary-600 dark:hover:text-primary-400"
+                                      >
+                                        {speaker.name}
+                                      </Link>
                                       <p className="text-sm text-dark-500 dark:text-dark-400">
                                         {speaker.field_of_expertise}
                                       </p>
@@ -330,95 +489,121 @@ const EventDetailsPage = () => {
                   </div>
                 </div>
               )}
+              
               {speakers.length > 0 && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-semibold">Спикеры</h2>
                   {speakers.map(speaker => (
-                    <SpeakerCard key={speaker.id} speaker={speaker} />
+                    <div key={speaker.id} className="card p-6">
+                      <div className="flex items-start gap-4">
+                        <Link to={`/speakers/${speaker.id}`} className="shrink-0">
+                          <img
+                            src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${speaker.photos.find(p => p.isMain)?.url}`}
+                            alt={speaker.name}
+                            className="w-16 h-16 rounded-full object-cover"
+                          />
+                        </Link>
+                        <div>
+                          <Link 
+                            to={`/speakers/${speaker.id}`}
+                            className="text-lg font-semibold hover:text-primary-600 dark:hover:text-primary-400"
+                          >
+                            {speaker.name}
+                          </Link>
+                          <p className="text-sm text-primary-600 dark:text-primary-400 mb-2">
+                            {speaker.field_of_expertise}
+                          </p>
+                          {renderDescriptionWithLinks(speaker.description)}
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
             </div>
 
-            <div className="space-y-6">
-              <div className="card p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div>
-                    <span className="block text-sm text-dark-500 dark:text-dark-400">Стоимость</span>
-                    <span className="text-2xl font-bold">
-                      {event.payment_type === 'free' 
-                        ? 'Бесплатно'
-                        : event.payment_type === 'donation'
-                          ? 'Донейшн'
-                          : `${event.price} ${event.currency}`
-                      }
-                    </span>
+            {!isEventPast && (
+              <div className="space-y-6">
+                <div className="card p-6">
+                  <div className="flex items-center justify-between mb-6">
+                    <div>
+                      <span className="block text-sm text-dark-500 dark:text-dark-400">Стоимость</span>
+                      <span className="text-2xl font-bold">
+                        {event.payment_type === 'free' 
+                          ? 'Бесплатно'
+                          : event.payment_type === 'donation'
+                            ? 'Донейшн'
+                            : event.price === null
+                              ? 'Онлайн оплата'
+                              : `${event.price} ${event.currency}`
+                        }
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setShowShareMenu(!showShareMenu)}
+                      className="p-2 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-full relative"
+                    >
+                      <Share2 className="h-5 w-5" />
+                      
+                      {showShareMenu && (
+                        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-dark-800 rounded-lg shadow-lg py-2 z-50">
+                          <button
+                            onClick={() => handleShare('telegram')}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-dark-700"
+                          >
+                            Telegram
+                          </button>
+                          <button
+                            onClick={() => handleShare('vk')}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-dark-700"
+                          >
+                            VKontakte
+                          </button>
+                          <button
+                            onClick={() => handleShare('copy')}
+                            className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-dark-700"
+                          >
+                            Копировать ссылку
+                          </button>
+                        </div>
+                      )}
+                    </button>
                   </div>
-                  <button
-                    onClick={() => setShowShareMenu(!showShareMenu)}
-                    className="p-2 hover:bg-gray-100 dark:hover:bg-dark-700 rounded-full relative"
+
+                  {event.payment_widget_id && (
+                    <div 
+                      className="mb-4"
+                      dangerouslySetInnerHTML={{ __html: event.payment_widget_id }}
+                    />
+                  )}
+
+                  <button 
+                    onClick={handleRegisterClick}
+                    className="w-full btn-primary mb-4"
                   >
-                    <Share2 className="h-5 w-5" />
-                    
-                    {showShareMenu && (
-                      <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-dark-800 rounded-lg shadow-lg py-2 z-50">
-                        <button
-                          onClick={() => handleShare('telegram')}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-dark-700"
-                        >
-                          Telegram
-                        </button>
-                        <button
-                          onClick={() => handleShare('vk')}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-dark-700"
-                        >
-                          VKontakte
-                        </button>
-                        <button
-                          onClick={() => handleShare('copy')}
-                          className="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-dark-700"
-                        >
-                          Копировать ссылку
-                        </button>
+                    {event.price === null && event.payment_link ? 'Купить онлайн' : 'Зарегистрироваться'}
+                  </button>
+
+                  <div className="space-y-4 text-sm">
+                    {event.languages?.length > 0 && (
+                      <div className="flex items-center gap-2 text-dark-500 dark:text-dark-400">
+                        <Globe className="h-5 w-5" />
+                        <span>{event.languages.join(', ')}</span>
                       </div>
                     )}
-                  </button>
-                </div>
-
-                {/* Виджет регистрации */}
-                {event.payment_widget_id && (
-                  <div 
-                    className="mb-4"
-                    dangerouslySetInnerHTML={{ __html: event.payment_widget_id }}
-                  />
-                )}
-
-                <button 
-                  onClick={handleRegisterClick}
-                  className="w-full btn-primary mb-4"
-                >
-                  Зарегистрироваться
-                </button>
-
-                <div className="space-y-4 text-sm">
-                  {event.languages?.length > 0 && (
-                    <div className="flex items-center gap-2 text-dark-500 dark:text-dark-400">
-                      <Globe className="h-5 w-5" />
-                      <span>{event.languages.join(', ')}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {event.location && (
-                <div className="card p-6">
-                  <p className="font-semibold mb-4">Место проведения</p>
-                  <div className="space-y-2">
-                    <p className="text-dark-600 dark:text-dark-300">{event.location}</p>
                   </div>
                 </div>
-              )}
-            </div>
+
+                {event.location && (
+                  <div className="card p-6">
+                    <p className="font-semibold mb-4">Место проведения</p>
+                    <div className="space-y-2">
+                      <p className="text-dark-600 dark:text-dark-300">{event.location}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </main>

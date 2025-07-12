@@ -1,4 +1,5 @@
 import { User, Link2 } from 'lucide-react';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 type SpeakerCardProps = {
   speaker: {
@@ -8,17 +9,35 @@ type SpeakerCardProps = {
     description: string;
     photos: { url: string; isMain?: boolean }[];
     blog_visibility?: boolean;
-    blogs?: string; // JSON string of blog array
+    blogs?: string;
   };
+};
+
+// Безопасное извлечение ссылок из текста
+const parseLinks = (text: string) => {
+  if (!text.includes('<a ')) return text;
+  
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = text;
+  
+  const links = tempDiv.querySelectorAll('a');
+  links.forEach(link => {
+    link.className = 'text-primary-600 dark:text-primary-400 hover:opacity-80 underline';
+    link.setAttribute('target', '_blank');
+    link.setAttribute('rel', 'noopener noreferrer');
+  });
+  
+  return tempDiv.innerHTML;
 };
 
 const SpeakerCard = ({ speaker }: SpeakerCardProps) => {
   const mainPhoto = speaker.photos?.find(photo => photo.isMain) || speaker.photos?.[0];
-  
-  // Parse blogs if they exist and are visible
-  const parsedBlogs = speaker.blog_visibility && speaker.blogs 
-    ? JSON.parse(speaker.blogs) 
-    : null;
+  const parsedBlogs = speaker.blog_visibility && speaker.blogs ? JSON.parse(speaker.blogs) : null;
+
+  // Обрабатываем описание (безопасно, без DOMPurify)
+  const processedDescription = speaker.description 
+    ? parseLinks(speaker.description) 
+    : '';
 
   return (
     <div className="bg-white dark:bg-dark-800 rounded-lg p-6 shadow-sm">
@@ -32,7 +51,7 @@ const SpeakerCard = ({ speaker }: SpeakerCardProps) => {
           }}>
             {mainPhoto?.url ? (
               <img
-                src={`${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${mainPhoto.url}`}
+                src={getSupabaseImageUrl(mainPhoto.url)}
                 alt={speaker.name}
                 className="w-full h-full object-cover"
                 onError={(e) => {
@@ -59,9 +78,10 @@ const SpeakerCard = ({ speaker }: SpeakerCardProps) => {
       
       {/* Нижний блок с описанием */}
       <div className="pt-4 border-t border-gray-200 dark:border-dark-700">
-        <p className="text-dark-600 dark:text-dark-300 mb-4">
-          {speaker.description}
-        </p>
+        <div 
+          className="text-dark-600 dark:text-dark-300 mb-4"
+          dangerouslySetInnerHTML={{ __html: processedDescription }}
+        />
         
         {/* Блок с блогами */}
         {parsedBlogs && parsedBlogs.length > 0 && (

@@ -1,69 +1,102 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { format, parseISO } from 'date-fns';
-import { ru } from 'date-fns/locale';
 import { Calendar, ArrowRight } from 'lucide-react';
 import Slider from 'react-slick';
 import "slick-carousel/slick/slick.css";
 import "slick-carousel/slick/slick-theme.css";
+import { formatRussianDate, formatTimeRange, isValidDateString } from '../../utils/dateTimeUtils';
+import { getSupabaseImageUrl } from '../../utils/imageUtils';
 
 type Event = {
   id: string;
   title: string;
-  short_description: string; // Changed from description to short_description
-  date: string;
-  start_time: string;
-  end_time: string;
+  short_description: string;
+  start_at: string;
+  end_at: string;
   location: string;
   bg_image: string;
+  // Legacy fields for backward compatibility
+  date?: string;
+  start_time?: string;
+  end_time?: string;
 };
 
 type EventSlideshowProps = {
   events: Event[];
+  titleStyle?: React.CSSProperties;
+  descriptionStyle?: React.CSSProperties;
+  desktopTitleStyle?: React.CSSProperties;
+  desktopDescriptionStyle?: React.CSSProperties;
+  formatTimeRange?: (start: string, end: string) => string;
 };
 
-const formatEventTime = (timeValue: string): string => {
-  if (!timeValue) return '--:--';
-
-  if (/^\d{2}:\d{2}$/.test(timeValue)) {
-    return timeValue;
-  }
-
-  if (/^\d{2}:\d{2}:\d{2}$/.test(timeValue)) {
-    return timeValue.substring(0, 5);
-  }
-
-  try {
-    const date = new Date(timeValue);
-    if (!isNaN(date.getTime())) {
-      return date.toLocaleTimeString('ru-RU', { 
-        hour: '2-digit', 
-        minute: '2-digit',
-        hour12: false
-      });
-    }
-  } catch (e) {
-    console.error('Error parsing timestamp:', timeValue, e);
-  }
-
-  const timeMatch = timeValue.match(/(\d{1,2}):(\d{2})/);
-  if (timeMatch) {
-    const hours = timeMatch[1].padStart(2, '0');
-    const minutes = timeMatch[2];
-    return `${hours}:${minutes}`;
-  }
-
-  return timeValue;
-};
-
-const formatTimeRange = (startTime: string, endTime: string): string => {
-  const start = formatEventTime(startTime);
-  const end = formatEventTime(endTime);
-  return start && end ? `${start} - ${end}` : start || end || '';
-};
-
-const EventSlideshow = ({ events }: EventSlideshowProps) => {
+const EventSlideshow = ({ 
+  events,
+  titleStyle = {},
+  descriptionStyle = {},
+  desktopTitleStyle = {},
+  desktopDescriptionStyle = {},
+  formatTimeRange: customFormatTimeRange
+}: EventSlideshowProps) => {
   const [currentSlide, setCurrentSlide] = useState(0);
+
+  // Безопасная функция форматирования даты
+  const formatEventDate = (event: Event): string => {
+    // Сначала пытаемся использовать start_at (новое поле)
+    if (isValidDateString(event.start_at)) {
+      try {
+        return formatRussianDate(event.start_at, 'd MMMM');
+      } catch (error) {
+        console.error('Error formatting start_at:', event.start_at, error);
+      }
+    }
+    
+    // Fallback на legacy поле start_time
+    if (isValidDateString(event.start_time)) {
+      try {
+        return formatRussianDate(event.start_time!, 'd MMMM');
+      } catch (error) {
+        console.error('Error formatting start_time:', event.start_time, error);
+      }
+    }
+    
+    // Fallback на legacy поле date
+    if (isValidDateString(event.date)) {
+      try {
+        return formatRussianDate(event.date!, 'd MMMM');
+      } catch (error) {
+        console.error('Error formatting date:', event.date, error);
+      }
+    }
+    
+    return 'Дата не указана';
+  };
+
+  // Безопасная функция форматирования времени
+  const formatEventTimeRange = (event: Event): string => {
+    try {
+      // Сначала пытаемся использовать start_at/end_at
+      if (event.start_at && event.end_at) {
+        if (customFormatTimeRange) {
+          return customFormatTimeRange(event.start_at, event.end_at);
+        }
+        return formatTimeRange(event.start_at, event.end_at);
+      }
+      
+      // Fallback на legacy поля
+      if (event.start_time && event.end_time) {
+        if (customFormatTimeRange) {
+          return customFormatTimeRange(event.start_time, event.end_time);
+        }
+        return formatTimeRange(event.start_time, event.end_time);
+      }
+      
+      return '';
+    } catch (error) {
+      console.error('Error formatting time range:', error);
+      return '';
+    }
+  };
 
   const settings = {
     dots: true,
@@ -93,12 +126,6 @@ const EventSlideshow = ({ events }: EventSlideshowProps) => {
     ]
   };
 
-  const getImageUrl = (event: Event) => {
-    if (!event.bg_image) return 'https://via.placeholder.com/1920x600?text=No+image';
-    if (event.bg_image.startsWith('http')) return event.bg_image;
-    return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/images/${event.bg_image}`;
-  };
-
   if (events.length === 0) {
     return null;
   }
@@ -107,89 +134,112 @@ const EventSlideshow = ({ events }: EventSlideshowProps) => {
     <div className="relative">
       {/* Слайдшоу */}
       <Slider {...settings} className="events-slideshow">
-        {events.map(event => (
-          <div key={event.id} className="relative h-[300px] sm:h-[400px] md:h-[500px]">
-            <div 
-              className="absolute inset-0 bg-cover bg-center"
-              style={{ 
-                backgroundImage: `url(${getImageUrl(event)})`,
-                backgroundPosition: 'center 30%'
-              }}
-            >
-              <div className="absolute inset-0 bg-black/50" />
-            </div>
-            
-            {/* Контент на изображении */}
-            <div className="relative h-full flex items-center">
-              <div className="container px-4 sm:px-6">
-                {/* Десктопная версия (вся информация) */}
-                <div className="hidden md:block max-w-2xl text-white">
-                  <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                    {event.title}
-                  </h2>
-                  <p className="text-base md:text-lg mb-6 line-clamp-2">
-                    {event.short_description}
-                  </p>
-                  <div className="flex flex-row flex-wrap gap-6 mb-8 text-white/90">
-                    <Link 
-                      to={`/events/${event.id}`}
-                      className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all duration-300 group"
-                      aria-label="Подробнее о мероприятии"
-                    >
-                      <ArrowRight className="h-6 w-6 text-white group-hover:translate-x-1 transition-transform" />
-                    </Link>
-                  </div>
-                  <div className="flex items-center gap-2 text-base">
-                    <Calendar className="h-5 w-5" />
-                    <span>
-                      {format(parseISO(event.date), 'd MMMM', { locale: ru })}
-                      {' • '}
-                      {formatTimeRange(event.start_time, event.end_time)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Мобильная версия (только мета-информация) */}
-                <div className="md:hidden absolute bottom-6 left-0 right-0 px-4 sm:px-6">
-                  <div className="flex flex-col sm:flex-row sm:flex-wrap justify-between items-start sm:items-center gap-3 text-white">
-                    <div className="flex items-center gap-2 text-sm sm:text-base">
-                      <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+        {events.map((event, index) => {
+          // Добавляем дополнительную проверку на каждое событие
+          if (!event || !event.id) {
+            console.warn('Invalid event data at index:', index, event);
+            return null;
+          }
+          
+          return (
+            <div key={event.id} className="relative h-[300px] sm:h-[400px] md:h-[500px]">
+              <div 
+                className="absolute inset-0 bg-cover bg-center"
+                style={{ 
+                  backgroundImage: `url(${getSupabaseImageUrl(event.bg_image)})`,
+                  backgroundPosition: 'center 30%'
+                }}
+              >
+                <div className="absolute inset-0 bg-black/50" />
+              </div>
+              
+              {/* Контент на изображении */}
+              <div className="relative h-full flex items-center">
+                <div className="container px-4 sm:px-6">
+                  {/* Десктопная версия (вся информация) */}
+                  <div className="hidden md:block max-w-2xl text-white">
+                    <h2 className="text-3xl md:text-4xl font-bold mb-4" style={desktopTitleStyle}>
+                      {event.title || 'Название не указано'}
+                    </h2>
+                    <p className="text-base md:text-lg mb-6 line-clamp-2" style={desktopDescriptionStyle}>
+                      {event.short_description || 'Описание отсутствует'}
+                    </p>
+                    <div className="flex flex-row flex-wrap gap-6 mb-8 text-white/90">
+                      <Link 
+                        to={`/events/${event.id}`}
+                        className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all duration-300 group"
+                        aria-label="Подробнее о мероприятии"
+                      >
+                        <ArrowRight className="h-6 w-6 text-white group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                    </div>
+                    <div className="flex items-center gap-2 text-base">
+                      <Calendar className="h-5 w-5" />
                       <span>
-                        {format(parseISO(event.date), 'd MMMM', { locale: ru })}
-                        {' • '}
-                        {formatTimeRange(event.start_time, event.end_time)}
+                        {formatEventDate(event)}
+                        {formatEventTimeRange(event) && (
+                          <>
+                            {' • '}
+                            {formatEventTimeRange(event)}
+                          </>
+                        )}
                       </span>
                     </div>
-                    <Link 
-                      to={`/events/${event.id}`}
-                      className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all duration-300 group"
-                      aria-label="Подробнее о мероприятии"
-                    >
-                      <ArrowRight className="h-5 w-5 text-white group-hover:translate-x-1 transition-transform" />
-                    </Link>
+                  </div>
+
+                  {/* Мобильная версия (только мета-информация) */}
+                  <div className="md:hidden absolute bottom-6 left-0 right-0 px-4 sm:px-6">
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap justify-between items-start sm:items-center gap-3 text-white">
+                      <div className="flex items-center gap-2 text-sm sm:text-base">
+                        <Calendar className="h-4 w-4 sm:h-5 sm:w-5" />
+                        <span>
+                          {formatEventDate(event)}
+                          {formatEventTimeRange(event) && (
+                            <>
+                              {' • '}
+                              {formatEventTimeRange(event)}
+                            </>
+                          )}
+                        </span>
+                      </div>
+                      <Link 
+                        to={`/events/${event.id}`}
+                        className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-sm transition-all duration-300 group"
+                        aria-label="Подробнее о мероприятии"
+                      >
+                        <ArrowRight className="h-5 w-5 text-white group-hover:translate-x-1 transition-transform" />
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </Slider>
 
       {/* Блок с названием и описанием для мобильной версии */}
       <div className="md:hidden container px-4 sm:px-6 mt-4">
-        {events.map((event, index) => (
-          <div 
-            key={event.id} 
-            className={`${index === currentSlide ? 'block' : 'hidden'}`}
-          >
-            <h2 className="text-xl font-bold mb-2">
-              {event.title}
-            </h2>
-            <p className="text-sm line-clamp-2">
-              {event.short_description}
-            </p>
-          </div>
-        ))}
+        {events.map((event, index) => {
+          // Дополнительная проверка для мобильной версии
+          if (!event || !event.id) {
+            return null;
+          }
+          
+          return (
+            <div 
+              key={event.id} 
+              className={`${index === currentSlide ? 'block' : 'hidden'}`}
+            >
+              <h2 className="text-xl font-bold mb-2" style={titleStyle}>
+                {event.title || 'Название не указано'}
+              </h2>
+              <p className="text-sm line-clamp-2" style={descriptionStyle}>
+                {event.short_description || 'Описание отсутствует'}
+              </p>
+            </div>
+          );
+        })}
       </div>
 
       <style jsx global>{`
@@ -209,4 +259,4 @@ const EventSlideshow = ({ events }: EventSlideshowProps) => {
   );
 };
 
-export default EventSlideshow;
+export default EventSlideshow; 
