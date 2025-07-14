@@ -35,13 +35,13 @@ interface FestivalProgramItem {
   end_time: string;
   lecturer_id: string;
 }
+
 interface Event { 
   id: string;
   title: string;
   description: string;
   event_type: string;
   bg_image: string;
-  // Используем новые поля timestamptz
   start_at: string;
   end_at: string;
   location?: string;
@@ -58,11 +58,8 @@ interface Event {
   registrations?: EventRegistrations;
   video_url?: string;
   photo_gallery?: string[] | string;
-  // Удаляем legacy поля полностью, так как они больше не используются
 }
 
-
-// Helper function to safely parse photo gallery
 const parsePhotoGallery = (photoGallery: string[] | string | null | undefined): string[] => {
   if (!photoGallery) {
     return [];
@@ -85,82 +82,47 @@ const parsePhotoGallery = (photoGallery: string[] | string | null | undefined): 
   return [];
 };
 
-const renderDescriptionWithLinks = (description: string) => {
-  if (!description) {
+const renderHTMLDescription = (html: string) => {
+  if (!html) {
     return <p className="text-gray-500 dark:text-gray-400">Описание отсутствует</p>;
   }
 
-  const parts = [];
-  let lastIndex = 0;
-  let match;
-  const linkRegex = /<a\s+(?:[^>]*?\s+)?href=(["'])(.*?)\1(?:[^>]*?)>(.*?)<\/a>/g;
-
-  while ((match = linkRegex.exec(description)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push({
-        type: 'text',
-        content: description.substring(lastIndex, match.index)
+  const sanitizeHTML = (str: string) => {
+    return str
+      .replace(/<script[^>]*>([\S\s]*?)<\/script>/gmi, '')
+      .replace(/<\/?\w(?:[^"'>]|"[^"]*"|'[^']*')*>/gmi, (match) => {
+        const allowedTags = ['a', 'b', 'strong', 'i', 'em', 'u', 'br', 'p', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'div', 'span', 'blockquote', 'hr', 'img'];
+        const tagMatch = match.match(/<\/?(\w+)/);
+        const tag = tagMatch ? tagMatch[1].toLowerCase() : '';
+        
+        if (allowedTags.includes(tag)) {
+          if (tag === 'a') {
+            return match.replace(/<a\s/, '<a rel="noopener noreferrer" target="_blank" ');
+          }
+          if (tag === 'img') {
+            return match.replace(/<img\s/, '<img class="max-w-full h-auto rounded-lg" ');
+          }
+          return match;
+        }
+        return '';
       });
-    }
+  };
 
-    parts.push({
-      type: 'link',
-      url: match[2],
-      text: match[3]
-    });
-
-    lastIndex = linkRegex.lastIndex;
-  }
-
-  if (lastIndex < description.length) {
-    parts.push({
-      type: 'text',
-      content: description.substring(lastIndex)
-    });
-  }
-
-  if (parts.length === 0) {
-    return <span>{description}</span>;
-  }
+  const createMarkup = () => {
+    return { __html: sanitizeHTML(html) };
+  };
 
   return (
-    <>
-      {parts.map((part, index) => {
-        if (part.type === 'text') {
-          return <span key={index}>{part.content}</span>;
-        } else if (part.type === 'link') {
-          return (
-            <a
-              key={index}
-              href={part.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-primary-600 dark:text-primary-400 hover:opacity-80 underline"
-            >
-              {part.text}
-            </a>
-          );
-        }
-        return null;
-      })}
-    </>
+    <div 
+      className="prose dark:prose-invert max-w-none"
+      dangerouslySetInnerHTML={createMarkup()} 
+    />
   );
 };
 
 const renderEventDescription = (text: string) => {
   if (!text) return null;
-  
-  const paragraphs = text.split(/\n\s*\n/);
-  
-  return (
-    <div className="prose dark:prose-invert max-w-none">
-      {paragraphs.map((paragraph, i) => (
-        <p key={i} className="mb-4">
-          {renderDescriptionWithLinks(paragraph)}
-        </p>
-      ))}
-    </div>
-  );
+  return renderHTMLDescription(text);
 };
 
 const EventDetailsPage = () => {
@@ -182,7 +144,6 @@ const EventDetailsPage = () => {
     try {
       setLoading(true);
       
-      // Получаем событие
       const { data: eventData, error: eventError } = await supabase
         .from('events')
         .select('*')
@@ -249,14 +210,12 @@ const EventDetailsPage = () => {
     if (event?.payment_type === 'free' || event?.payment_type === 'donation') {
       setShowRegistrationModal(true);
     } else if (event?.price === null && event?.payment_link) {
-      // For online payment only events, redirect directly to payment link
       window.open(event.payment_link, '_blank');
     } else {
       setShowPaymentOptions(true);
     }
   };
 
-  // Helper function to get max registrations from either new or legacy structure
   const getMaxRegistrations = (): number | null => {
     if (event?.registrations?.max_regs !== undefined) {
       return event.registrations.max_regs;
@@ -264,7 +223,6 @@ const EventDetailsPage = () => {
     return event?.max_registrations || null;
   };
 
-  // Helper function to get current registration count from either new or legacy structure
   const getCurrentRegistrationCount = (): number => {
     if (event?.registrations?.current !== undefined) {
       return event.registrations.current;
@@ -272,7 +230,6 @@ const EventDetailsPage = () => {
     return event?.current_registration_count || 0;
   };
 
-  // Проверяем является ли событие прошедшим используя утилиту
   const isEventPast = event?.end_at ? isPastEvent(event.end_at) : false;
 
   if (loading) {
@@ -297,13 +254,10 @@ const EventDetailsPage = () => {
 
   const maxRegistrations = getMaxRegistrations();
   const currentRegistrationCount = getCurrentRegistrationCount();
-  
-  // Safely parse photo gallery
   const photoGallery = parsePhotoGallery(event.photo_gallery);
 
   return (
     <Layout>
-      {/* Hero блок */}
       <div 
         className="h-[400px] bg-cover bg-center relative"
         style={{ 
@@ -350,7 +304,6 @@ const EventDetailsPage = () => {
         </div>
       </div>
 
-      {/* Для мобильных */}
       <div className="md:hidden bg-white dark:bg-dark-800 py-6 px-4">
         <h1 className="text-3xl font-bold text-dark-900 dark:text-white mb-4">{event.title}</h1>
         <div className="flex flex-col gap-3 text-dark-600 dark:text-dark-300">
@@ -384,7 +337,6 @@ const EventDetailsPage = () => {
                 {renderEventDescription(event.description)}
               </div>
 
-              {/* Видео (если есть) */}
               {event.video_url && (
                 <div className="card p-6">
                   <h2 className="text-2xl font-semibold mb-4">Видео</h2>
@@ -399,7 +351,6 @@ const EventDetailsPage = () => {
                 </div>
               )}
 
-              {/* Галерея фотографий (если есть) */}
               {photoGallery.length > 0 && (
                 <div className="card p-6">
                   <h2 className="text-2xl font-semibold mb-4">Фотогалерея</h2>
@@ -453,9 +404,7 @@ const EventDetailsPage = () => {
                                   </span>
                                 </div>
                                 <h3 className="text-xl font-semibold mb-2">{item.title}</h3>
-                                <div className="prose dark:prose-invert max-w-none mb-4">
-                                  {renderDescriptionWithLinks(item.description)}
-                                </div>
+                                {renderEventDescription(item.description)}
                                 
                                 {speaker && (
                                   <div className="mt-4 flex items-center gap-3">
@@ -513,7 +462,7 @@ const EventDetailsPage = () => {
                           <p className="text-sm text-primary-600 dark:text-primary-400 mb-2">
                             {speaker.field_of_expertise}
                           </p>
-                          {renderDescriptionWithLinks(speaker.description)}
+                          {renderEventDescription(speaker.description)}
                         </div>
                       </div>
                     </div>
