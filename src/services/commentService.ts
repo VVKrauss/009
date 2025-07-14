@@ -1,13 +1,13 @@
-// 🗒️ Сервис для работы с комментариями
-// ====================================
+// 🗒️ Сервис для работы с комментариями (интегрированная версия)
+// ================================================================
 
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
 import type { 
   Comment, 
   CreateCommentData, 
   UpdateCommentData, 
   CommentStats 
-} from '@/types/comments';
+} from '../types/comments';
 
 export class CommentService {
   
@@ -295,6 +295,25 @@ export class CommentService {
     return () => {
       supabase.removeChannel(channel);
     };
+  }
+
+  // 🔍 Проверка лайка пользователя
+  static async checkUserLike(commentId: string): Promise<boolean> {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+
+      const { data } = await supabase
+        .from('comment_likes')
+        .select('id')
+        .eq('comment_id', commentId)
+        .eq('user_id', user.id)
+        .single();
+
+      return !!data;
+    } catch {
+      return false;
+    }
   }
 }
 
