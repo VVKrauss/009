@@ -1,5 +1,5 @@
-// 🗒️ Типы для системы комментариев
-// =====================================
+// 🗒️ Типы для системы комментариев (интегрированная версия)
+// =============================================================
 
 export interface Comment {
   id: string;
@@ -42,6 +42,16 @@ export interface CommentNotification {
   type: 'reply' | 'like' | 'mention';
   is_read: boolean;
   created_at: string;
+  
+  // Дополнительные поля из JOIN запросов
+  sender?: {
+    full_name?: string;
+    email?: string;
+    avatar_url?: string;
+  };
+  comment?: {
+    text: string;
+  };
 }
 
 export interface CreateCommentData {
@@ -87,6 +97,13 @@ export interface CommentStats {
 export interface CommentFilters {
   sortBy: 'newest' | 'oldest' | 'popular';
   showDeleted?: boolean;
+}
+
+// Типы для Real-time обновлений
+export interface CommentRealtimePayload {
+  eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  new?: Comment;
+  old?: Comment;
 }
 
 export default Comment;
